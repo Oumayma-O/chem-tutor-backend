@@ -1,0 +1,28 @@
+services:
+  backend:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: chem_backend
+    ports:
+      - "8000:8000"
+    env_file:
+      - .env
+    volumes:
+      - ./app:/app/app  # Hot reload in dev
+    command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+    develop:
+      watch:
+        # Sync Python code instantly — uvicorn --reload picks up changes
+        - action: sync
+          path: ./app
+          target: /app/app
+        # Rebuild image when dependencies or Dockerfile change
+        - action: rebuild
+          path: pyproject.toml
+        - action: rebuild
+          path: Dockerfile
+        # Restart container when .env changes (re-reads settings)
+        - action: sync+restart
+          path: .env
+          target: /app/.env
