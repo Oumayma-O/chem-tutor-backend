@@ -14,14 +14,14 @@ for a single chemistry topic.
 
 RULES (strictly follow all of them):
 1. Show the GENERAL METHOD only — NO numerical examples, NO specific values.
-2. Use symbolic variables (e.g. [A]₀, k, t, n, V, ΔH) but NEVER concrete numbers.
+2. Use symbolic variables (e.g. [A]₀, k, t, n, V, ΔH) but NEVER concrete numbers. For exponents use ^ (e.g. [A]^m, k^2). For subscripts use _ (e.g. [A]_t, [A]_0, t_{1/2}). For inverse units use ^-1 (e.g. M^-1 s^-1).
 3. Produce exactly 5 steps with these exact labels in order:
      Equation  → the key formula(s) in symbolic form
      Knowns    → which variables to identify from the problem
      Substitute → how to plug values in (conceptual instruction only)
      Calculate  → what arithmetic/algebra to perform (symbolic description)
      Answer     → what units/significant figures/form the result should take
-4. Each "content" field is one concise sentence or short phrase.
+4. Each "content" field is a SHORT phrase (max 5–8 words). No full sentences. Bullet-style when possible.
 5. Write the "hint" as one sentence encouraging the student to apply the card to their problem.
 6. Output valid JSON matching the schema — nothing else.
 """
@@ -42,11 +42,11 @@ FEW_SHOT_EXAMPLES = [
   "chapter_id": "chemical-kinetics",
   "topic_index": 0,
   "steps": [
-    {"label": "Equation",    "content": "[A]t = [A]₀ − k·t"},
-    {"label": "Knowns",      "content": "Identify [A]₀ (initial concentration), k (rate constant), and t (time)"},
-    {"label": "Substitute",  "content": "Plug [A]₀, k, and t directly into the equation"},
-    {"label": "Calculate",   "content": "Compute k × t, then subtract the result from [A]₀"},
-    {"label": "Answer",      "content": "Express the concentration in M with correct significant figures"}
+    {"label": "Equation",    "content": "[A]_t = [A]_0 − k·t"},
+    {"label": "Knowns",      "content": "[A]_0, k, t"},
+    {"label": "Substitute",  "content": "Plug [A]_0, k, t into equation"},
+    {"label": "Calculate",   "content": "k×t, subtract from [A]_0"},
+    {"label": "Answer",      "content": "M, correct sig figs"}
   ],
   "hint": "This shows the general zero-order approach — apply it to the numbers in your current problem!"
 }""",
@@ -62,11 +62,11 @@ FEW_SHOT_EXAMPLES = [
   "chapter_id": "chemical-kinetics",
   "topic_index": 1,
   "steps": [
-    {"label": "Equation",    "content": "ln[A]t = ln[A]₀ − k·t"},
-    {"label": "Knowns",      "content": "Identify which of [A]₀, [A]t, k, or t is unknown, and list the given values"},
-    {"label": "Substitute",  "content": "Take the natural log of each concentration, then substitute all knowns"},
-    {"label": "Calculate",   "content": "Rearrange algebraically to isolate the unknown and solve"},
-    {"label": "Answer",      "content": "Report concentration in M or time in s (match problem units)"}
+    {"label": "Equation",    "content": "ln[A]_t = ln[A]_0 − k·t"},
+    {"label": "Knowns",      "content": "[A]_0, [A]_t, k, t — which unknown?"},
+    {"label": "Substitute",  "content": "ln of concentrations, plug knowns"},
+    {"label": "Calculate",   "content": "Rearrange, isolate unknown"},
+    {"label": "Answer",      "content": "M or s, match problem units"}
   ],
   "hint": "Apply this first-order method — use the actual values from your problem!"
 }""",
@@ -83,10 +83,10 @@ FEW_SHOT_EXAMPLES = [
   "topic_index": 0,
   "steps": [
     {"label": "Equation",    "content": "moles A × (coeff B / coeff A) = moles B"},
-    {"label": "Knowns",      "content": "Identify the given substance, the target substance, and their stoichiometric coefficients from the balanced equation"},
-    {"label": "Substitute",  "content": "Write the mole ratio (target coeff / given coeff) and multiply by the given moles"},
-    {"label": "Calculate",   "content": "Multiply moles given by the mole ratio to obtain moles of the target substance"},
-    {"label": "Answer",      "content": "Express the result in mol with appropriate significant figures"}
+    {"label": "Knowns",      "content": "Given substance, target, coeffs"},
+    {"label": "Substitute",  "content": "Mole ratio × given moles"},
+    {"label": "Calculate",   "content": "Multiply by ratio"},
+    {"label": "Answer",      "content": "mol, sig figs"}
   ],
   "hint": "Use the balanced equation from your problem to fill in the coefficients — the rest follows this card!"
 }""",
