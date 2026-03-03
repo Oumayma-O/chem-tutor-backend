@@ -12,7 +12,7 @@ Generation rules:
 
 import time
 
-from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, status
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.logging import get_logger
@@ -35,6 +35,73 @@ from app.services.problem_cache_service import ProblemCacheService
 
 logger = get_logger(__name__)
 router = APIRouter()
+
+
+@router.get("/reference", response_model=ProblemOutput)
+async def get_reference_example(
+    background_tasks: BackgroundTasks,
+    chapter_id: str = Query(...),
+    topic_index: int = Query(...),
+    db: AsyncSession = Depends(get_db),
+    gen_service: ProblemGenerationService = Depends(get_problem_generation_service),
+) -> ProblemOutput:
+    """
+    Return a Level 1 worked example for the topic (reference problem for the panel).
+
+    Cache-first: serves from problem cache when available; otherwise generates and caches.
+    """
+    cache = ProblemCacheService(db)
+    problem = await cache.get_or_none(
+        chapter_id=chapter_id,
+        topic_index=topic_index,
+        difficulty="medium",
+        level=1,
+        context_tag=None,
+        exclude_ids=None,
+    )
+    if problem:
+        enforce_step_types(problem, 1)
+        return problem
+
+    topic_repo = TopicRepository(db)
+    topic = await topic_repo.get_by_index(chapter_id, topic_index)
+    topic_name = topic.title if topic else ""
+
+    doc_repo = CurriculumDocumentRepository(db)
+    rag_context = await doc_repo.build_rag_context(chapter_id=chapter_id, topic_id=None)
+    if topic and topic.key_equations:
+        rag_context.setdefault("equations", []).extend(topic.key_equations)
+
+    try:
+        problem = await gen_service.generate(
+            chapter_id=chapter_id,
+            topic_index=topic_index,
+            topic_name=topic_name,
+            level=1,
+            difficulty="medium",
+            interests=None,
+            grade_level=None,
+            focus_areas=None,
+            problem_style=None,
+            rag_context=rag_context,
+        )
+    except Exception as exc:
+        logger.error("reference_generation_failed", error=str(exc))
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail="Failed to generate reference example. Please try again.",
+        )
+
+    enforce_step_types(problem, 1)
+    req = GenerateProblemRequest(
+        chapter_id=chapter_id,
+        topic_index=topic_index,
+        topic_name=topic_name,
+        difficulty="medium",
+        level=1,
+    )
+    background_tasks.add_task(_store_in_cache, problem, req, db)
+    return problem
 
 
 @router.post("/generate", response_model=ProblemDeliveryResponse)
