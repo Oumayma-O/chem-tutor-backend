@@ -37,8 +37,8 @@ logger = get_logger(__name__)
 router = APIRouter()
 
 
-@router.get("/reference", response_model=ProblemOutput)
-async def get_reference_example(
+@router.get("/worked-example", response_model=ProblemOutput)
+async def get_worked_example(
     background_tasks: BackgroundTasks,
     chapter_id: str = Query(...),
     topic_index: int = Query(...),
@@ -46,9 +46,10 @@ async def get_reference_example(
     gen_service: ProblemGenerationService = Depends(get_problem_generation_service),
 ) -> ProblemOutput:
     """
-    Return a Level 1 worked example for the topic (reference problem for the panel).
+    Return a Level 1 fully worked example for the topic (shown in the side panel).
 
-    Cache-first: serves from problem cache when available; otherwise generates and caches.
+    Cache-first: serves from problem_cache when available; generates and caches on miss.
+    Distinct from /reference-card which returns a conceptual fiche de cours (no numbers).
     """
     cache = ProblemCacheService(db)
     problem = await cache.get_or_none(
