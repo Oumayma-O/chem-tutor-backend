@@ -31,16 +31,23 @@ class Settings(BaseSettings):
     db_max_overflow: int = 20
 
     # ── AI Providers ─────────────────────────────────────────
+    # Default (powerful) provider — used for problem generation
     default_ai_provider: Literal["openai", "anthropic", "gemini"] = "openai"
 
     openai_api_key: str = ""
-    openai_model: str = "gpt-4o"
+    openai_model: str = "gpt-5.2"
 
     anthropic_api_key: str = ""
     anthropic_model: str = "claude-sonnet-4-6"
 
     google_api_key: str = ""
-    gemini_model: str = "gemini-1.5-flash"
+    gemini_model: str = "gemini-2.5-flash"
+
+    # Fast (lightweight) provider — used for validation and hints
+    fast_ai_provider: Literal["openai", "anthropic", "gemini"] = "gemini"
+    fast_openai_model: str = "gpt-5-nano"
+    fast_anthropic_model: str = "claude-haiku-4-5-20251001"
+    fast_gemini_model: str = "gemini-2.5-flash-lite"
 
     # ── Mastery ──────────────────────────────────────────────
     mastery_threshold: float = 0.75   # 75% accuracy to advance

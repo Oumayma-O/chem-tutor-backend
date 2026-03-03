@@ -565,6 +565,68 @@ class ExitTicketResponse(Base):
 
 
 # ══════════════════════════════════════════════════════════════
+# USER TOPIC PLAYLISTS  (per-user ordered problem history)
+# ══════════════════════════════════════════════════════════════
+
+class UserTopicPlaylist(Base):
+    """
+    Ordered list of problems served to a student for one
+    (user, chapter, topic, level, difficulty) slot.
+
+    - problems: JSONB array of full ProblemOutput dicts, in order seen
+    - current_index: where the user currently is (0-based)
+    - Capped at MAX_PROBLEMS_PER_LEVEL[level] entries (playlist_repo)
+    """
+    __tablename__ = "user_topic_playlists"
+
+    user_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True)
+    chapter_id: Mapped[str] = mapped_column(String(100), primary_key=True)
+    topic_index: Mapped[int] = mapped_column(Integer, primary_key=True)
+    level: Mapped[int] = mapped_column(Integer, primary_key=True)
+    difficulty: Mapped[str] = mapped_column(String(20), primary_key=True)
+
+    problems: Mapped[list] = mapped_column(JSONB, nullable=False, default=list)
+    current_index: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=_now, onupdate=_now
+    )
+
+    __table_args__ = (
+        Index("ix_playlist_user_chapter", "user_id", "chapter_id"),
+    )
+
+
+# ══════════════════════════════════════════════════════════════
+# TOPIC PROGRESS  (simple per-student topic status)
+# ══════════════════════════════════════════════════════════════
+
+class TopicProgress(Base):
+    """
+    Simple topic completion status per student.
+    Separate from SkillMastery (which tracks detailed mastery scores).
+    Used by the frontend sidebar to show not-started / in-progress / completed.
+    """
+    __tablename__ = "topic_progress"
+
+    user_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True)
+    chapter_id: Mapped[str] = mapped_column(String(100), primary_key=True)
+    topic_index: Mapped[int] = mapped_column(Integer, primary_key=True)
+
+    # "not-started" | "in-progress" | "completed"
+    status: Mapped[str] = mapped_column(String(20), nullable=False, default="not-started")
+
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=_now, onupdate=_now
+    )
+
+    __table_args__ = (
+        Index("ix_topic_progress_user", "user_id"),
+        Index("ix_topic_progress_user_chapter", "user_id", "chapter_id"),
+    )
+
+
+# ══════════════════════════════════════════════════════════════
 # GENERATION LOGS  (benchmarking / prompt monitoring)
 # ══════════════════════════════════════════════════════════════
 

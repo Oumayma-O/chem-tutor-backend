@@ -1,5 +1,6 @@
 import uuid
 from datetime import datetime
+from typing import Literal
 
 from pydantic import BaseModel, Field
 
@@ -30,10 +31,10 @@ class CompleteAttemptRequest(BaseModel):
 
 class CategoryScores(BaseModel):
     """Per-dimension mastery breakdown shown in the Mastery Score panel."""
-    conceptual: float = 0.5
-    procedural: float = 0.5
-    computational: float = 0.5
-    representation: float = 0.5
+    conceptual: float = 0.0
+    procedural: float = 0.0
+    computational: float = 0.0
+    representation: float = 0.0
 
 
 class MasteryState(BaseModel):
@@ -65,3 +66,18 @@ class ProgressionDecision(BaseModel):
     level3_just_unlocked: bool   # True only on the attempt that first crossed the threshold
     recommended_next_difficulty: str
     feedback_message: str
+
+
+# ── Topic Progress ────────────────────────────────────────────
+
+class TopicProgressOut(BaseModel):
+    topic_index: int
+    status: Literal["not-started", "in-progress", "completed"]
+
+
+class SetTopicStatusRequest(BaseModel):
+    status: Literal["not-started", "in-progress", "completed"]
+
+
+class UnlockLevel3Response(BaseModel):
+    level3_unlocked: bool

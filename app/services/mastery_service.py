@@ -271,12 +271,12 @@ def _compute_category_scores(
         "Symbolic": "representation",
     }
 
-    # Start from existing scores (or defaults)
+    # Start from existing scores (or defaults of 0.0 for new users)
     scores = {
-        "conceptual":     existing.get("conceptual", 0.5),
-        "procedural":     existing.get("procedural", 0.5),
-        "computational":  existing.get("computational", 0.5),
-        "representation": existing.get("representation", 0.5),
+        "conceptual":     existing.get("conceptual", 0.0),
+        "procedural":     existing.get("procedural", 0.0),
+        "computational":  existing.get("computational", 0.0),
+        "representation": existing.get("representation", 0.0),
     }
 
     for step in step_log:

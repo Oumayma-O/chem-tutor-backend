@@ -54,10 +54,12 @@ class ProblemCacheService:
         difficulty: str,
         level: int,
         context_tag: str | None,
+        exclude_ids: set[str] | None = None,
     ) -> ProblemOutput | None:
         """
         Pick a random cached problem for the given slot.
         Returns None if cache is empty (caller must generate fresh).
+        exclude_ids: ProblemOutput.id values already seen by this user (prefer unseen).
         """
         entry = await self._repo.pick_random(
             chapter_id=chapter_id,
@@ -65,6 +67,7 @@ class ProblemCacheService:
             difficulty=difficulty,
             level=level,
             context_tag=context_tag,
+            exclude_ids=exclude_ids,
         )
         if entry is None:
             logger.debug(

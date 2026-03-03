@@ -15,6 +15,7 @@ Used by StepValidationService to avoid LLM calls for numeric steps.
 
 import ast
 import math
+import random
 import re
 from typing import Tuple
 
@@ -37,6 +38,7 @@ _ALLOWED_AST_TYPES = (
     # Names (only pi, e)
     ast.Name,
 )
+
 
 
 class _SafeVisitor(ast.NodeVisitor):
@@ -208,6 +210,49 @@ def extract_unit(text: str) -> str:
     return unit
 
 
+def _strip_equation_lhs(text: str) -> str:
+    """
+    If text looks like 'Symbol = expression' (e.g. '[A]t = 2.5 - 0.05*20'),
+    return just the RHS expression ('2.5 - 0.05*20').
+    Only strips when the LHS contains non-numeric characters (letters/brackets),
+    indicating it's a variable label rather than a numeric value.
+    """
+    idx = text.find("=")
+    if idx < 0:
+        return text
+    lhs = text[:idx].strip()
+    rhs = text[idx + 1:].strip()
+    if rhs and re.search(r"[A-Za-z\[\]]", lhs):
+        return rhs
+    return text
+
+
+def _eval_chemistry_expr(text: str) -> float | None:
+    """
+    Evaluate a chemistry answer that may be a plain number, an arithmetic
+    expression, or an equation like '[A]t = 2.5 - 0.05*20'.
+
+    Tries each candidate (original, then equation-RHS if present) with and
+    without a trailing unit.  Returns None if nothing evaluates cleanly.
+    """
+    text = text.strip()
+    candidates = [text]
+    rhs = _strip_equation_lhs(text)
+    if rhs != text:
+        candidates.append(rhs)
+
+    for candidate in candidates:
+        result = safe_eval(_preprocess(candidate))
+        if result is not None:
+            return result
+        num_part, _ = _strip_unit(candidate)
+        if num_part != candidate:
+            result = safe_eval(_preprocess(num_part))
+            if result is not None:
+                return result
+    return None
+
+
 def numeric_equivalent(
     student: str,
     correct: str,
@@ -225,14 +270,16 @@ def numeric_equivalent(
     rtol: relative tolerance (default 1%)
     atol: absolute tolerance for near-zero values
     """
-    # Attempt direct expression evaluation on both sides
-    sn = safe_eval(_preprocess(student)) if student else None
-    cn = safe_eval(_preprocess(correct)) if correct else None
+    # Try chemistry-aware expression evaluation (handles "[A]t = expr" form)
+    sn = _eval_chemistry_expr(student) if student else None
+    cn = _eval_chemistry_expr(correct) if correct else None
 
-    # Fallback: strip units and try again
-    if sn is None:
+    # Last-resort fallback: only use extract_numeric when BOTH sides fail
+    # expression evaluation. Mixing one evaluated value with one last-number
+    # extraction (e.g. student writes "ln(2.00)-1.00", correct has "0.693-1.00")
+    # produces wrong comparisons — better to return None and let LLM decide.
+    if sn is None and cn is None:
         sn = extract_numeric(student)
-    if cn is None:
         cn = extract_numeric(correct)
 
     if sn is None or cn is None:

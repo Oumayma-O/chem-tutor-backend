@@ -54,20 +54,27 @@ class ProblemCacheRepository(BaseRepository[ProblemCache]):
         difficulty: str,
         level: int,
         context_tag: str | None = None,
+        exclude_ids: set[str] | None = None,
     ) -> ProblemCache | None:
         """
         Pick one cached problem at random (for variety).
         Falls back to generic (context_tag=None) if no contextual match.
+        exclude_ids: ProblemOutput.id strings to deprioritise (prefer unseen).
         """
+        def _pick(rows: list[ProblemCache]) -> ProblemCache:
+            if exclude_ids:
+                unseen = [r for r in rows if r.problem_data.get("id") not in exclude_ids]
+                return random.choice(unseen if unseen else rows)
+            return random.choice(rows)
+
         rows = await self.find(chapter_id, topic_index, difficulty, level, context_tag)
         if rows:
-            return random.choice(list(rows))
+            return _pick(list(rows))
 
         if context_tag is not None:
-            # Fallback to generic
             generic = await self.find(chapter_id, topic_index, difficulty, level, None)
             if generic:
-                return random.choice(list(generic))
+                return _pick(list(generic))
 
         return None
 

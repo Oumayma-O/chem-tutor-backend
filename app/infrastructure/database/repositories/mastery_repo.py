@@ -6,7 +6,7 @@ from sqlalchemy import select
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.infrastructure.database.models import SkillMastery
+from app.infrastructure.database.models import SkillMastery, TopicProgress
 from app.infrastructure.database.repositories.base import BaseRepository
 
 
@@ -58,6 +58,7 @@ class MasteryRepository(BaseRepository[SkillMastery]):
             set_clause["level3_unlocked"] = True
             set_clause["level3_unlocked_at"] = mastery.level3_unlocked_at
 
+        now = mastery.updated_at or datetime.utcnow()
         stmt = (
             insert(SkillMastery)
             .values(
@@ -71,9 +72,10 @@ class MasteryRepository(BaseRepository[SkillMastery]):
                 current_difficulty=mastery.current_difficulty,
                 level3_unlocked=mastery.level3_unlocked,
                 level3_unlocked_at=mastery.level3_unlocked_at,
-                category_scores=mastery.category_scores,
-                error_counts=mastery.error_counts,
-                recent_scores=mastery.recent_scores,
+                category_scores=mastery.category_scores or {},
+                error_counts=mastery.error_counts or {},
+                recent_scores=mastery.recent_scores or [],
+                updated_at=now,
             )
             .on_conflict_do_update(
                 constraint="uq_mastery_user_topic",
@@ -97,3 +99,54 @@ class MasteryRepository(BaseRepository[SkillMastery]):
             )
         )
         return result.scalars().all()
+
+
+class TopicProgressRepository:
+    """CRUD for the simple topic_progress table."""
+
+    def __init__(self, session: AsyncSession) -> None:
+        self._session = session
+
+    async def get_chapter_progress(
+        self,
+        user_id: uuid.UUID,
+        chapter_id: str,
+    ) -> list[TopicProgress]:
+        result = await self._session.execute(
+            select(TopicProgress).where(
+                TopicProgress.user_id == user_id,
+                TopicProgress.chapter_id == chapter_id,
+            )
+        )
+        return list(result.scalars().all())
+
+    async def get_all_for_user(self, user_id: uuid.UUID) -> list[TopicProgress]:
+        result = await self._session.execute(
+            select(TopicProgress).where(TopicProgress.user_id == user_id)
+        )
+        return list(result.scalars().all())
+
+    async def upsert_status(
+        self,
+        user_id: uuid.UUID,
+        chapter_id: str,
+        topic_index: int,
+        status: str,
+    ) -> TopicProgress:
+        stmt = (
+            insert(TopicProgress)
+            .values(
+                user_id=user_id,
+                chapter_id=chapter_id,
+                topic_index=topic_index,
+                status=status,
+                updated_at=datetime.utcnow(),
+            )
+            .on_conflict_do_update(
+                index_elements=["user_id", "chapter_id", "topic_index"],
+                set_={"status": status, "updated_at": datetime.utcnow()},
+            )
+            .returning(TopicProgress)
+        )
+        result = await self._session.execute(stmt)
+        return result.scalar_one()
