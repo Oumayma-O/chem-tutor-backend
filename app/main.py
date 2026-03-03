@@ -8,7 +8,7 @@ from fastapi.responses import JSONResponse
 from app.core.config import get_settings
 from app.core.logging import configure_logging, get_logger
 from app.infrastructure.database.connection import engine, run_migrations
-from app.api.v1.routers import tutor, mastery, analytics
+from app.api.v1.routers import mastery, analytics
 from app.api.v1.routers import chapters, classrooms, students, problems
 from app.api.v1.routers import auth
 from app.api.v1.routers.chapters import curriculum_router
@@ -48,7 +48,7 @@ async def _seed_prompt_version() -> None:
     """
     from app.infrastructure.database.connection import AsyncSessionFactory
     from app.infrastructure.database.models import PromptVersion
-    from app.services.ai.prompts import PROMPT_VERSION, GENERATE_PROBLEM_SYSTEM
+    from app.services.ai.problem_generation.prompts import PROMPT_VERSION, GENERATE_PROBLEM_SYSTEM
     async with AsyncSessionFactory() as session:
         existing = await session.get(PromptVersion, PROMPT_VERSION)
         if not existing:
@@ -108,9 +108,7 @@ async def global_exception_handler(request: Request, exc: Exception) -> JSONResp
 # ── Routers ──────────────────────────────────────────────────
 prefix = settings.api_v1_prefix
 
-# Legacy / orchestration routes
 app.include_router(auth.router, prefix=prefix, tags=["Auth"])
-app.include_router(tutor.router, prefix=prefix, tags=["Tutor (legacy)"])
 app.include_router(mastery.router, prefix=prefix, tags=["Mastery"])
 app.include_router(analytics.router, prefix=prefix, tags=["Analytics"])
 

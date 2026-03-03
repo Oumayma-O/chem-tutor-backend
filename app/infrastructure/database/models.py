@@ -205,6 +205,10 @@ class Topic(Base):
     key_equations: Mapped[list] = mapped_column(JSONB, nullable=False, default=list)
     # e.g. ["[A]t = [A]0 - kt", "t_1/2 = [A]0 / 2k"]
 
+    # Cached reference card — generated once by the LLM chain, never regenerated
+    # unless manually cleared.  NULL = not yet generated.
+    reference_card_json: Mapped[dict | None] = mapped_column(JSONB, nullable=True, default=None)
+
     sort_order: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     is_active: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
 
@@ -385,7 +389,7 @@ class SkillMastery(Base):
     chapter_id: Mapped[str] = mapped_column(String(100), nullable=False)
     topic_index: Mapped[int] = mapped_column(Integer, nullable=False)
 
-    mastery_score: Mapped[float] = mapped_column(Float, nullable=False, default=0.5)
+    mastery_score: Mapped[float] = mapped_column(Float, nullable=False, default=0.0)
     attempts_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     consecutive_correct: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     current_difficulty: Mapped[str] = mapped_column(String(20), nullable=False, default="medium")

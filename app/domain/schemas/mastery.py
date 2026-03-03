@@ -81,3 +81,23 @@ class SetTopicStatusRequest(BaseModel):
 
 class UnlockLevel3Response(BaseModel):
     level3_unlocked: bool
+
+
+# ── Mid-problem progress (resume after logout) ────────────────
+
+class SaveStepRequest(BaseModel):
+    """Checkpoint: persist the current step_log for an in-progress attempt."""
+    attempt_id: uuid.UUID
+    step_log: list[dict]
+
+
+class ResumeAttemptResponse(BaseModel):
+    """
+    Returned when the student logs back in mid-problem.
+    The frontend uses problem_id to look up the problem in the user's playlist
+    and step_log to restore completed steps.
+    """
+    attempt_id: uuid.UUID
+    problem_id: str
+    level: int
+    step_log: list[dict]        # steps already completed (in order)

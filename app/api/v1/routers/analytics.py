@@ -25,7 +25,7 @@ from app.infrastructure.database.repositories.attempt_repo import (
     MisconceptionRepository,
 )
 from app.infrastructure.database.repositories.mastery_repo import MasteryRepository
-from app.services.ai.tutor_service import TutorService, get_tutor_service
+from app.services.ai.thinking_analysis.service import ThinkingAnalysisService, get_thinking_analysis_service
 
 logger = get_logger(__name__)
 router = APIRouter(prefix="/analytics")
@@ -36,7 +36,7 @@ settings = get_settings()
 async def get_class_analytics(
     req: ClassAnalyticsRequest,
     db: AsyncSession = Depends(get_db),
-    tutor_service: TutorService = Depends(get_tutor_service),
+    thinking_service: ThinkingAnalysisService = Depends(get_thinking_analysis_service),
 ) -> ClassAnalyticsResponse:
     mastery_repo = MasteryRepository(db)
     attempt_repo = AttemptRepository(db)
@@ -127,7 +127,7 @@ async def get_class_analytics(
     ai_insights: list[str] = []
     if req.include_ai_insights and student_summaries:
         try:
-            insights_out = await tutor_service.generate_class_insights(
+            insights_out = await thinking_service.generate_class_insights(
                 student_count=len(student_ids),
                 class_mastery=avg_mastery,
                 error_frequencies=dict(error_freq),

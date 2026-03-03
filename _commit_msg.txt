@@ -1,0 +1,30 @@
+Refactor AI services, fix mastery rules, add resume + playlist cap
+
+Architecture:
+- Flatten provider layer: delete AIProvider/ProviderFactory, add generate_structured() to llm.py
+- One directory per AI feature (problem_generation, hint_generation, step_validation,
+  thinking_analysis, exit_ticket, reference_card), each with prompts.py + service.py
+- Delete redundant tutor.py router (/tutor/* duplicated /problems/*)
+- problems/ router wired with classify, generate, hints, validation, reference_card, playlist_navigation
+
+Mastery rules:
+- All scores (mastery_score, category sub-scores) now start at 0 instead of 0.5
+- Level 3 unlock: perfect score (1.0) on a single Level 2 attempt
+- Level 3 remains a permanent one-way latch once unlocked
+- should_advance decoupled from difficulty level
+
+Progress persistence:
+- AttemptRepository.update_step_log(): checkpoint mid-problem state after each step
+- AttemptRepository.get_in_progress(): fetch latest incomplete attempt for a topic/level
+- POST /mastery/attempts/save-step: frontend checkpoints after each correct step
+- GET /mastery/users/{id}/chapters/{ch}/topics/{t}/resume?level=N: restore UI state on login
+
+Playlist cap + navigation:
+- Max 3 worked examples (L1), 5 problems (L2/3) per slot
+- At cap: return current playlist position with at_limit=true (no LLM call)
+- Generated problems appended to UserTopicPlaylist
+- /problems/generate returns ProblemDeliveryResponse with nav metadata (has_prev, has_next, at_limit)
+
+DB / infra:
+- Add reference_card_json JSONB column to topics via Alembic migration 001
+- alembic/ added to docker-compose watch sync so future migrations auto-sync into container

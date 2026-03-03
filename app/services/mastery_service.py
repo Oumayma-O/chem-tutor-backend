@@ -8,8 +8,8 @@ Design decisions:
     the threshold transparent to teachers.
   - Difficulty adapts one level at a time to avoid oscillation.
   - At-risk threshold is set at mastery < 0.4 after at least 3 attempts.
-  - Level 3 unlock: permanent once mastery >= threshold on hard difficulty.
-    Stored as a one-way latch in SkillMastery.level3_unlocked.
+  - Level 3 unlock: permanent once a student scores 1.0 (all steps correct) on
+    a single Level 2 attempt.  Stored as a one-way latch in SkillMastery.level3_unlocked.
 """
 
 import uuid
@@ -124,12 +124,9 @@ class MasteryService:
         )
 
         # Determine Level 3 unlock
-        # Condition: mastery >= threshold AND difficulty is now hard
-        # Once true, the flag is permanent (one-way latch)
-        qualifies_for_l3 = (
-            new_mastery >= settings.mastery_threshold
-            and new_difficulty == "hard"
-        )
+        # Condition: student answers ALL steps correctly in a single Level 2 attempt
+        # (score == 1.0 at level 2).  Once true, the flag is permanent (one-way latch).
+        qualifies_for_l3 = (score >= 1.0 and level == 2)
         level3_unlocked = was_already_unlocked or qualifies_for_l3
         level3_just_unlocked = level3_unlocked and not was_already_unlocked
         level3_unlocked_at = mastery_record.level3_unlocked_at
@@ -150,10 +147,9 @@ class MasteryService:
 
         saved = await self._mastery.upsert(mastery_record)
 
-        should_advance = (
-            new_mastery >= settings.mastery_threshold
-            and new_difficulty == "hard"
-        )
+        # should_advance: student is ready to move to the next topic
+        # (rolling mastery >= threshold, independent of level)
+        should_advance = new_mastery >= settings.mastery_threshold
 
         state = _to_mastery_state(saved, settings.mastery_threshold)
 
@@ -212,9 +208,9 @@ class MasteryService:
 # ── Pure functions (easy to unit-test) ───────────────────────
 
 def _compute_mastery(recent_scores: list[float]) -> float:
-    """Rolling window average. Returns 0.5 if no data (neutral prior)."""
+    """Rolling window average. Returns 0.0 if no data — progress bars start empty."""
     if not recent_scores:
-        return 0.5
+        return 0.0
     return sum(recent_scores) / len(recent_scores)
 
 
@@ -323,18 +319,15 @@ def _to_mastery_state(record: SkillMastery, threshold: float) -> MasteryState:
         error_counts=record.error_counts or {},
         recent_scores=record.recent_scores or [],
         category_scores=CategoryScores(
-            conceptual=cat.get("conceptual", 0.5),
-            procedural=cat.get("procedural", 0.5),
-            computational=cat.get("computational", 0.5),
-            representation=cat.get("representation", 0.5),
+            conceptual=cat.get("conceptual", 0.0),
+            procedural=cat.get("procedural", 0.0),
+            computational=cat.get("computational", 0.0),
+            representation=cat.get("representation", 0.0),
         ),
         updated_at=record.updated_at,
         has_mastered=record.mastery_score >= threshold,
         level3_unlocked=record.level3_unlocked,
         level3_unlocked_at=record.level3_unlocked_at,
-        should_advance=(
-            record.mastery_score >= threshold
-            and record.current_difficulty == "hard"
-        ),
+        should_advance=record.mastery_score >= threshold,
         recommended_difficulty=record.current_difficulty,
     )

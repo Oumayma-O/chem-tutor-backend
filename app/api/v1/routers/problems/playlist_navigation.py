@@ -13,7 +13,7 @@ from app.infrastructure.database.repositories.playlist_repo import (
     MAX_PROBLEMS_PER_LEVEL,
     UserTopicPlaylistRepository,
 )
-from app.services.ai.problem_generation import enforce_step_types
+from app.services.ai.problem_generation.service import enforce_step_types
 
 router = APIRouter()
 

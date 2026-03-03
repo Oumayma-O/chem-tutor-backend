@@ -88,6 +88,20 @@ class TopicRepository(BaseRepository[Topic]):
         )
         return result.scalar_one_or_none()
 
+    async def save_reference_card(
+        self,
+        chapter_id: str,
+        topic_index: int,
+        card_data: dict,
+    ) -> Topic | None:
+        """Persist a generated reference card onto the topic row."""
+        topic = await self.get_by_index(chapter_id, topic_index)
+        if topic is None:
+            return None
+        topic.reference_card_json = card_data
+        await self._session.flush()
+        return topic
+
 
 class StandardRepository(BaseRepository[Standard]):
     def __init__(self, session: AsyncSession) -> None:

@@ -72,6 +72,40 @@ class AttemptRepository(BaseRepository[ProblemAttempt]):
             )
         )
 
+    async def update_step_log(
+        self,
+        attempt_id: uuid.UUID,
+        step_log: list[dict],
+    ) -> None:
+        """Persist mid-problem progress so the student can resume after logout."""
+        await self._session.execute(
+            update(ProblemAttempt)
+            .where(ProblemAttempt.id == attempt_id, ProblemAttempt.is_complete == False)  # noqa: E712
+            .values(step_log=step_log)
+        )
+
+    async def get_in_progress(
+        self,
+        user_id: uuid.UUID,
+        chapter_id: str,
+        topic_index: int,
+        level: int,
+    ) -> ProblemAttempt | None:
+        """Return the latest incomplete attempt for a (user, chapter, topic, level) slot."""
+        result = await self._session.execute(
+            select(ProblemAttempt)
+            .where(
+                ProblemAttempt.user_id == user_id,
+                ProblemAttempt.chapter_id == chapter_id,
+                ProblemAttempt.topic_index == topic_index,
+                ProblemAttempt.level == level,
+                ProblemAttempt.is_complete == False,  # noqa: E712
+            )
+            .order_by(ProblemAttempt.started_at.desc())
+            .limit(1)
+        )
+        return result.scalar_one_or_none()
+
     async def get_class_attempts(
         self,
         class_id: uuid.UUID,

@@ -84,3 +84,29 @@ class ProblemDeliveryResponse(BaseModel):
     has_prev: bool = False         # can navigate back
     has_next: bool = False         # can navigate forward (through seen problems)
     at_limit: bool = False         # reached max; generate will return current
+
+
+# ── Reference Card ────────────────────────────────────────────
+
+
+class ReferenceStepCard(BaseModel):
+    """
+    One step in the conceptual fiche de cours.
+    Contains ONLY symbolic/conceptual text — no numerical examples.
+    """
+    label: Literal["Equation", "Knowns", "Substitute", "Calculate", "Answer"]
+    content: str
+
+
+class ReferenceCardOutput(BaseModel):
+    """
+    Topic-level study reference card generated once by an LLM chain and
+    persisted in the DB.  Returned as-is on subsequent requests.
+
+    Design rule: no numbers, no worked examples — just the general method.
+    """
+    topic: str
+    chapter_id: str
+    topic_index: int
+    steps: list[ReferenceStepCard] = Field(min_length=5, max_length=5)
+    hint: str = "Apply this general approach to the current problem!"

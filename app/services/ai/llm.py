@@ -1,14 +1,21 @@
 """
-LLM factory — one function, two tiers.
+LLM factory — one module, two tiers.
 
   get_llm()          → powerful model  (problem generation)
-  get_llm(fast=True) → lightweight model (validation, hints)
+  get_llm(fast=True) → lightweight model (hints, validation)
 
-Provider and model are read from .env via Settings.
+  generate_structured() → convenience wrapper: build LangChain messages,
+                           call with_structured_output, return parsed result.
+
+Provider and model names are read from .env via Settings.
 LangChain already provides the provider abstraction — no extra layer needed.
 """
 
+from typing import Any, Type
+
 from langchain_core.language_models import BaseChatModel
+from langchain_core.messages import HumanMessage, SystemMessage
+from pydantic import BaseModel
 
 from app.core.config import get_settings
 
@@ -30,6 +37,32 @@ def get_llm(fast: bool = False, temperature: float = 0.3) -> BaseChatModel:
         from langchain_anthropic import ChatAnthropic
         return ChatAnthropic(model=model, api_key=s.anthropic_api_key, temperature=temperature)
 
-    # gemini (default)
     from langchain_google_genai import ChatGoogleGenerativeAI
     return ChatGoogleGenerativeAI(model=model, google_api_key=s.google_api_key, temperature=temperature)
+
+
+async def generate_structured(
+    messages: list[dict],
+    output_schema: Type[BaseModel],
+    temperature: float = 0.3,
+    fast: bool = False,
+) -> Any:
+    """
+    Call the configured LLM with structured output.
+
+    Args:
+        messages:      list of {"role": "system"|"user", "content": str}
+        output_schema: Pydantic model class — LLM output is parsed into this
+        temperature:   sampling temperature
+        fast:          True → use the fast/cheap tier (hints, validation)
+
+    Returns:
+        A validated instance of output_schema.
+    """
+    llm = get_llm(fast=fast, temperature=temperature)
+    structured = llm.with_structured_output(output_schema)
+    lc_messages = [
+        SystemMessage(content=m["content"]) if m["role"] == "system" else HumanMessage(content=m["content"])
+        for m in messages
+    ]
+    return await structured.ainvoke(lc_messages)

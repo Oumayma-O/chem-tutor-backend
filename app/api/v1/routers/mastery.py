@@ -13,6 +13,8 @@ from app.domain.schemas.mastery import (
     CompleteAttemptRequest,
     MasteryState,
     ProgressionDecision,
+    ResumeAttemptResponse,
+    SaveStepRequest,
     SetTopicStatusRequest,
     StartAttemptRequest,
     StartAttemptResponse,
@@ -78,6 +80,54 @@ async def complete_attempt(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Failed to record attempt.",
         )
+
+
+@router.post("/attempts/save-step", status_code=204)
+async def save_step(
+    req: SaveStepRequest,
+    db: AsyncSession = Depends(get_db),
+) -> None:
+    """
+    Checkpoint: persist the current step_log for an in-progress attempt.
+
+    Call this after each step the student completes so their progress is saved
+    and can be restored if they log out mid-problem.
+    """
+    repo = AttemptRepository(db)
+    await repo.update_step_log(req.attempt_id, req.step_log)
+    await db.commit()
+
+
+@router.get(
+    "/users/{user_id}/chapters/{chapter_id}/topics/{topic_index}/resume",
+    response_model=ResumeAttemptResponse,
+)
+async def resume_attempt(
+    user_id: uuid.UUID,
+    chapter_id: str,
+    topic_index: int,
+    level: int,
+    db: AsyncSession = Depends(get_db),
+) -> ResumeAttemptResponse:
+    """
+    Return the student's latest in-progress attempt for a topic/level.
+
+    The frontend calls this on load to restore UI state (completed steps, answers).
+    Returns 404 if there is no in-progress attempt.
+    """
+    repo = AttemptRepository(db)
+    attempt = await repo.get_in_progress(user_id, chapter_id, topic_index, level)
+    if attempt is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="No in-progress attempt found.",
+        )
+    return ResumeAttemptResponse(
+        attempt_id=attempt.id,
+        problem_id=attempt.problem_id,
+        level=attempt.level,
+        step_log=list(attempt.step_log or []),
+    )
 
 
 @router.get("/users/{user_id}/chapters/{chapter_id}/topics/{topic_index}", response_model=MasteryState)

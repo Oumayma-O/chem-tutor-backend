@@ -18,6 +18,9 @@ services:
           path: uv.lock
         - action: rebuild
           path: Dockerfile
+        - action: sync+restart  # sync migrations and restart so alembic upgrade runs
+          path: ./alembic
+          target: /app/alembic
         - action: sync+restart  # restart to re-read new env vars
           path: .env
           target: /app/.env
