@@ -16,8 +16,8 @@ from app.core.logging import get_logger
 from app.domain.schemas.analytics import (
     ClassAnalyticsRequest,
     ClassAnalyticsResponse,
+    LessonBreakdown,
     StudentMasterySummary,
-    TopicBreakdown,
 )
 from app.infrastructure.database.connection import get_db
 from app.infrastructure.database.repositories.attempt_repo import (
@@ -45,15 +45,15 @@ async def get_class_analytics(
     # 1. Pull class-level misconceptions
     misconceptions = await misconception_repo.get_class_misconceptions(
         class_id=req.class_id,
-        chapter_id=req.chapter_id,
-        topic_index=req.topic_index,
+        unit_id=req.unit_id,
+        lesson_index=req.lesson_index,
     )
 
     # 2. Pull class attempts
     attempts = await attempt_repo.get_class_attempts(
         class_id=req.class_id,
-        chapter_id=req.chapter_id,
-        topic_index=req.topic_index,
+        unit_id=req.unit_id,
+        lesson_index=req.lesson_index,
     )
 
     # 3. Collect student IDs from attempts
@@ -62,7 +62,7 @@ async def get_class_analytics(
     # 4. Pull mastery records for all students
     mastery_records = await mastery_repo.get_class_mastery(
         user_ids=student_ids,
-        chapter_id=req.chapter_id,
+        unit_id=req.unit_id,
     )
 
     # 5. Aggregate error frequencies
@@ -102,19 +102,19 @@ async def get_class_analytics(
             )
         )
 
-    # 8. Topic breakdown
-    topic_groups: dict[int, list] = {}
+    # 8. Lesson breakdown
+    lesson_groups: dict[int, list] = {}
     for r in mastery_records:
-        topic_groups.setdefault(r.topic_index, []).append(r.mastery_score)
+        lesson_groups.setdefault(r.lesson_index, []).append(r.mastery_score)
 
     topic_breakdowns = [
-        TopicBreakdown(
-            topic_index=ti,
+        LessonBreakdown(
+            lesson_index=li,
             avg_mastery=sum(scores) / len(scores),
             student_count=len(scores),
             completion_rate=len(scores) / max(len(student_ids), 1),
         )
-        for ti, scores in sorted(topic_groups.items())
+        for li, scores in sorted(lesson_groups.items())
     ]
 
     avg_mastery = (
@@ -141,7 +141,7 @@ async def get_class_analytics(
 
     return ClassAnalyticsResponse(
         class_id=req.class_id,
-        chapter_id=req.chapter_id,
+        unit_id=req.unit_id,
         student_count=len(student_ids),
         avg_mastery=avg_mastery,
         at_risk_count=at_risk_count,

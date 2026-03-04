@@ -1,4 +1,4 @@
-"""Repository for user topic playlists."""
+"""Repository for user lesson playlists."""
 
 import uuid
 from datetime import datetime
@@ -7,7 +7,7 @@ from sqlalchemy import select
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.infrastructure.database.models import UserTopicPlaylist
+from app.infrastructure.database.models import UserLessonPlaylist
 
 # Pedagogical caps: max new problems a student can generate per level/slot.
 # After the cap, they can only navigate their existing playlist.
@@ -17,25 +17,25 @@ from app.infrastructure.database.models import UserTopicPlaylist
 MAX_PROBLEMS_PER_LEVEL: dict[int, int] = {1: 3, 2: 5, 3: 5}
 
 
-class UserTopicPlaylistRepository:
+class UserLessonPlaylistRepository:
     def __init__(self, session: AsyncSession) -> None:
         self._session = session
 
     async def get(
         self,
         user_id: uuid.UUID,
-        chapter_id: str,
-        topic_index: int,
+        unit_id: str,
+        lesson_index: int,
         level: int,
         difficulty: str,
-    ) -> UserTopicPlaylist | None:
+    ) -> UserLessonPlaylist | None:
         result = await self._session.execute(
-            select(UserTopicPlaylist).where(
-                UserTopicPlaylist.user_id == user_id,
-                UserTopicPlaylist.chapter_id == chapter_id,
-                UserTopicPlaylist.topic_index == topic_index,
-                UserTopicPlaylist.level == level,
-                UserTopicPlaylist.difficulty == difficulty,
+            select(UserLessonPlaylist).where(
+                UserLessonPlaylist.user_id == user_id,
+                UserLessonPlaylist.unit_id == unit_id,
+                UserLessonPlaylist.lesson_index == lesson_index,
+                UserLessonPlaylist.level == level,
+                UserLessonPlaylist.difficulty == difficulty,
             )
         )
         return result.scalar_one_or_none()
@@ -43,24 +43,24 @@ class UserTopicPlaylistRepository:
     async def append_and_advance(
         self,
         user_id: uuid.UUID,
-        chapter_id: str,
-        topic_index: int,
+        unit_id: str,
+        lesson_index: int,
         level: int,
         difficulty: str,
         problem_data: dict,
-    ) -> UserTopicPlaylist:
+    ) -> UserLessonPlaylist:
         """Append a new problem to the end of the playlist and advance current_index to it."""
-        existing = await self.get(user_id, chapter_id, topic_index, level, difficulty)
+        existing = await self.get(user_id, unit_id, lesson_index, level, difficulty)
         now = datetime.utcnow()
         new_problems = (list(existing.problems) if existing else []) + [problem_data]
         new_index = len(new_problems) - 1
 
         stmt = (
-            insert(UserTopicPlaylist)
+            insert(UserLessonPlaylist)
             .values(
                 user_id=user_id,
-                chapter_id=chapter_id,
-                topic_index=topic_index,
+                chapter_id=unit_id,       # DB column name
+                topic_index=lesson_index,  # DB column name
                 level=level,
                 difficulty=difficulty,
                 problems=new_problems,
@@ -71,24 +71,24 @@ class UserTopicPlaylistRepository:
                 index_elements=["user_id", "chapter_id", "topic_index", "level", "difficulty"],
                 set_={"problems": new_problems, "current_index": new_index, "updated_at": now},
             )
-            .returning(UserTopicPlaylist)
+            .returning(UserLessonPlaylist)
         )
         result = await self._session.execute(stmt)
         return result.scalar_one()
 
     async def update_index(
         self,
-        playlist: UserTopicPlaylist,
+        playlist: UserLessonPlaylist,
         new_index: int,
-    ) -> UserTopicPlaylist:
+    ) -> UserLessonPlaylist:
         """Update current_index only (for prev/next navigation through seen problems)."""
         now = datetime.utcnow()
         stmt = (
-            insert(UserTopicPlaylist)
+            insert(UserLessonPlaylist)
             .values(
                 user_id=playlist.user_id,
-                chapter_id=playlist.chapter_id,
-                topic_index=playlist.topic_index,
+                chapter_id=playlist.unit_id,       # DB column name
+                topic_index=playlist.lesson_index,  # DB column name
                 level=playlist.level,
                 difficulty=playlist.difficulty,
                 problems=playlist.problems,
@@ -99,7 +99,11 @@ class UserTopicPlaylistRepository:
                 index_elements=["user_id", "chapter_id", "topic_index", "level", "difficulty"],
                 set_={"current_index": new_index, "updated_at": now},
             )
-            .returning(UserTopicPlaylist)
+            .returning(UserLessonPlaylist)
         )
         result = await self._session.execute(stmt)
         return result.scalar_one()
+
+
+# Backward-compat alias
+UserTopicPlaylistRepository = UserLessonPlaylistRepository

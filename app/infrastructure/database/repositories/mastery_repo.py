@@ -6,7 +6,7 @@ from sqlalchemy import select
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.infrastructure.database.models import SkillMastery, TopicProgress
+from app.infrastructure.database.models import LessonProgress, SkillMastery
 from app.infrastructure.database.repositories.base import BaseRepository
 
 
@@ -17,14 +17,14 @@ class MasteryRepository(BaseRepository[SkillMastery]):
     async def get_for_topic(
         self,
         user_id: uuid.UUID,
-        chapter_id: str,
-        topic_index: int,
+        unit_id: str,
+        lesson_index: int,
     ) -> SkillMastery | None:
         result = await self._session.execute(
             select(SkillMastery).where(
                 SkillMastery.user_id == user_id,
-                SkillMastery.chapter_id == chapter_id,
-                SkillMastery.topic_index == topic_index,
+                SkillMastery.unit_id == unit_id,
+                SkillMastery.lesson_index == lesson_index,
             )
         )
         return result.scalar_one_or_none()
@@ -64,8 +64,8 @@ class MasteryRepository(BaseRepository[SkillMastery]):
             .values(
                 id=mastery.id,
                 user_id=mastery.user_id,
-                chapter_id=mastery.chapter_id,
-                topic_index=mastery.topic_index,
+                chapter_id=mastery.unit_id,      # DB column name
+                topic_index=mastery.lesson_index,  # DB column name
                 mastery_score=mastery.mastery_score,
                 attempts_count=mastery.attempts_count,
                 consecutive_correct=mastery.consecutive_correct,
@@ -89,20 +89,20 @@ class MasteryRepository(BaseRepository[SkillMastery]):
     async def get_class_mastery(
         self,
         user_ids: list[uuid.UUID],
-        chapter_id: str,
+        unit_id: str,
     ) -> Sequence[SkillMastery]:
-        """Bulk fetch mastery for a list of students in a chapter."""
+        """Bulk fetch mastery for a list of students in a unit."""
         result = await self._session.execute(
             select(SkillMastery).where(
                 SkillMastery.user_id.in_(user_ids),
-                SkillMastery.chapter_id == chapter_id,
+                SkillMastery.unit_id == unit_id,
             )
         )
         return result.scalars().all()
 
 
 class TopicProgressRepository:
-    """CRUD for the simple topic_progress table."""
+    """CRUD for the lesson_progress (topic_progress) table."""
 
     def __init__(self, session: AsyncSession) -> None:
         self._session = session
@@ -110,35 +110,35 @@ class TopicProgressRepository:
     async def get_chapter_progress(
         self,
         user_id: uuid.UUID,
-        chapter_id: str,
-    ) -> list[TopicProgress]:
+        unit_id: str,
+    ) -> list[LessonProgress]:
         result = await self._session.execute(
-            select(TopicProgress).where(
-                TopicProgress.user_id == user_id,
-                TopicProgress.chapter_id == chapter_id,
+            select(LessonProgress).where(
+                LessonProgress.user_id == user_id,
+                LessonProgress.unit_id == unit_id,
             )
         )
         return list(result.scalars().all())
 
-    async def get_all_for_user(self, user_id: uuid.UUID) -> list[TopicProgress]:
+    async def get_all_for_user(self, user_id: uuid.UUID) -> list[LessonProgress]:
         result = await self._session.execute(
-            select(TopicProgress).where(TopicProgress.user_id == user_id)
+            select(LessonProgress).where(LessonProgress.user_id == user_id)
         )
         return list(result.scalars().all())
 
     async def upsert_status(
         self,
         user_id: uuid.UUID,
-        chapter_id: str,
-        topic_index: int,
+        unit_id: str,
+        lesson_index: int,
         status: str,
-    ) -> TopicProgress:
+    ) -> LessonProgress:
         stmt = (
-            insert(TopicProgress)
+            insert(LessonProgress)
             .values(
                 user_id=user_id,
-                chapter_id=chapter_id,
-                topic_index=topic_index,
+                chapter_id=unit_id,       # DB column name
+                topic_index=lesson_index,  # DB column name
                 status=status,
                 updated_at=datetime.utcnow(),
             )
@@ -146,7 +146,7 @@ class TopicProgressRepository:
                 index_elements=["user_id", "chapter_id", "topic_index"],
                 set_={"status": status, "updated_at": datetime.utcnow()},
             )
-            .returning(TopicProgress)
+            .returning(LessonProgress)
         )
         result = await self._session.execute(stmt)
         return result.scalar_one()

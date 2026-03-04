@@ -49,8 +49,8 @@ class MasteryService:
     async def start_attempt(
         self,
         user_id: uuid.UUID,
-        chapter_id: str,
-        topic_index: int,
+        unit_id: str,
+        lesson_index: int,
         problem_id: str,
         difficulty: str = "medium",
         level: int = 2,
@@ -59,8 +59,8 @@ class MasteryService:
         attempt = ProblemAttempt(
             user_id=user_id,
             class_id=class_id,
-            chapter_id=chapter_id,
-            topic_index=topic_index,
+            unit_id=unit_id,
+            lesson_index=lesson_index,
             problem_id=problem_id,
             difficulty=difficulty,
             level=level,
@@ -74,8 +74,8 @@ class MasteryService:
         self,
         attempt_id: uuid.UUID,
         user_id: uuid.UUID,
-        chapter_id: str,
-        topic_index: int,
+        unit_id: str,
+        lesson_index: int,
         score: float,
         step_log: list[dict],
         level: int = 2,
@@ -92,16 +92,16 @@ class MasteryService:
 
         # Pull recent scores from DB (includes this attempt)
         recent = await self._attempts.get_recent_scores(
-            user_id, chapter_id, topic_index, window=settings.mastery_window
+            user_id, unit_id, lesson_index, window=settings.mastery_window
         )
 
         # Load or create mastery record
-        mastery_record = await self._mastery.get_for_topic(user_id, chapter_id, topic_index)
+        mastery_record = await self._mastery.get_for_topic(user_id, unit_id, lesson_index)
         if mastery_record is None:
             mastery_record = SkillMastery(
                 user_id=user_id,
-                chapter_id=chapter_id,
-                topic_index=topic_index,
+                unit_id=unit_id,
+                lesson_index=lesson_index,
             )
 
         # Was L3 already unlocked before this attempt?
@@ -156,8 +156,8 @@ class MasteryService:
         logger.info(
             "mastery_updated",
             user=str(user_id),
-            chapter=chapter_id,
-            topic=topic_index,
+            unit=unit_id,
+            lesson=lesson_index,
             mastery=f"{new_mastery:.2%}",
             difficulty=new_difficulty,
             level3_unlocked=level3_unlocked,
@@ -181,18 +181,18 @@ class MasteryService:
     async def get_mastery(
         self,
         user_id: uuid.UUID,
-        chapter_id: str,
-        topic_index: int,
+        unit_id: str,
+        lesson_index: int,
     ) -> MasteryState | None:
-        record = await self._mastery.get_for_topic(user_id, chapter_id, topic_index)
+        record = await self._mastery.get_for_topic(user_id, unit_id, lesson_index)
         if record is None:
             return None
         return _to_mastery_state(record, settings.mastery_threshold)
 
-    async def is_at_risk(self, user_id: uuid.UUID, chapter_id: str) -> bool:
-        """Returns True if the student is struggling across the chapter."""
+    async def is_at_risk(self, user_id: uuid.UUID, unit_id: str) -> bool:
+        """Returns True if the student is struggling across the unit."""
         records = await self._mastery.get_all_for_user(user_id)
-        chapter_records = [r for r in records if r.chapter_id == chapter_id]
+        chapter_records = [r for r in records if r.unit_id == unit_id]
         if not chapter_records:
             return False
         eligible = [
@@ -310,8 +310,8 @@ def _to_mastery_state(record: SkillMastery, threshold: float) -> MasteryState:
     cat = record.category_scores or {}
     return MasteryState(
         user_id=record.user_id,
-        chapter_id=record.chapter_id,
-        topic_index=record.topic_index,
+        unit_id=record.unit_id,
+        lesson_index=record.lesson_index,
         mastery_score=record.mastery_score,
         attempts_count=record.attempts_count,
         consecutive_correct=record.consecutive_correct,

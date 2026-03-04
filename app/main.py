@@ -9,9 +9,9 @@ from app.core.config import get_settings
 from app.core.logging import configure_logging, get_logger
 from app.infrastructure.database.connection import engine, run_migrations
 from app.api.v1.routers import mastery, analytics
-from app.api.v1.routers import chapters, classrooms, students, problems
+from app.api.v1.routers import units, classrooms, students, problems
 from app.api.v1.routers import auth
-from app.api.v1.routers.chapters import curriculum_router
+from app.api.v1.routers.units import curriculum_router
 
 configure_logging()
 logger = get_logger(__name__)
@@ -116,7 +116,7 @@ app.include_router(analytics.router, prefix=prefix, tags=["Analytics"])
 app.include_router(problems.router, prefix=prefix, tags=["Problems"])
 
 # Content catalog
-app.include_router(chapters.router, prefix=prefix, tags=["Chapters"])
+app.include_router(units.router, prefix=prefix, tags=["Units"])
 app.include_router(curriculum_router, prefix=prefix, tags=["Curriculum"])
 
 # Classroom management

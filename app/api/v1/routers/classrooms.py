@@ -46,7 +46,7 @@ async def create_classroom(
     classroom = Classroom(
         name=req.name,
         teacher_id=req.teacher_id,
-        chapter_id=req.chapter_id,
+        unit_id=req.unit_id,
         code="",  # will be set by create_with_code
     )
     created = await repo.create_with_code(classroom)
@@ -54,7 +54,7 @@ async def create_classroom(
         id=created.id,
         name=created.name,
         teacher_id=created.teacher_id,
-        chapter_id=created.chapter_id,
+        unit_id=created.unit_id,
         code=created.code,
         is_active=created.is_active,
         student_count=0,
@@ -74,7 +74,7 @@ async def list_teacher_classrooms(
             id=c.id,
             name=c.name,
             code=c.code,
-            chapter_id=c.chapter_id,
+            unit_id=c.unit_id,
             student_count=len(c.students),
             is_active=c.is_active,
         )
@@ -95,7 +95,7 @@ async def get_classroom(
         id=classroom.id,
         name=classroom.name,
         teacher_id=classroom.teacher_id,
-        chapter_id=classroom.chapter_id,
+        unit_id=classroom.unit_id,
         code=classroom.code,
         is_active=classroom.is_active,
         student_count=len(classroom.students),
@@ -126,7 +126,7 @@ async def join_classroom(
     return JoinClassroomResponse(
         classroom_id=classroom.id,
         classroom_name=classroom.name,
-        chapter_id=classroom.chapter_id,
+        unit_id=classroom.unit_id,
     )
 
 
@@ -142,7 +142,7 @@ async def list_student_classrooms(
             id=c.id,
             name=c.name,
             code=c.code,
-            chapter_id=c.chapter_id,
+            unit_id=c.unit_id,
             student_count=0,  # lightweight response
             is_active=c.is_active,
         )

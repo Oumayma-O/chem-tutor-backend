@@ -11,6 +11,7 @@ from app.core.logging import get_logger
 from app.domain.schemas.mastery import (
     CategoryScores,
     CompleteAttemptRequest,
+    LessonProgressOut,
     MasteryState,
     ProgressionDecision,
     ResumeAttemptResponse,
@@ -18,7 +19,6 @@ from app.domain.schemas.mastery import (
     SetTopicStatusRequest,
     StartAttemptRequest,
     StartAttemptResponse,
-    TopicProgressOut,
     UnlockLevel3Response,
 )
 from app.infrastructure.database.connection import get_db
@@ -49,8 +49,8 @@ async def start_attempt(
 ) -> StartAttemptResponse:
     attempt = await service.start_attempt(
         user_id=req.user_id,
-        chapter_id=req.chapter_id,
-        topic_index=req.topic_index,
+        unit_id=req.unit_id,
+        lesson_index=req.lesson_index,
         problem_id=req.problem_id,
         difficulty=req.difficulty,
         level=req.level,
@@ -68,8 +68,8 @@ async def complete_attempt(
         return await service.complete_attempt(
             attempt_id=req.attempt_id,
             user_id=req.user_id,
-            chapter_id=req.chapter_id,
-            topic_index=req.topic_index,
+            unit_id=req.unit_id,
+            lesson_index=req.lesson_index,
             score=req.score,
             step_log=req.step_log,
             level=req.level,
@@ -99,24 +99,24 @@ async def save_step(
 
 
 @router.get(
-    "/users/{user_id}/chapters/{chapter_id}/topics/{topic_index}/resume",
+    "/users/{user_id}/units/{unit_id}/lessons/{lesson_index}/resume",
     response_model=ResumeAttemptResponse,
 )
 async def resume_attempt(
     user_id: uuid.UUID,
-    chapter_id: str,
-    topic_index: int,
+    unit_id: str,
+    lesson_index: int,
     level: int,
     db: AsyncSession = Depends(get_db),
 ) -> ResumeAttemptResponse:
     """
-    Return the student's latest in-progress attempt for a topic/level.
+    Return the student's latest in-progress attempt for a lesson/level.
 
     The frontend calls this on load to restore UI state (completed steps, answers).
     Returns 404 if there is no in-progress attempt.
     """
     repo = AttemptRepository(db)
-    attempt = await repo.get_in_progress(user_id, chapter_id, topic_index, level)
+    attempt = await repo.get_in_progress(user_id, unit_id, lesson_index, level)
     if attempt is None:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -130,21 +130,21 @@ async def resume_attempt(
     )
 
 
-@router.get("/users/{user_id}/chapters/{chapter_id}/topics/{topic_index}", response_model=MasteryState)
+@router.get("/users/{user_id}/units/{unit_id}/lessons/{lesson_index}", response_model=MasteryState)
 async def get_mastery(
     user_id: uuid.UUID,
-    chapter_id: str,
-    topic_index: int,
+    unit_id: str,
+    lesson_index: int,
     service: MasteryService = Depends(_get_mastery_service),
 ) -> MasteryState:
-    """Return mastery state for user/chapter/topic. Returns default (0 attempts, 0% baseline) when no record exists."""
-    state = await service.get_mastery(user_id, chapter_id, topic_index)
+    """Return mastery state for user/unit/lesson. Returns default (0 attempts, 0% baseline) when no record exists."""
+    state = await service.get_mastery(user_id, unit_id, lesson_index)
     if state is None:
         from datetime import datetime
         return MasteryState(
             user_id=user_id,
-            chapter_id=chapter_id,
-            topic_index=topic_index,
+            unit_id=unit_id,
+            lesson_index=lesson_index,
             mastery_score=0.0,
             attempts_count=0,
             consecutive_correct=0,
@@ -162,77 +162,77 @@ async def get_mastery(
     return state
 
 
-# ── Topic Progress endpoints ───────────────────────────────────
+# ── Lesson Progress endpoints ───────────────────────────────────
 
 @router.get(
     "/users/{user_id}/progress",
-    response_model=list[TopicProgressOut],
+    response_model=list[LessonProgressOut],
 )
 async def get_all_progress(
     user_id: uuid.UUID,
     db: AsyncSession = Depends(get_db),
-) -> list[TopicProgressOut]:
-    """Return all topic progress for a user across every chapter."""
+) -> list[LessonProgressOut]:
+    """Return all lesson progress for a user across every unit."""
     repo = TopicProgressRepository(db)
     records = await repo.get_all_for_user(user_id)
-    return [TopicProgressOut(topic_index=r.topic_index, status=r.status) for r in records]
+    return [LessonProgressOut(lesson_index=r.lesson_index, status=r.status) for r in records]
 
 
 @router.get(
-    "/users/{user_id}/chapters/{chapter_id}/progress",
-    response_model=list[TopicProgressOut],
+    "/users/{user_id}/units/{unit_id}/progress",
+    response_model=list[LessonProgressOut],
 )
-async def get_chapter_progress(
+async def get_unit_progress(
     user_id: uuid.UUID,
-    chapter_id: str,
+    unit_id: str,
     db: AsyncSession = Depends(get_db),
-) -> list[TopicProgressOut]:
-    """Return topic completion statuses for all topics in a chapter."""
+) -> list[LessonProgressOut]:
+    """Return lesson completion statuses for all lessons in a unit."""
     repo = TopicProgressRepository(db)
-    records = await repo.get_chapter_progress(user_id, chapter_id)
-    return [TopicProgressOut(topic_index=r.topic_index, status=r.status) for r in records]
+    records = await repo.get_chapter_progress(user_id, unit_id)
+    return [LessonProgressOut(lesson_index=r.lesson_index, status=r.status) for r in records]
 
 
 @router.patch(
-    "/users/{user_id}/chapters/{chapter_id}/topics/{topic_index}/status",
-    response_model=TopicProgressOut,
+    "/users/{user_id}/units/{unit_id}/lessons/{lesson_index}/status",
+    response_model=LessonProgressOut,
 )
-async def set_topic_status(
+async def set_lesson_status(
     user_id: uuid.UUID,
-    chapter_id: str,
-    topic_index: int,
+    unit_id: str,
+    lesson_index: int,
     req: SetTopicStatusRequest,
     db: AsyncSession = Depends(get_db),
-) -> TopicProgressOut:
-    """Upsert a topic's completion status (not-started / in-progress / completed)."""
+) -> LessonProgressOut:
+    """Upsert a lesson's completion status (not-started / in-progress / completed)."""
     repo = TopicProgressRepository(db)
-    record = await repo.upsert_status(user_id, chapter_id, topic_index, req.status)
-    return TopicProgressOut(topic_index=record.topic_index, status=record.status)
+    record = await repo.upsert_status(user_id, unit_id, lesson_index, req.status)
+    return LessonProgressOut(lesson_index=record.lesson_index, status=record.status)
 
 
 @router.post(
-    "/users/{user_id}/chapters/{chapter_id}/topics/{topic_index}/unlock-level3",
+    "/users/{user_id}/units/{unit_id}/lessons/{lesson_index}/unlock-level3",
     response_model=UnlockLevel3Response,
 )
 async def unlock_level3(
     user_id: uuid.UUID,
-    chapter_id: str,
-    topic_index: int,
+    unit_id: str,
+    lesson_index: int,
     db: AsyncSession = Depends(get_db),
 ) -> UnlockLevel3Response:
     """
-    Permanently mark Level 3 as unlocked for a student/topic.
+    Permanently mark Level 3 as unlocked for a student/lesson.
     One-way latch — cannot be reversed.
     """
     from datetime import datetime
     now = datetime.utcnow()
     repo = MasteryRepository(db)
-    existing = await repo.get_for_topic(user_id, chapter_id, topic_index)
+    existing = await repo.get_for_topic(user_id, unit_id, lesson_index)
     if existing is None:
         new_mastery = SkillMastery(
             user_id=user_id,
-            chapter_id=chapter_id,
-            topic_index=topic_index,
+            unit_id=unit_id,
+            lesson_index=lesson_index,
             mastery_score=0.0,
             attempts_count=0,
             consecutive_correct=0,

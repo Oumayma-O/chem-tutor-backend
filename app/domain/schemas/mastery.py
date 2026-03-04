@@ -8,8 +8,8 @@ from pydantic import BaseModel, Field
 class StartAttemptRequest(BaseModel):
     user_id: uuid.UUID
     class_id: uuid.UUID | None = None
-    chapter_id: str
-    topic_index: int
+    unit_id: str
+    lesson_index: int
     problem_id: str
     difficulty: str = "medium"
     level: int = Field(default=2, ge=1, le=3)
@@ -22,8 +22,8 @@ class StartAttemptResponse(BaseModel):
 class CompleteAttemptRequest(BaseModel):
     attempt_id: uuid.UUID
     user_id: uuid.UUID
-    chapter_id: str
-    topic_index: int
+    unit_id: str
+    lesson_index: int
     score: float = Field(ge=0.0, le=1.0)
     step_log: list[dict]
     level: int = Field(default=2, ge=1, le=3)
@@ -39,8 +39,8 @@ class CategoryScores(BaseModel):
 
 class MasteryState(BaseModel):
     user_id: uuid.UUID
-    chapter_id: str
-    topic_index: int
+    unit_id: str
+    lesson_index: int
     mastery_score: float
     attempts_count: int
     consecutive_correct: int
@@ -54,7 +54,7 @@ class MasteryState(BaseModel):
     has_mastered: bool           # True if mastery_score >= threshold
     level3_unlocked: bool        # Permanently True once unlocked — never reverts
     level3_unlocked_at: datetime | None
-    should_advance: bool         # True if ready to move to next topic
+    should_advance: bool         # True if ready to move to next lesson
     recommended_difficulty: str
 
 
@@ -68,11 +68,15 @@ class ProgressionDecision(BaseModel):
     feedback_message: str
 
 
-# ── Topic Progress ────────────────────────────────────────────
+# ── Lesson Progress ────────────────────────────────────────────
 
-class TopicProgressOut(BaseModel):
-    topic_index: int
+class LessonProgressOut(BaseModel):
+    lesson_index: int
     status: Literal["not-started", "in-progress", "completed"]
+
+
+# Backward-compat alias
+TopicProgressOut = LessonProgressOut
 
 
 class SetTopicStatusRequest(BaseModel):

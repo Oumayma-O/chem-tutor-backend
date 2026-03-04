@@ -57,8 +57,8 @@ class ProblemOutput(BaseModel):
 
 class GenerateProblemRequest(BaseModel):
     user_id: uuid.UUID | None = None   # enables playlist tracking when provided
-    chapter_id: str
-    topic_index: int
+    unit_id: str
+    lesson_index: int
     topic_name: str
     difficulty: Literal["easy", "medium", "hard"] = "medium"
     level: int = Field(default=2, ge=1, le=3)
@@ -106,7 +106,7 @@ class ReferenceCardOutput(BaseModel):
     Design rule: no numbers, no worked examples — just the general method.
     """
     topic: str
-    chapter_id: str
-    topic_index: int
+    unit_id: str
+    lesson_index: int
     steps: list[ReferenceStepCard] = Field(min_length=5, max_length=5)
     hint: str = "Apply this general approach to the current problem!"

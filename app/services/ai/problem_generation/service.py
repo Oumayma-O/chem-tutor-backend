@@ -68,8 +68,8 @@ class ProblemGenerationService:
     @_retry
     async def generate(
         self,
-        chapter_id: str,
-        topic_index: int,
+        unit_id: str,
+        lesson_index: int,
         topic_name: str,
         level: Literal[1, 2, 3] = 2,
         difficulty: Literal["easy", "medium", "hard"] = "medium",
@@ -83,7 +83,7 @@ class ProblemGenerationService:
             level_block=prompts.get_level_block(level),
             difficulty=difficulty,
             topic_name=topic_name,
-            chapter_id=chapter_id,
+            chapter_id=unit_id,
             focus_areas_block=f"FOCUS AREAS: {', '.join(focus_areas)}" if focus_areas else "",
             problem_style_block=f"PROBLEM STYLE: {problem_style}" if problem_style else "",
             interest_block=(
@@ -92,7 +92,7 @@ class ProblemGenerationService:
             ),
             grade_block=f"Student grade level: {grade_level}." if grade_level else "",
             rag_block=_format_rag(rag_context),
-        ) + prompts.get_few_shot_block(chapter_id, topic_index, difficulty)
+        ) + prompts.get_few_shot_block(unit_id, lesson_index, difficulty)
 
         messages = [
             {"role": "system", "content": system},
@@ -107,8 +107,8 @@ class ProblemGenerationService:
         logger.info(
             "problem_generated",
             provider=self.provider_name, model=self.model_name,
-            execution_time_s=elapsed_s, chapter=chapter_id,
-            topic=topic_index, level=level, difficulty=difficulty,
+            execution_time_s=elapsed_s, unit=unit_id,
+            lesson=lesson_index, level=level, difficulty=difficulty,
         )
         return problem
 

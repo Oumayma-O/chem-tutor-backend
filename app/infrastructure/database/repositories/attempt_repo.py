@@ -16,16 +16,16 @@ class AttemptRepository(BaseRepository[ProblemAttempt]):
     async def get_user_attempts(
         self,
         user_id: uuid.UUID,
-        chapter_id: str,
-        topic_index: int,
+        unit_id: str,
+        lesson_index: int,
         limit: int = 20,
     ) -> Sequence[ProblemAttempt]:
         result = await self._session.execute(
             select(ProblemAttempt)
             .where(
                 ProblemAttempt.user_id == user_id,
-                ProblemAttempt.chapter_id == chapter_id,
-                ProblemAttempt.topic_index == topic_index,
+                ProblemAttempt.unit_id == unit_id,
+                ProblemAttempt.lesson_index == lesson_index,
             )
             .order_by(ProblemAttempt.started_at.desc())
             .limit(limit)
@@ -35,8 +35,8 @@ class AttemptRepository(BaseRepository[ProblemAttempt]):
     async def get_recent_scores(
         self,
         user_id: uuid.UUID,
-        chapter_id: str,
-        topic_index: int,
+        unit_id: str,
+        lesson_index: int,
         window: int = 5,
     ) -> list[float]:
         """Returns up to `window` most recent scores for mastery computation."""
@@ -44,8 +44,8 @@ class AttemptRepository(BaseRepository[ProblemAttempt]):
             select(ProblemAttempt.score)
             .where(
                 ProblemAttempt.user_id == user_id,
-                ProblemAttempt.chapter_id == chapter_id,
-                ProblemAttempt.topic_index == topic_index,
+                ProblemAttempt.unit_id == unit_id,
+                ProblemAttempt.lesson_index == lesson_index,
                 ProblemAttempt.is_complete == True,
                 ProblemAttempt.score.is_not(None),
             )
@@ -87,17 +87,17 @@ class AttemptRepository(BaseRepository[ProblemAttempt]):
     async def get_in_progress(
         self,
         user_id: uuid.UUID,
-        chapter_id: str,
-        topic_index: int,
+        unit_id: str,
+        lesson_index: int,
         level: int,
     ) -> ProblemAttempt | None:
-        """Return the latest incomplete attempt for a (user, chapter, topic, level) slot."""
+        """Return the latest incomplete attempt for a (user, unit, lesson, level) slot."""
         result = await self._session.execute(
             select(ProblemAttempt)
             .where(
                 ProblemAttempt.user_id == user_id,
-                ProblemAttempt.chapter_id == chapter_id,
-                ProblemAttempt.topic_index == topic_index,
+                ProblemAttempt.unit_id == unit_id,
+                ProblemAttempt.lesson_index == lesson_index,
                 ProblemAttempt.level == level,
                 ProblemAttempt.is_complete == False,  # noqa: E712
             )
@@ -109,16 +109,16 @@ class AttemptRepository(BaseRepository[ProblemAttempt]):
     async def get_class_attempts(
         self,
         class_id: uuid.UUID,
-        chapter_id: str,
-        topic_index: int | None = None,
+        unit_id: str,
+        lesson_index: int | None = None,
     ) -> Sequence[ProblemAttempt]:
         q = select(ProblemAttempt).where(
             ProblemAttempt.class_id == class_id,
-            ProblemAttempt.chapter_id == chapter_id,
+            ProblemAttempt.unit_id == unit_id,
             ProblemAttempt.is_complete == True,
         )
-        if topic_index is not None:
-            q = q.where(ProblemAttempt.topic_index == topic_index)
+        if lesson_index is not None:
+            q = q.where(ProblemAttempt.lesson_index == lesson_index)
         result = await self._session.execute(q.order_by(ProblemAttempt.completed_at.desc()))
         return result.scalars().all()
 
@@ -130,27 +130,27 @@ class MisconceptionRepository(BaseRepository[MisconceptionLog]):
     async def get_class_misconceptions(
         self,
         class_id: uuid.UUID,
-        chapter_id: str,
-        topic_index: int | None = None,
+        unit_id: str,
+        lesson_index: int | None = None,
     ) -> Sequence[MisconceptionLog]:
         q = select(MisconceptionLog).where(
             MisconceptionLog.class_id == class_id,
-            MisconceptionLog.chapter_id == chapter_id,
+            MisconceptionLog.unit_id == unit_id,
         )
-        if topic_index is not None:
-            q = q.where(MisconceptionLog.topic_index == topic_index)
+        if lesson_index is not None:
+            q = q.where(MisconceptionLog.lesson_index == lesson_index)
         result = await self._session.execute(q)
         return result.scalars().all()
 
     async def get_user_error_counts(
-        self, user_id: uuid.UUID, chapter_id: str
+        self, user_id: uuid.UUID, unit_id: str
     ) -> dict[str, int]:
-        """Returns {category: count} for a student in a chapter."""
+        """Returns {category: count} for a student in a unit."""
         result = await self._session.execute(
             select(MisconceptionLog.error_category)
             .where(
                 MisconceptionLog.user_id == user_id,
-                MisconceptionLog.chapter_id == chapter_id,
+                MisconceptionLog.unit_id == unit_id,
             )
         )
         counts: dict[str, int] = {}

@@ -15,7 +15,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.domain.schemas.tutor.problems import ReferenceCardOutput
 from app.infrastructure.database.connection import get_db
-from app.infrastructure.database.repositories.chapter_repo import TopicRepository
+from app.infrastructure.database.repositories.unit_repo import LessonRepository
 from app.services.ai.reference_card.service import generate_reference_card
 
 router = APIRouter()
@@ -23,41 +23,41 @@ router = APIRouter()
 
 @router.get("/reference-card", response_model=ReferenceCardOutput)
 async def get_reference_card(
-    chapter_id: str,
-    topic_index: int,
+    unit_id: str,
+    lesson_index: int,
     topic_name: str,
     db: AsyncSession = Depends(get_db),
 ) -> ReferenceCardOutput:
     """
-    Return the study reference card for a topic.
+    Return the study reference card for a lesson.
 
     - If the card is already cached in the DB it is returned instantly (< 5 ms).
-    - On first call for a topic the LLM generates it (~2 s) and it is persisted.
+    - On first call for a lesson the LLM generates it (~2 s) and it is persisted.
 
     Query params:
-      chapter_id  — chapter slug, e.g. `chemical-kinetics`
-      topic_index — 0-based topic index within the chapter
-      topic_name  — human-readable name used only when generating (e.g. `Zero-Order Kinetics`)
+      unit_id      — unit slug, e.g. `unit-gas-laws`
+      lesson_index — 0-based lesson index within the unit
+      topic_name   — human-readable name used only when generating (e.g. `Boyle's Law`)
     """
-    repo = TopicRepository(db)
-    topic = await repo.get_by_index(chapter_id, topic_index)
+    repo = LessonRepository(db)
+    lesson = await repo.get_by_index(unit_id, lesson_index)
 
     # ── Cache hit ──────────────────────────────────────────────
-    if topic is not None and topic.reference_card_json:
-        return ReferenceCardOutput.model_validate(topic.reference_card_json)
+    if lesson is not None and lesson.reference_card_json:
+        return ReferenceCardOutput.model_validate(lesson.reference_card_json)
 
     # ── LLM generation ────────────────────────────────────────
-    key_equations: list[str] = (topic.key_equations or []) if topic else []
+    key_equations: list[str] = (lesson.key_equations or []) if lesson else []
 
     card = await generate_reference_card(
         topic_name=topic_name,
-        chapter_id=chapter_id,
-        topic_index=topic_index,
+        unit_id=unit_id,
+        lesson_index=lesson_index,
         key_equations=key_equations if key_equations else None,
     )
 
-    # Persist if the topic row exists in the DB
-    if topic is not None:
-        await repo.save_reference_card(chapter_id, topic_index, card.model_dump())
+    # Persist if the lesson row exists in the DB
+    if lesson is not None:
+        await repo.save_reference_card(unit_id, lesson_index, card.model_dump())
 
     return card

@@ -11,7 +11,7 @@ from app.domain.schemas.tutor import ProblemDeliveryResponse, ProblemOutput
 from app.infrastructure.database.connection import get_db
 from app.infrastructure.database.repositories.playlist_repo import (
     MAX_PROBLEMS_PER_LEVEL,
-    UserTopicPlaylistRepository,
+    UserLessonPlaylistRepository,
 )
 from app.services.ai.problem_generation.service import enforce_step_types
 
@@ -20,8 +20,8 @@ router = APIRouter()
 
 class NavigateProblemRequest(BaseModel):
     user_id: uuid.UUID
-    chapter_id: str
-    topic_index: int
+    unit_id: str
+    lesson_index: int
     level: int
     difficulty: Literal["easy", "medium", "hard"] = "medium"
     direction: Literal["prev", "next"]
@@ -42,9 +42,9 @@ async def navigate_problem(
     Returns 404 if no playlist exists yet.
     Returns 400 if already at the boundary.
     """
-    repo = UserTopicPlaylistRepository(db)
+    repo = UserLessonPlaylistRepository(db)
     playlist = await repo.get(
-        req.user_id, req.chapter_id, req.topic_index, req.level, req.difficulty
+        req.user_id, req.unit_id, req.lesson_index, req.level, req.difficulty
     )
 
     if not playlist or not playlist.problems:

@@ -17,18 +17,18 @@ from app.services.ai.reference_card.prompts import FEW_SHOT_EXAMPLES, REFERENCE_
 
 async def generate_reference_card(
     topic_name: str,
-    chapter_id: str,
-    topic_index: int,
+    unit_id: str,
+    lesson_index: int,
     key_equations: list[str] | None = None,
 ) -> ReferenceCardOutput:
     """
-    Call the LLM chain to generate a conceptual reference card for a topic.
+    Call the LLM chain to generate a conceptual reference card for a lesson.
 
     Args:
-        topic_name:    Human-readable topic name, e.g. "Zero-Order Kinetics".
-        chapter_id:    Chapter slug, e.g. "chemical-kinetics".
-        topic_index:   0-based topic index within the chapter.
-        key_equations: Optional list of canonical equations stored on the Topic
+        topic_name:    Human-readable lesson name, e.g. "Boyle's Law".
+        unit_id:       Unit slug, e.g. "unit-gas-laws".
+        lesson_index:  0-based lesson index within the unit.
+        key_equations: Optional list of canonical equations stored on the Lesson
                        row — injected into the prompt so the LLM uses them verbatim.
 
     Returns:
@@ -44,7 +44,7 @@ async def generate_reference_card(
 
     user_prompt = (
         f"Generate a reference card for topic '{topic_name}' "
-        f"(chapter_id='{chapter_id}', topic_index={topic_index}).{equation_hint}"
+        f"(unit_id='{unit_id}', lesson_index={lesson_index}).{equation_hint}"
     )
 
     # Build few-shot message sequence
@@ -56,6 +56,6 @@ async def generate_reference_card(
 
     result: ReferenceCardOutput = await structured_llm.ainvoke(messages)
     # Ensure metadata fields match the request (guard against hallucination)
-    result.chapter_id = chapter_id
-    result.topic_index = topic_index
+    result.unit_id = unit_id
+    result.lesson_index = lesson_index
     return result

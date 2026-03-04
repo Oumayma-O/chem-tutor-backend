@@ -17,8 +17,8 @@ class ProblemCacheRepository(BaseRepository[ProblemCache]):
 
     async def find(
         self,
-        chapter_id: str,
-        topic_index: int,
+        unit_id: str,
+        lesson_index: int,
         difficulty: str,
         level: int,
         context_tag: str | None = None,
@@ -29,8 +29,8 @@ class ProblemCacheRepository(BaseRepository[ProblemCache]):
         """
         now = datetime.utcnow()
         q = select(ProblemCache).where(
-            ProblemCache.chapter_id == chapter_id,
-            ProblemCache.topic_index == topic_index,
+            ProblemCache.unit_id == unit_id,
+            ProblemCache.lesson_index == lesson_index,
             ProblemCache.difficulty == difficulty,
             ProblemCache.level == level,
         )
@@ -39,7 +39,6 @@ class ProblemCacheRepository(BaseRepository[ProblemCache]):
             (ProblemCache.expires_at == None) | (ProblemCache.expires_at > now)  # noqa: E711
         )
         if context_tag is not None:
-            # Try exact match first; caller picks randomly for variety
             q = q.where(ProblemCache.context_tag == context_tag)
         else:
             q = q.where(ProblemCache.context_tag == None)  # noqa: E711
@@ -49,8 +48,8 @@ class ProblemCacheRepository(BaseRepository[ProblemCache]):
 
     async def pick_random(
         self,
-        chapter_id: str,
-        topic_index: int,
+        unit_id: str,
+        lesson_index: int,
         difficulty: str,
         level: int,
         context_tag: str | None = None,
@@ -67,12 +66,12 @@ class ProblemCacheRepository(BaseRepository[ProblemCache]):
                 return random.choice(unseen if unseen else rows)
             return random.choice(rows)
 
-        rows = await self.find(chapter_id, topic_index, difficulty, level, context_tag)
+        rows = await self.find(unit_id, lesson_index, difficulty, level, context_tag)
         if rows:
             return _pick(list(rows))
 
         if context_tag is not None:
-            generic = await self.find(chapter_id, topic_index, difficulty, level, None)
+            generic = await self.find(unit_id, lesson_index, difficulty, level, None)
             if generic:
                 return _pick(list(generic))
 
@@ -80,8 +79,8 @@ class ProblemCacheRepository(BaseRepository[ProblemCache]):
 
     async def save(
         self,
-        chapter_id: str,
-        topic_index: int,
+        unit_id: str,
+        lesson_index: int,
         difficulty: str,
         level: int,
         context_tag: str | None,
@@ -89,8 +88,8 @@ class ProblemCacheRepository(BaseRepository[ProblemCache]):
         expires_at: datetime | None = None,
     ) -> ProblemCache:
         entry = ProblemCache(
-            chapter_id=chapter_id,
-            topic_index=topic_index,
+            unit_id=unit_id,
+            lesson_index=lesson_index,
             difficulty=difficulty,
             level=level,
             context_tag=context_tag,
@@ -103,11 +102,11 @@ class ProblemCacheRepository(BaseRepository[ProblemCache]):
 
     async def count(
         self,
-        chapter_id: str,
-        topic_index: int,
+        unit_id: str,
+        lesson_index: int,
         difficulty: str,
         level: int,
         context_tag: str | None = None,
     ) -> int:
-        rows = await self.find(chapter_id, topic_index, difficulty, level, context_tag)
+        rows = await self.find(unit_id, lesson_index, difficulty, level, context_tag)
         return len(rows)
