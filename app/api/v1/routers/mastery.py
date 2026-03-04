@@ -173,9 +173,13 @@ async def get_all_progress(
     db: AsyncSession = Depends(get_db),
 ) -> list[LessonProgressOut]:
     """Return all lesson progress for a user across every unit."""
-    repo = TopicProgressRepository(db)
-    records = await repo.get_all_for_user(user_id)
-    return [LessonProgressOut(lesson_index=r.lesson_index, status=r.status) for r in records]
+    try:
+        repo = TopicProgressRepository(db)
+        records = await repo.get_all_for_user(user_id)
+        return [LessonProgressOut(lesson_index=r.lesson_index, status=r.status) for r in records]
+    except Exception as e:
+        logger.warning("get_all_progress_failed", user_id=str(user_id), error=str(e))
+        return []
 
 
 @router.get(

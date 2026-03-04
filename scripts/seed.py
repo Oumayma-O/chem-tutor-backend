@@ -6,11 +6,15 @@ Architecture:
   STANDARD_UNITS  — 15 Standard Chemistry units (non-AP-only lessons)
   AP_UNITS        — 9 College Board AP units (shared + AP-only lessons)
   unit_lessons    — junction table for per-unit lesson ordering
+  STANDARD_PHASES — 5 Standard Chemistry phases
+  AP_PHASES       — 5 AP Chemistry phases
 
-Run after migrations:
-  python -m scripts.seed
+Usage:
+  python -m scripts.seed           # idempotent upsert
+  python -m scripts.seed --clean   # wipe everything and reseed from scratch
 """
 
+import argparse
 import asyncio
 import os
 import sys
@@ -21,7 +25,7 @@ from sqlalchemy import delete, select, text
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
 from app.core.config import get_settings
-from app.infrastructure.database.models import Course, Grade, Interest, Lesson, Unit, UnitLesson
+from app.infrastructure.database.models import Course, Grade, Interest, Lesson, Phase, Unit, UnitLesson
 
 settings = get_settings()
 
@@ -214,6 +218,22 @@ INTERESTS = [
 KEEP_UNIT_IDS = {u["id"] for u in STANDARD_UNITS} | {u["id"] for u in AP_UNITS}
 KEEP_COURSE_NAMES = {"Standard Chemistry", "AP Chemistry"}
 
+STANDARD_PHASES = [
+    {"name": "Phase 1: The Basics",        "description": "Foundational tools: measurement, dimensional analysis, and the mole.", "sort_order": 0, "color": "#6366f1", "units": [("unit-intro-chem", 0), ("unit-dimensional-analysis", 1), ("unit-mole", 2)]},
+    {"name": "Phase 2: Atomic Level",       "description": "Atomic theory, electron configurations, and periodic trends.",        "sort_order": 1, "color": "#8b5cf6", "units": [("unit-atomic-theory", 0), ("unit-electrons", 1), ("unit-periodic-table", 2)]},
+    {"name": "Phase 3: Building Molecules", "description": "Nomenclature, chemical bonding, KMT, and gas laws.",                  "sort_order": 2, "color": "#f59e0b", "units": [("unit-nomenclature", 0), ("unit-bonding", 1), ("unit-kinetic-theory", 2), ("unit-gas-laws", 3)]},
+    {"name": "Phase 4: The Core Reactions", "description": "Reaction types, stoichiometry, and solutions.",                       "sort_order": 3, "color": "#ef4444", "units": [("unit-chemical-reactions", 0), ("unit-stoichiometry", 1), ("unit-solutions", 2)]},
+    {"name": "Phase 5: Energy & Advanced",  "description": "Thermochemistry and nuclear chemistry.",                              "sort_order": 4, "color": "#10b981", "units": [("unit-thermochem", 0), ("unit-nuclear-chem", 1)]},
+]
+
+AP_PHASES = [
+    {"name": "Phase 1: Foundations of Matter",  "description": "Atomic structure, compound structure, mass spec, PES, hybridization.",       "sort_order": 0, "color": "#6366f1", "units": [("ap-unit-1", 0), ("ap-unit-2", 1)]},
+    {"name": "Phase 2: States & Interactions",  "description": "Intermolecular forces, gas laws, real gases, Beer's law, net ionic eqs.",   "sort_order": 1, "color": "#8b5cf6", "units": [("ap-unit-3", 0), ("ap-unit-4", 1)]},
+    {"name": "Phase 3: Reaction Dynamics",      "description": "Rate laws, mechanisms, calorimetry, Hess's law, bond enthalpies.",          "sort_order": 2, "color": "#f59e0b", "units": [("ap-unit-5", 0), ("ap-unit-6", 1)]},
+    {"name": "Phase 4: Chemical Equilibrium",   "description": "Ksp, Le Chatelier, buffers, titrations, polyprotic acids.",                 "sort_order": 3, "color": "#ef4444", "units": [("ap-unit-7", 0), ("ap-unit-8", 1)]},
+    {"name": "Phase 5: Entropy & Electrons",    "description": "Gibbs free energy, galvanic/electrolytic cells, Faraday's laws.",           "sort_order": 4, "color": "#10b981", "units": [("ap-unit-9", 0)]},
+]
+
 
 # ══════════════════════════════════════════════════════════════
 # SEED FUNCTIONS
@@ -309,6 +329,13 @@ async def seed(session: AsyncSession) -> None:
     print("\n─── AP Chemistry unit_lessons ───")
     await _seed_unit_lessons(session, AP_UNITS, slug_to_lesson_id)
 
+    # ── Phase seeding ───────────────────────────────────────────
+    print("\n─── Standard Chemistry Phases ───")
+    await _seed_phases(session, std_course.id, STANDARD_PHASES)
+
+    print("\n─── AP Chemistry Phases ───")
+    await _seed_phases(session, ap_course.id, AP_PHASES)
+
     print("\n✅  Seed complete!")
 
 
@@ -362,30 +389,104 @@ async def _seed_unit_lessons(
         print(f"  {u['id']}: {len(lesson_ids)} lessons")
 
 
+async def _seed_phases(session: AsyncSession, course_id: int, phase_defs: list[dict]) -> None:
+    """Upsert phases for a course and assign units."""
+    for p in phase_defs:
+        phase = await session.scalar(
+            select(Phase).where(Phase.course_id == course_id, Phase.sort_order == p["sort_order"])
+        )
+        if phase is None:
+            phase = Phase(
+                name=p["name"],
+                description=p["description"],
+                course_id=course_id,
+                sort_order=p["sort_order"],
+                color=p["color"],
+            )
+            session.add(phase)
+            await session.flush()
+            print(f"  + {p['name']} (id={phase.id})")
+        else:
+            phase.name = p["name"]
+            phase.description = p["description"]
+            phase.color = p["color"]
+            await session.flush()
+            print(f"  ✓ {p['name']} (id={phase.id})")
+
+        for unit_id, order in p["units"]:
+            unit = await session.get(Unit, unit_id)
+            if unit:
+                unit.phase_id = phase.id
+                unit.order_within_phase = order
+            else:
+                print(f"    [skip] unit '{unit_id}' not in DB")
+    await session.flush()
+
+
 # ══════════════════════════════════════════════════════════════
 # MAIN
 # ══════════════════════════════════════════════════════════════
 
+_TRUNCATE_TABLES = [
+    "classroom_curriculum_overrides",
+    "exit_ticket_responses", "exit_tickets",
+    "misconception_logs", "thinking_tracker_logs",
+    "skill_mastery", "problem_attempts",
+    "user_lesson_playlists", "lesson_progress",
+    "problem_cache", "generation_logs",
+    "unit_lessons", "lesson_standards", "lessons", "units",
+    "phases", "standards", "curriculum_documents",
+    "student_interests", "user_profiles",
+    "classroom_students", "classrooms",
+    "interests", "courses", "grades",
+    "prompt_versions", "users",
+]
+
+
+async def _clean_all(conn) -> None:
+    """TRUNCATE all app tables with CASCADE. Dev only."""
+    print("\n─── Cleaning all data ───")
+    existing = []
+    for t in _TRUNCATE_TABLES:
+        r = await conn.execute(text(
+            "SELECT 1 FROM information_schema.tables WHERE table_name = :t"
+        ), {"t": t})
+        if r.fetchone():
+            existing.append(t)
+    if existing:
+        tables_csv = ", ".join(existing)
+        await conn.execute(text(f"TRUNCATE TABLE {tables_csv} CASCADE"))
+        print(f"  Truncated {len(existing)} tables")
+    else:
+        print("  No tables to clean")
+
+
 async def main() -> None:
-    engine = create_async_engine(settings.database_url, echo=False)
+    parser = argparse.ArgumentParser(description="Seed the database")
+    parser.add_argument("--clean", action="store_true", help="Wipe all data first, then reseed")
+    args = parser.parse_args()
+
+    eng = create_async_engine(settings.database_url, echo=False)
 
     # Ensure columns exist (idempotent, runs before ORM)
-    async with engine.begin() as conn:
+    async with eng.begin() as conn:
         await conn.execute(text("ALTER TABLE lessons ADD COLUMN IF NOT EXISTS slug VARCHAR(100)"))
         await conn.execute(text("ALTER TABLE lessons ADD COLUMN IF NOT EXISTS is_ap_only BOOLEAN NOT NULL DEFAULT FALSE"))
         await conn.execute(text("ALTER TABLE lessons ADD COLUMN IF NOT EXISTS objectives JSONB DEFAULT '[]'"))
-        # Backfill slugs for any un-slugged rows so NOT NULL constraint doesn't break
         await conn.execute(text("UPDATE lessons SET slug = 'L-legacy-' || id::text WHERE slug IS NULL"))
         await conn.execute(text("ALTER TABLE lessons ALTER COLUMN slug SET NOT NULL"))
 
-    await engine.dispose()
+        if args.clean:
+            await _clean_all(conn)
 
-    engine = create_async_engine(settings.database_url, echo=False)
-    async_session = async_sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
+    await eng.dispose()
+
+    eng = create_async_engine(settings.database_url, echo=False)
+    async_session = async_sessionmaker(eng, class_=AsyncSession, expire_on_commit=False)
     async with async_session() as session:
         async with session.begin():
             await seed(session)
-    await engine.dispose()
+    await eng.dispose()
 
 
 if __name__ == "__main__":

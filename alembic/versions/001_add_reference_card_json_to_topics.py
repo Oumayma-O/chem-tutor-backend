@@ -16,11 +16,18 @@ depends_on = None
 
 
 def upgrade() -> None:
-    op.add_column(
-        "topics",
-        sa.Column("reference_card_json", JSONB(), nullable=True),
-    )
+    # Skip if "topics" table doesn't exist (legacy schema; current schema uses "lessons")
+    try:
+        op.add_column(
+            "topics",
+            sa.Column("reference_card_json", JSONB(), nullable=True),
+        )
+    except Exception:
+        pass  # Table may not exist; safe to skip
 
 
 def downgrade() -> None:
-    op.drop_column("topics", "reference_card_json")
+    try:
+        op.drop_column("topics", "reference_card_json")
+    except Exception:
+        pass  # Table may not exist; safe to skip
