@@ -5,8 +5,9 @@ Table groups:
   - Auth              : users (email/password auth)
   - Lookup data       : grades, courses, interests
   - User profiles     : user_profiles, student_interests
-  - Content catalog   : units, lessons, standards, lesson_standards
-  - Classrooms        : classrooms, classroom_students
+  - Content catalog   : phases, units, lessons, standards, lesson_standards
+  - Classrooms        : classrooms, classroom_students,
+                        classroom_curriculum_overrides
   - Problem cache     : problem_cache
   - Learning state    : problem_attempts, skill_mastery,
                         misconception_logs, thinking_tracker_logs
@@ -152,8 +153,45 @@ class StudentInterest(Base):
 
 
 # ══════════════════════════════════════════════════════════════
-# CONTENT CATALOG  (DB tables: units, lessons, standards, lesson_standards)
+# CONTENT CATALOG  (phases, units, lessons, standards, lesson_standards)
 # ══════════════════════════════════════════════════════════════
+
+class Phase(Base):
+    """
+    A curriculum phase groups related units under a named milestone
+    (e.g. 'Phase 1: The Basics').
+
+    Phases are course-specific: AP Chemistry has 9 units across 3 phases;
+    Standard Chemistry has 15+ units across more phases.
+    course_id = NULL means the phase applies to all courses.
+    """
+    __tablename__ = "phases"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    name: Mapped[str] = mapped_column(String(200), nullable=False)
+    description: Mapped[str | None] = mapped_column(Text, nullable=True)
+
+    course_id: Mapped[int | None] = mapped_column(
+        ForeignKey("courses.id"), nullable=True, index=True
+    )
+    sort_order: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+
+    # Optional display color hint (CSS color / Tailwind class)
+    color: Mapped[str | None] = mapped_column(String(50), nullable=True)
+
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now)
+
+    course: Mapped["Course | None"] = relationship()
+    units: Mapped[list["Unit"]] = relationship(
+        back_populates="phase",
+        order_by="Unit.order_within_phase",
+        foreign_keys="Unit.phase_id",
+    )
+
+    __table_args__ = (
+        UniqueConstraint("course_id", "sort_order", name="uq_phase_course_order"),
+    )
+
 
 class Unit(Base):
     """
@@ -171,6 +209,13 @@ class Unit(Base):
     grade_id: Mapped[int | None] = mapped_column(ForeignKey("grades.id"), nullable=True)
     course_id: Mapped[int | None] = mapped_column(ForeignKey("courses.id"), nullable=True)
 
+    # Phase grouping — nullable so existing rows survive the migration
+    phase_id: Mapped[int | None] = mapped_column(
+        ForeignKey("phases.id", ondelete="SET NULL"), nullable=True, index=True
+    )
+    # Position within the phase (0-based).  Falls back to sort_order when NULL.
+    order_within_phase: Mapped[int | None] = mapped_column(Integer, nullable=True)
+
     sort_order: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     is_active: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
     is_coming_soon: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
@@ -179,6 +224,9 @@ class Unit(Base):
 
     grade: Mapped["Grade | None"] = relationship(back_populates="units")
     course: Mapped["Course | None"] = relationship(back_populates="units")
+    phase: Mapped["Phase | None"] = relationship(
+        back_populates="units", foreign_keys=[phase_id]
+    )
     unit_lessons: Mapped[list["UnitLesson"]] = relationship(
         back_populates="unit", cascade="all, delete-orphan",
         order_by="UnitLesson.lesson_order",
@@ -186,6 +234,7 @@ class Unit(Base):
 
     __table_args__ = (
         Index("ix_units_grade_course", "grade_id", "course_id"),
+        Index("ix_units_phase", "phase_id"),
     )
 
 
@@ -328,6 +377,64 @@ class ClassroomStudent(Base):
 
     __table_args__ = (
         Index("ix_classroom_students_student", "student_id"),
+    )
+
+
+class ClassroomCurriculumOverride(Base):
+    """
+    Per-classroom overrides on top of the global phase/unit ordering.
+
+    Design intent
+    ─────────────
+    • Content (lessons, videos, text) lives only in `units` / `lessons`.
+    • This table only stores *ordering* and *visibility* overrides.
+    • A missing row means "use global default" — teachers don't need a row
+      for every unit, only for units they've customised.
+
+    Override semantics
+    ──────────────────
+    • phase_id    — move this unit to a different phase for this class.
+                    NULL = keep the unit's default phase.
+    • custom_order — position within the (possibly overridden) phase.
+                    NULL = use unit.order_within_phase.
+    • is_hidden   — exclude unit from students' view entirely.
+    • synced_at   — last time this row was refreshed from global defaults
+                    (used by the "Sync with Global Default" UX action).
+    """
+    __tablename__ = "classroom_curriculum_overrides"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=_uuid)
+
+    classroom_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("classrooms.id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    unit_id: Mapped[str] = mapped_column(
+        String(100),
+        ForeignKey("units.id", ondelete="CASCADE"),
+        nullable=False,
+    )
+
+    # Move unit to a different phase for this classroom (NULL = keep default)
+    phase_id: Mapped[int | None] = mapped_column(
+        ForeignKey("phases.id", ondelete="SET NULL"), nullable=True
+    )
+    # Override display position within the phase (NULL = use unit.order_within_phase)
+    custom_order: Mapped[int | None] = mapped_column(Integer, nullable=True)
+
+    is_hidden: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+
+    synced_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now)
+
+    classroom: Mapped["Classroom"] = relationship()
+    unit: Mapped["Unit"] = relationship()
+    phase: Mapped["Phase | None"] = relationship()
+
+    __table_args__ = (
+        UniqueConstraint("classroom_id", "unit_id", name="uq_cco_classroom_unit"),
+        Index("ix_cco_classroom", "classroom_id"),
+        Index("ix_cco_unit", "unit_id"),
     )
 
 
