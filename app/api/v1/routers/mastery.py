@@ -189,7 +189,7 @@ async def get_unit_progress(
 ) -> list[LessonProgressOut]:
     """Return lesson completion statuses for all lessons in a unit."""
     repo = TopicProgressRepository(db)
-    records = await repo.get_chapter_progress(user_id, unit_id)
+    records = await repo.get_unit_progress(user_id, unit_id)
     return [LessonProgressOut(lesson_index=r.lesson_index, status=r.status) for r in records]
 
 

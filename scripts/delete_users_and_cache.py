@@ -3,7 +3,7 @@ Delete all user accounts and problem cache.
 
 Wipes every user-owned row (auth, profiles, attempts, mastery, playlists, progress,
 misconceptions, thinking logs) plus the shared problem cache and generation logs.
-Content tables (chapters, topics, standards, curriculum documents) are left intact.
+Content tables (units, lessons, standards, curriculum documents) are left intact.
 
 Usage:
   python -m scripts.delete_users_and_cache          # confirms before deleting
@@ -32,8 +32,8 @@ from app.infrastructure.database.models import (
     ThinkingTrackerLog,
     ProblemAttempt,
     SkillMastery,
-    TopicProgress,
-    UserTopicPlaylist,
+    LessonProgress,
+    UserLessonPlaylist,
     ProblemCache,
     GenerationLog,
 )
@@ -50,8 +50,8 @@ _TABLES_IN_ORDER = [
     ThinkingTrackerLog,
     ProblemAttempt,
     SkillMastery,
-    TopicProgress,
-    UserTopicPlaylist,
+    LessonProgress,
+    UserLessonPlaylist,
     UserProfile,
     User,
     # Shared cache / logs (no FK to users)
@@ -89,7 +89,7 @@ async def run(force: bool = False) -> None:
     for tname, n in counts.items():
         if n:
             print(f"  {tname:<35} {n:>6} rows")
-    print("\nDone. Content tables (chapters, topics, etc.) are untouched.")
+    print("\nDone. Content tables (units, lessons, etc.) are untouched.")
 
 
 if __name__ == "__main__":

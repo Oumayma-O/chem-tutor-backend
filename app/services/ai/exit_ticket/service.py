@@ -22,7 +22,7 @@ class ExitTicketService:
     async def generate(
         self,
         topic_name: str,
-        chapter_id: str,
+        unit_id: str,
         errors_summary: list[dict] | None = None,
         grade_level: str | None = None,
         rag_context: dict | None = None,
@@ -31,7 +31,7 @@ class ExitTicketService:
             grade_block=f"Student level: {grade_level}." if grade_level else "",
             rag_block=_format_rag(rag_context),
         )
-        user_msg = f"Topic: {topic_name} (Chapter: {chapter_id})"
+        user_msg = f"Topic: {topic_name} (Unit: {unit_id})"
         if errors_summary:
             user_msg += f"\nCommon errors to address: {errors_summary}"
         user_msg += "\n\nGenerate 3 exit-ticket questions."
@@ -41,7 +41,7 @@ class ExitTicketService:
             {"role": "user", "content": user_msg},
         ]
         result: ExitTicketOutput = await generate_structured(messages, ExitTicketOutput, temperature=0.4)
-        logger.info("exit_ticket_generated", topic=topic_name, chapter=chapter_id)
+        logger.info("exit_ticket_generated", topic=topic_name, unit=unit_id)
         return result
 
 

@@ -63,8 +63,6 @@ class UnitRepository(BaseRepository[Unit]):
         return unit
 
 
-# Backward-compat alias
-ChapterRepository = UnitRepository
 
 
 class LessonRepository(BaseRepository[Lesson]):
@@ -123,8 +121,6 @@ class LessonRepository(BaseRepository[Lesson]):
         return lesson
 
 
-# Backward-compat alias
-TopicRepository = LessonRepository
 
 
 class StandardRepository(BaseRepository[Standard]):

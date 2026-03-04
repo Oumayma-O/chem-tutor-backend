@@ -64,8 +64,8 @@ class MasteryRepository(BaseRepository[SkillMastery]):
             .values(
                 id=mastery.id,
                 user_id=mastery.user_id,
-                chapter_id=mastery.unit_id,      # DB column name
-                topic_index=mastery.lesson_index,  # DB column name
+                unit_id=mastery.unit_id,
+                lesson_index=mastery.lesson_index,
                 mastery_score=mastery.mastery_score,
                 attempts_count=mastery.attempts_count,
                 consecutive_correct=mastery.consecutive_correct,
@@ -78,7 +78,7 @@ class MasteryRepository(BaseRepository[SkillMastery]):
                 updated_at=now,
             )
             .on_conflict_do_update(
-                constraint="uq_mastery_user_topic",
+                constraint="uq_mastery_user_lesson",
                 set_=set_clause,
             )
             .returning(SkillMastery)
@@ -102,12 +102,12 @@ class MasteryRepository(BaseRepository[SkillMastery]):
 
 
 class TopicProgressRepository:
-    """CRUD for the lesson_progress (topic_progress) table."""
+    """CRUD for the lesson_progress table."""
 
     def __init__(self, session: AsyncSession) -> None:
         self._session = session
 
-    async def get_chapter_progress(
+    async def get_unit_progress(
         self,
         user_id: uuid.UUID,
         unit_id: str,
@@ -137,13 +137,13 @@ class TopicProgressRepository:
             insert(LessonProgress)
             .values(
                 user_id=user_id,
-                chapter_id=unit_id,       # DB column name
-                topic_index=lesson_index,  # DB column name
+                unit_id=unit_id,
+                lesson_index=lesson_index,
                 status=status,
                 updated_at=datetime.utcnow(),
             )
             .on_conflict_do_update(
-                index_elements=["user_id", "chapter_id", "topic_index"],
+                index_elements=["user_id", "unit_id", "lesson_index"],
                 set_={"status": status, "updated_at": datetime.utcnow()},
             )
             .returning(LessonProgress)

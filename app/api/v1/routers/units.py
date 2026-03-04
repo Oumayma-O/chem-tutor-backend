@@ -160,7 +160,7 @@ async def create_unit(
         for code in l.standard_codes:
             framework = code.split(" ")[0] if " " in code else "OTHER"
             std = await std_repo.get_or_create(code=code, framework=framework)
-            db.add(LessonStandard(topic_id=lesson.id, standard_id=std.id))
+            db.add(LessonStandard(lesson_id=lesson.id, standard_id=std.id))
 
     return await get_unit(req.id, db)
 

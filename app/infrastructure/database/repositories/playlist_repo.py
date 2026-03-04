@@ -59,8 +59,8 @@ class UserLessonPlaylistRepository:
             insert(UserLessonPlaylist)
             .values(
                 user_id=user_id,
-                chapter_id=unit_id,       # DB column name
-                topic_index=lesson_index,  # DB column name
+                unit_id=unit_id,
+                lesson_index=lesson_index,
                 level=level,
                 difficulty=difficulty,
                 problems=new_problems,
@@ -68,7 +68,7 @@ class UserLessonPlaylistRepository:
                 updated_at=now,
             )
             .on_conflict_do_update(
-                index_elements=["user_id", "chapter_id", "topic_index", "level", "difficulty"],
+                index_elements=["user_id", "unit_id", "lesson_index", "level", "difficulty"],
                 set_={"problems": new_problems, "current_index": new_index, "updated_at": now},
             )
             .returning(UserLessonPlaylist)
@@ -87,8 +87,8 @@ class UserLessonPlaylistRepository:
             insert(UserLessonPlaylist)
             .values(
                 user_id=playlist.user_id,
-                chapter_id=playlist.unit_id,       # DB column name
-                topic_index=playlist.lesson_index,  # DB column name
+                unit_id=playlist.unit_id,
+                lesson_index=playlist.lesson_index,
                 level=playlist.level,
                 difficulty=playlist.difficulty,
                 problems=playlist.problems,
@@ -96,7 +96,7 @@ class UserLessonPlaylistRepository:
                 updated_at=now,
             )
             .on_conflict_do_update(
-                index_elements=["user_id", "chapter_id", "topic_index", "level", "difficulty"],
+                index_elements=["user_id", "unit_id", "lesson_index", "level", "difficulty"],
                 set_={"current_index": new_index, "updated_at": now},
             )
             .returning(UserLessonPlaylist)
@@ -105,5 +105,3 @@ class UserLessonPlaylistRepository:
         return result.scalar_one()
 
 
-# Backward-compat alias
-UserTopicPlaylistRepository = UserLessonPlaylistRepository

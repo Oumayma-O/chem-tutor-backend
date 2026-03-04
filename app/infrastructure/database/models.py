@@ -2,19 +2,16 @@
 SQLAlchemy ORM models for the Chemistry Tutor backend.
 
 Table groups:
-  - Auth              : users (email/password auth — replaces Supabase)
+  - Auth              : users (email/password auth)
   - Lookup data       : grades, courses, interests
   - User profiles     : user_profiles, student_interests
-  - Content catalog   : units, lessons, standards, topic_standards
+  - Content catalog   : units, lessons, standards, lesson_standards
   - Classrooms        : classrooms, classroom_students
   - Problem cache     : problem_cache
-  - Learning state    : problem_attempts, skill_mastery, level_unlocks,
+  - Learning state    : problem_attempts, skill_mastery,
                         misconception_logs, thinking_tracker_logs
   - Teacher tools     : exit_tickets, exit_ticket_responses
   - RAG               : curriculum_documents
-
-NOTE: DB column names (chapter_id, topic_index) are aliased via mapped_column()
-      so Python code uses unit_id / lesson_index everywhere.
 """
 
 import uuid
@@ -155,8 +152,7 @@ class StudentInterest(Base):
 
 
 # ══════════════════════════════════════════════════════════════
-# CONTENT CATALOG  (DB tables: chapters, topics, standards, topic_standards)
-# Python names: Unit, Lesson, Standard, LessonStandard
+# CONTENT CATALOG  (DB tables: units, lessons, standards, lesson_standards)
 # ══════════════════════════════════════════════════════════════
 
 class Unit(Base):
@@ -193,39 +189,27 @@ class Unit(Base):
     )
 
 
-# Backward-compat alias
-Chapter = Unit
-
-
 class Lesson(Base):
     """
     A lesson within a unit (e.g. 'Zero-Order Kinetics').
     lesson_index is 0-based and stable — used as the FK key everywhere.
-
-    DB columns: chapter_id, topic_index (aliased via mapped_column).
     """
     __tablename__ = "lessons"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     unit_id: Mapped[str] = mapped_column(
-        "chapter_id", String(100), ForeignKey("units.id", ondelete="CASCADE"), nullable=False
+        String(100), ForeignKey("units.id", ondelete="CASCADE"), nullable=False
     )
     title: Mapped[str] = mapped_column(String(200), nullable=False)
     description: Mapped[str] = mapped_column(Text, nullable=False, default="")
-    lesson_index: Mapped[int] = mapped_column("topic_index", Integer, nullable=False)  # 0-based, stable
+    lesson_index: Mapped[int] = mapped_column(Integer, nullable=False)  # 0-based, stable
 
-    # RAG / equation context stored per lesson
     key_equations: Mapped[list] = mapped_column(JSONB, nullable=False, default=list)
-    # e.g. ["[A]t = [A]0 - kt", "t_1/2 = [A]0 / 2k"]
-
-    # Learning objectives for this lesson
     objectives: Mapped[list] = mapped_column(JSONB, nullable=False, default=list)
-    # e.g. ["Explain zero-order kinetics", "Calculate half-life for zero-order reactions"]
 
     # Stable human-readable slug (e.g. "L-mole-molar-mass-1step")
     slug: Mapped[str] = mapped_column(String(100), nullable=False, unique=True)
 
-    # True for AP-only lessons (hidden in Standard view)
     is_ap_only: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
 
     # Cached reference card — generated once by the LLM chain, never regenerated
@@ -239,13 +223,9 @@ class Lesson(Base):
     standards: Mapped[list["LessonStandard"]] = relationship(back_populates="lesson")
 
     __table_args__ = (
-        UniqueConstraint("chapter_id", "topic_index", name="uq_topic_chapter_index"),
-        Index("ix_topics_chapter", "chapter_id"),
+        UniqueConstraint("unit_id", "lesson_index", name="uq_lesson_unit_index"),
+        Index("ix_lessons_unit", "unit_id"),
     )
-
-
-# Backward-compat aliases
-Topic = Lesson
 
 
 class UnitLesson(Base):
@@ -284,10 +264,10 @@ class Standard(Base):
 
 
 class LessonStandard(Base):
-    """Junction: lesson ↔ standard (many-to-many).  DB table: topic_standards."""
-    __tablename__ = "topic_standards"
+    """Junction: lesson ↔ standard (many-to-many)."""
+    __tablename__ = "lesson_standards"
 
-    topic_id: Mapped[int] = mapped_column(
+    lesson_id: Mapped[int] = mapped_column(
         ForeignKey("lessons.id", ondelete="CASCADE"), primary_key=True
     )
     standard_id: Mapped[int] = mapped_column(
@@ -296,10 +276,6 @@ class LessonStandard(Base):
 
     lesson: Mapped["Lesson"] = relationship(back_populates="standards")
     standard: Mapped["Standard"] = relationship(back_populates="lessons")
-
-
-# Backward-compat alias
-TopicStandard = LessonStandard
 
 
 # ══════════════════════════════════════════════════════════════
@@ -319,7 +295,7 @@ class Classroom(Base):
 
     # Optional unit focus
     unit_id: Mapped[str | None] = mapped_column(
-        "chapter_id", String(100), ForeignKey("units.id"), nullable=True
+        String(100), ForeignKey("units.id"), nullable=True
     )
 
     code: Mapped[str] = mapped_column(String(10), nullable=False, unique=True)  # join code
@@ -367,14 +343,13 @@ class ProblemCache(Base):
     Level 2/3 problems may also be cached for performance.
 
     Cache key: (unit_id, lesson_index, difficulty, level, context_tag).
-    DB columns: chapter_id, topic_index (aliased via mapped_column).
     Entries expire after `expires_at`; NULL = never expires.
     """
     __tablename__ = "problem_cache"
 
     id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=_uuid)
-    unit_id: Mapped[str] = mapped_column("chapter_id", String(100), nullable=False)
-    lesson_index: Mapped[int] = mapped_column("topic_index", Integer, nullable=False)
+    unit_id: Mapped[str] = mapped_column(String(100), nullable=False)
+    lesson_index: Mapped[int] = mapped_column(Integer, nullable=False)
     difficulty: Mapped[str] = mapped_column(String(20), nullable=False)
     level: Mapped[int] = mapped_column(Integer, nullable=False)  # 1 | 2 | 3
     context_tag: Mapped[str | None] = mapped_column(String(50), nullable=True)
@@ -388,7 +363,7 @@ class ProblemCache(Base):
     __table_args__ = (
         Index(
             "ix_problem_cache_key",
-            "chapter_id", "topic_index", "difficulty", "level", "context_tag",
+            "unit_id", "lesson_index", "difficulty", "level", "context_tag",
         ),
     )
 
@@ -401,16 +376,14 @@ class ProblemAttempt(Base):
     """
     Each time a student works a problem, one row is inserted.
     step_log (JSONB) captures every step: input, correct/incorrect, time_spent, hints_used.
-
-    DB columns: chapter_id, topic_index (aliased via mapped_column).
     """
     __tablename__ = "problem_attempts"
 
     id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=_uuid)
     user_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), nullable=False, index=True)
     class_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), nullable=True, index=True)
-    unit_id: Mapped[str] = mapped_column("chapter_id", String(100), nullable=False)
-    lesson_index: Mapped[int] = mapped_column("topic_index", Integer, nullable=False)
+    unit_id: Mapped[str] = mapped_column(String(100), nullable=False)
+    lesson_index: Mapped[int] = mapped_column(Integer, nullable=False)
     problem_id: Mapped[str] = mapped_column(String(100), nullable=False)
     difficulty: Mapped[str] = mapped_column(String(20), nullable=False, default="medium")
     level: Mapped[int] = mapped_column(Integer, nullable=False, default=2)  # 1 | 2 | 3
@@ -426,7 +399,7 @@ class ProblemAttempt(Base):
     completed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
 
     __table_args__ = (
-        Index("ix_attempts_user_chapter", "user_id", "chapter_id", "topic_index"),
+        Index("ix_attempts_user_unit", "user_id", "unit_id", "lesson_index"),
         Index("ix_attempts_user_level", "user_id", "level"),
     )
 
@@ -438,15 +411,13 @@ class SkillMastery(Base):
 
     level3_unlocked: permanently True once mastery >= threshold on hard difficulty.
                      This flag is irreversible — never set back to False.
-
-    DB columns: chapter_id, topic_index (aliased via mapped_column).
     """
     __tablename__ = "skill_mastery"
 
     id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=_uuid)
     user_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), nullable=False)
-    unit_id: Mapped[str] = mapped_column("chapter_id", String(100), nullable=False)
-    lesson_index: Mapped[int] = mapped_column("topic_index", Integer, nullable=False)
+    unit_id: Mapped[str] = mapped_column(String(100), nullable=False)
+    lesson_index: Mapped[int] = mapped_column(Integer, nullable=False)
 
     mastery_score: Mapped[float] = mapped_column(Float, nullable=False, default=0.0)
     attempts_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
@@ -472,7 +443,7 @@ class SkillMastery(Base):
     )
 
     __table_args__ = (
-        UniqueConstraint("user_id", "chapter_id", "topic_index", name="uq_mastery_user_topic"),
+        UniqueConstraint("user_id", "unit_id", "lesson_index", name="uq_mastery_user_lesson"),
         Index("ix_mastery_user", "user_id"),
     )
 
@@ -483,16 +454,14 @@ class ThinkingTrackerLog(Base):
 
     Stored separately from step_log for queryability.
     Used for the Thinking Tracker panel in the UI.
-
-    DB columns: chapter_id, topic_index (aliased via mapped_column).
     """
     __tablename__ = "thinking_tracker_logs"
 
     id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=_uuid)
     attempt_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), nullable=False, index=True)
     user_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), nullable=False, index=True)
-    unit_id: Mapped[str] = mapped_column("chapter_id", String(100), nullable=False)
-    lesson_index: Mapped[int] = mapped_column("topic_index", Integer, nullable=False)
+    unit_id: Mapped[str] = mapped_column(String(100), nullable=False)
+    lesson_index: Mapped[int] = mapped_column(Integer, nullable=False)
 
     step_id: Mapped[str] = mapped_column(String(100), nullable=False)
     step_label: Mapped[str] = mapped_column(String(100), nullable=False)
@@ -511,22 +480,19 @@ class ThinkingTrackerLog(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now)
 
     __table_args__ = (
-        Index("ix_thinking_user_chapter", "user_id", "chapter_id", "topic_index"),
+        Index("ix_thinking_user_unit", "user_id", "unit_id", "lesson_index"),
     )
 
 
 class MisconceptionLog(Base):
-    """Granular error record per incorrect step.
-
-    DB columns: chapter_id, topic_index (aliased via mapped_column).
-    """
+    """Granular error record per incorrect step."""
     __tablename__ = "misconception_logs"
 
     id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=_uuid)
     user_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), nullable=False)
     class_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), nullable=True)
-    unit_id: Mapped[str] = mapped_column("chapter_id", String(100), nullable=False)
-    lesson_index: Mapped[int] = mapped_column("topic_index", Integer, nullable=False, default=0)
+    unit_id: Mapped[str] = mapped_column(String(100), nullable=False)
+    lesson_index: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     attempt_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), nullable=True)
 
     error_category: Mapped[str] = mapped_column(String(50), nullable=False)
@@ -540,7 +506,7 @@ class MisconceptionLog(Base):
     __table_args__ = (
         Index("ix_misconception_user", "user_id"),
         Index("ix_misconception_class", "class_id"),
-        Index("ix_misconception_chapter", "chapter_id", "topic_index"),
+        Index("ix_misconception_unit", "unit_id", "lesson_index"),
     )
 
 
@@ -553,17 +519,16 @@ class CurriculumDocument(Base):
     Uploaded curriculum content (PDF, text, standards JSON).
     Text is extracted and stored for LLM RAG context injection.
 
-    DB columns: chapter_id, topic_id (aliased via mapped_column).
     """
     __tablename__ = "curriculum_documents"
 
     id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=_uuid)
 
     unit_id: Mapped[str | None] = mapped_column(
-        "chapter_id", String(100), ForeignKey("units.id"), nullable=True, index=True
+        String(100), ForeignKey("units.id"), nullable=True, index=True
     )
     lesson_id: Mapped[int | None] = mapped_column(
-        "topic_id", Integer, ForeignKey("lessons.id"), nullable=True, index=True
+        Integer, ForeignKey("lessons.id"), nullable=True, index=True
     )
 
     title: Mapped[str] = mapped_column(String(300), nullable=False)
@@ -589,16 +554,14 @@ class ExitTicket(Base):
     """
     An exit ticket session generated for a class by a teacher.
     Questions are stored in JSONB for simplicity (small fixed sets).
-
-    DB columns: chapter_id, topic_index (aliased via mapped_column).
     """
     __tablename__ = "exit_tickets"
 
     id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=_uuid)
     class_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), nullable=False, index=True)
     teacher_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), nullable=False)
-    unit_id: Mapped[str] = mapped_column("chapter_id", String(100), nullable=False)
-    lesson_index: Mapped[int] = mapped_column("topic_index", Integer, nullable=False, default=0)
+    unit_id: Mapped[str] = mapped_column(String(100), nullable=False)
+    lesson_index: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
 
     difficulty: Mapped[str] = mapped_column(String(20), nullable=False, default="medium")
     time_limit_minutes: Mapped[int] = mapped_column(Integer, nullable=False, default=10)
@@ -648,15 +611,12 @@ class UserLessonPlaylist(Base):
     - problems: JSONB array of full ProblemOutput dicts, in order seen
     - current_index: where the user currently is (0-based)
     - Capped at MAX_PROBLEMS_PER_LEVEL[level] entries (playlist_repo)
-
-    DB table: user_topic_playlists (unchanged).
-    DB columns: chapter_id, topic_index (aliased via mapped_column).
     """
-    __tablename__ = "user_topic_playlists"
+    __tablename__ = "user_lesson_playlists"
 
     user_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True)
-    unit_id: Mapped[str] = mapped_column("chapter_id", String(100), primary_key=True)
-    lesson_index: Mapped[int] = mapped_column("topic_index", Integer, primary_key=True)
+    unit_id: Mapped[str] = mapped_column(String(100), primary_key=True)
+    lesson_index: Mapped[int] = mapped_column(Integer, primary_key=True)
     level: Mapped[int] = mapped_column(Integer, primary_key=True)
     difficulty: Mapped[str] = mapped_column(String(20), primary_key=True)
 
@@ -668,12 +628,8 @@ class UserLessonPlaylist(Base):
     )
 
     __table_args__ = (
-        Index("ix_playlist_user_chapter", "user_id", "chapter_id"),
+        Index("ix_playlist_user_unit", "user_id", "unit_id"),
     )
-
-
-# Backward-compat alias
-UserTopicPlaylist = UserLessonPlaylist
 
 
 # ══════════════════════════════════════════════════════════════
@@ -685,15 +641,12 @@ class LessonProgress(Base):
     Simple lesson completion status per student.
     Separate from SkillMastery (which tracks detailed mastery scores).
     Used by the frontend sidebar to show not-started / in-progress / completed.
-
-    DB table: topic_progress (unchanged).
-    DB columns: chapter_id, topic_index (aliased via mapped_column).
     """
-    __tablename__ = "topic_progress"
+    __tablename__ = "lesson_progress"
 
     user_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True)
-    unit_id: Mapped[str] = mapped_column("chapter_id", String(100), primary_key=True)
-    lesson_index: Mapped[int] = mapped_column("topic_index", Integer, primary_key=True)
+    unit_id: Mapped[str] = mapped_column(String(100), primary_key=True)
+    lesson_index: Mapped[int] = mapped_column(Integer, primary_key=True)
 
     # "not-started" | "in-progress" | "completed"
     status: Mapped[str] = mapped_column(String(20), nullable=False, default="not-started")
@@ -703,13 +656,9 @@ class LessonProgress(Base):
     )
 
     __table_args__ = (
-        Index("ix_topic_progress_user", "user_id"),
-        Index("ix_topic_progress_user_chapter", "user_id", "chapter_id"),
+        Index("ix_lesson_progress_user", "user_id"),
+        Index("ix_lesson_progress_user_unit", "user_id", "unit_id"),
     )
-
-
-# Backward-compat alias
-TopicProgress = LessonProgress
 
 
 # ══════════════════════════════════════════════════════════════
@@ -721,8 +670,6 @@ class GenerationLog(Base):
     One row per problem generation call.
     Tracks provider, model, prompt version, and wall-clock time so you can
     benchmark different providers / prompt revisions side-by-side.
-
-    DB columns: chapter_id, topic_index (aliased via mapped_column).
     """
     __tablename__ = "generation_logs"
 
@@ -730,8 +677,8 @@ class GenerationLog(Base):
 
     # What was generated
     problem_id: Mapped[str] = mapped_column(String(100), nullable=False)
-    unit_id: Mapped[str] = mapped_column("chapter_id", String(100), nullable=False)
-    lesson_index: Mapped[int] = mapped_column("topic_index", Integer, nullable=False)
+    unit_id: Mapped[str] = mapped_column(String(100), nullable=False)
+    lesson_index: Mapped[int] = mapped_column(Integer, nullable=False)
     level: Mapped[int] = mapped_column(Integer, nullable=False)
     difficulty: Mapped[str] = mapped_column(String(20), nullable=False)
 
@@ -751,7 +698,7 @@ class GenerationLog(Base):
     __table_args__ = (
         Index("ix_gen_logs_provider_model", "provider", "model_name"),
         Index("ix_gen_logs_prompt_version", "prompt_version"),
-        Index("ix_gen_logs_chapter_topic", "chapter_id", "topic_index"),
+        Index("ix_gen_logs_unit_lesson", "unit_id", "lesson_index"),
     )
 
 
