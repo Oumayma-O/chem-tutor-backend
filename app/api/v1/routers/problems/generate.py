@@ -11,6 +11,7 @@ Generation rules:
 """
 
 import time
+import uuid as _uuid
 
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query, status
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -130,6 +131,8 @@ async def generate_problem(
     playlist_repo = UserLessonPlaylistRepository(db) if req.user_id else None
     context_tag = req.interests[0] if req.interests else None
     max_p = MAX_PROBLEMS_PER_LEVEL.get(req.level, 5)
+    # Collect exclude_ids once — used for cache lookup AND post-generation dedup guard
+    exclude = set(req.exclude_ids or [])
 
     # ── Cap check: if user has hit the limit, return current playlist position ──
     if playlist_repo and req.user_id:
@@ -154,7 +157,14 @@ async def generate_problem(
     # ── Level 1: cache-first for worked examples ───────────────
     problem: ProblemOutput | None = None
     if req.level == 1:
-        exclude = set(req.exclude_ids or [])
+        # #region agent log
+        try:
+            import json as _j, time as _t
+            with open(r"c:\Users\htc\.cursor\chem-guide-frontend\debug-f6d775.log", "a", encoding="utf-8") as _f:
+                _f.write(_j.dumps({"sessionId":"f6d775","location":"generate.py:cache_lookup","message":"cache_lookup_start","data":{"exclude_ids":list(exclude),"level":req.level,"difficulty":req.difficulty,"unit":req.unit_id,"lesson":req.lesson_index},"hypothesisId":"H1","timestamp":int(_t.time()*1000)}) + "\n")
+        except Exception:
+            pass
+        # #endregion
         problem = await cache.get_or_none(
             unit_id=req.unit_id,
             lesson_index=req.lesson_index,
@@ -163,6 +173,14 @@ async def generate_problem(
             context_tag=context_tag,
             exclude_ids=exclude or None,
         )
+        # #region agent log
+        try:
+            import json as _j, time as _t
+            with open(r"c:\Users\htc\.cursor\chem-guide-frontend\debug-f6d775.log", "a", encoding="utf-8") as _f:
+                _f.write(_j.dumps({"sessionId":"f6d775","location":"generate.py:cache_lookup","message":"cache_lookup_result","data":{"cache_hit":problem is not None,"cached_id":problem.id if problem else None,"was_excluded":problem.id in exclude if problem else False},"hypothesisId":"H1","timestamp":int(_t.time()*1000)}) + "\n")
+        except Exception:
+            pass
+        # #endregion
         if problem:
             enforce_step_types(problem, 1)
             if await cache.needs_backfill(
@@ -204,6 +222,13 @@ async def generate_problem(
                 rag_context=rag_context,
             )
             elapsed_s = round(time.perf_counter() - t0, 3)
+
+            # ── Dedup guard: LLM can deterministically produce the same ID for the
+            # same context. If the returned ID was explicitly excluded by the caller,
+            # mint a new unique suffix so the frontend duplicate-check never fires.
+            if exclude and problem.id in exclude:
+                problem.id = f"{problem.id}-{_uuid.uuid4().hex[:8]}"
+                logger.info("problem_id_deduplicated", new_id=problem.id)
 
         except Exception as exc:
             logger.error("problem_generation_failed", error=str(exc))

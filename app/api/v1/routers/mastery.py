@@ -2,6 +2,7 @@
 Mastery router — attempt lifecycle and mastery state endpoints.
 """
 
+from datetime import datetime
 import uuid
 
 from fastapi import APIRouter, Depends, HTTPException, status
@@ -191,10 +192,13 @@ async def get_unit_progress(
     unit_id: str,
     db: AsyncSession = Depends(get_db),
 ) -> list[LessonProgressOut]:
-    """Return lesson completion statuses for all lessons in a unit."""
+    """Return lesson completion statuses for all lessons in a unit, sorted by lesson_index."""
     repo = TopicProgressRepository(db)
     records = await repo.get_unit_progress(user_id, unit_id)
-    return [LessonProgressOut(lesson_index=r.lesson_index, status=r.status) for r in records]
+    return [
+        LessonProgressOut(lesson_index=r.lesson_index, status=r.status)
+        for r in sorted(records, key=lambda x: x.lesson_index)
+    ]
 
 
 @router.patch(

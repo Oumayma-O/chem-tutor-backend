@@ -60,10 +60,13 @@ class ProblemCacheRepository(BaseRepository[ProblemCache]):
         Falls back to generic (context_tag=None) if no contextual match.
         exclude_ids: ProblemOutput.id strings to deprioritise (prefer unseen).
         """
-        def _pick(rows: list[ProblemCache]) -> ProblemCache:
+        def _pick(rows: list[ProblemCache]) -> ProblemCache | None:
             if exclude_ids:
                 unseen = [r for r in rows if r.problem_data.get("id") not in exclude_ids]
-                return random.choice(unseen if unseen else rows)
+                if unseen:
+                    return random.choice(unseen)
+                # All cached problems are excluded; return None so caller can generate fresh
+                return None
             return random.choice(rows)
 
         rows = await self.find(unit_id, lesson_index, difficulty, level, context_tag)

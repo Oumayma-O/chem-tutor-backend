@@ -44,7 +44,7 @@ class Settings(BaseSettings):
     gemini_model: str = "gemini-2.5-flash"
 
     # Fast (lightweight) provider — used for validation and hints
-    fast_ai_provider: Literal["openai", "anthropic", "gemini"] = "gemini"
+    fast_ai_provider: Literal["openai", "anthropic", "gemini"] = "openai"
     fast_openai_model: str = "gpt-5-nano"
     fast_anthropic_model: str = "claude-haiku-4-5-20251001"
     fast_gemini_model: str = "gemini-2.5-flash-lite"

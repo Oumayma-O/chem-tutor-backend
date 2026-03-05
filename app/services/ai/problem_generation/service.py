@@ -2,9 +2,13 @@
 ProblemGenerationService + enforce_step_types utility.
 
 Uses get_llm / generate_structured from llm.py — no separate provider layer.
+
+Problem id: always assigned server-side (UUID). The LLM may return an id in
+structured output, but we overwrite it so "See Another" never gets a duplicate id.
 """
 
 import time
+import uuid
 from typing import Literal
 
 from tenacity import retry, retry_if_exception_type, stop_after_attempt, wait_exponential
@@ -104,9 +108,13 @@ class ProblemGenerationService:
         elapsed_s = round(time.perf_counter() - t0, 3)
 
         problem.level = level
+        # Assign unique id server-side so "See Another" never gets a duplicate (LLM often returns same id for same topic/level/difficulty).
+        problem.id = str(uuid.uuid4())
+
         logger.info(
             "problem_generated",
             provider=self.provider_name, model=self.model_name,
+            problem_id=problem.id,
             execution_time_s=elapsed_s, unit=unit_id,
             lesson=lesson_index, level=level, difficulty=difficulty,
         )
