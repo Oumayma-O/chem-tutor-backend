@@ -3,6 +3,10 @@
 Revision ID: 001
 Revises:
 Create Date: 2026-03-03
+
+NOTE: The 'topics' table was renamed to 'lessons' in the current schema.
+The column 'reference_card_json' already exists on the 'lessons' model
+via create_all. This migration is kept as a no-op for alembic history.
 """
 
 from alembic import op
@@ -16,18 +20,8 @@ depends_on = None
 
 
 def upgrade() -> None:
-    # Skip if "topics" table doesn't exist (legacy schema; current schema uses "lessons")
-    try:
-        op.add_column(
-            "topics",
-            sa.Column("reference_card_json", JSONB(), nullable=True),
-        )
-    except Exception:
-        pass  # Table may not exist; safe to skip
+    pass
 
 
 def downgrade() -> None:
-    try:
-        op.drop_column("topics", "reference_card_json")
-    except Exception:
-        pass  # Table may not exist; safe to skip
+    pass

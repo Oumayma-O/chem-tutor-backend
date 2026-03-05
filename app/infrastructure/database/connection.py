@@ -74,16 +74,12 @@ async def run_migrations() -> None:
         and any(f.endswith(".py") for f in os.listdir(versions_dir))
     )
 
-    if has_migrations:
-        logger.info("running_alembic_migrations")
-        alembic_cfg = Config("alembic.ini")
-        loop = asyncio.get_event_loop()
-        await loop.run_in_executor(None, command.upgrade, alembic_cfg, "head")
-        logger.info("alembic_migrations_complete")
-    else:
-        # No migration files — create all tables directly (dev / first run)
-        logger.info("no_migration_files_found__using_create_all")
-        import app.infrastructure.database.models  # noqa: F401 — registers all ORM models
-        async with engine.begin() as conn:
-            await conn.run_sync(Base.metadata.create_all)
-        logger.info("create_all_complete")
+    # Always use create_all (idempotent: CREATE TABLE IF NOT EXISTS).
+    # Alembic migrations are applied via CLI (`alembic upgrade head`)
+    # before deployment — running them inside uvicorn's async loop causes
+    # deadlocks because alembic env.py calls asyncio.run() from a thread.
+    logger.info("running_create_all")
+    import app.infrastructure.database.models  # noqa: F401 — registers all ORM models
+    async with engine.begin() as conn:
+        await conn.run_sync(Base.metadata.create_all)
+    logger.info("create_all_complete")

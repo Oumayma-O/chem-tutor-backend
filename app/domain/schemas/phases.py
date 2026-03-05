@@ -49,18 +49,17 @@ class CurriculumUnit(BaseModel):
     gradient: str | None
     grade_id: int | None
     course_id: int | None
+    course_name: str | None = None
     sort_order: int
     is_active: bool
     is_coming_soon: bool
     lesson_count: int
+    skill_count: int = 0
     lesson_titles: list[str]
 
-    # Effective values after classroom overrides are applied
     effective_phase_id: int | None
     effective_order: int
     is_hidden: bool
-
-    # True when a classroom override exists for this unit
     has_override: bool
 
     model_config = {"from_attributes": False}
@@ -72,6 +71,7 @@ class PhaseCurriculumGroup(BaseModel):
     phase_name: str
     phase_description: str | None
     phase_color: str | None
+    phase_course_id: int | None = None
     sort_order: int
     units: list[CurriculumUnit]
 

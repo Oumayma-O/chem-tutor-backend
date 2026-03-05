@@ -45,34 +45,27 @@ async def list_units(
     course_id: int | None = Query(default=None),
     db: AsyncSession = Depends(get_db),
 ) -> list[UnitListItem]:
-    try:
-        repo = UnitRepository(db)
-        units = await repo.get_all_active(grade_id=grade_id, course_id=course_id)
-        return [
-            UnitListItem(
-                id=u.id,
-                title=u.title or "",
-                description=u.description or "",
-                icon=u.icon or "📚",
-                gradient=u.gradient,
-                grade_id=u.grade_id,
-                course_id=u.course_id,
-                course_name=u.course.name if u.course else None,
-                sort_order=u.sort_order,
-                is_active=u.is_active,
-                is_coming_soon=u.is_coming_soon,
-                lesson_count=len(u.unit_lessons),
-                skill_count=sum(len(ul.lesson.objectives or []) for ul in u.unit_lessons),
-                lesson_titles=[ul.lesson.title for ul in sorted(u.unit_lessons, key=lambda x: x.lesson_order)],
-            )
-            for u in units
-        ]
-    except Exception as e:
-        logger.error("list_units_failed", error=str(e), exc_info=True)
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to load units: {str(e)}. Ensure the database is migrated and seeded (python -m scripts.seed).",
-        ) from e
+    repo = UnitRepository(db)
+    units = await repo.get_all_active(grade_id=grade_id, course_id=course_id)
+    return [
+        UnitListItem(
+            id=u.id,
+            title=u.title or "",
+            description=u.description or "",
+            icon=u.icon or "📚",
+            gradient=u.gradient,
+            grade_id=u.grade_id,
+            course_id=u.course_id,
+            course_name=u.course.name if u.course else None,
+            sort_order=u.sort_order,
+            is_active=u.is_active,
+            is_coming_soon=u.is_coming_soon,
+            lesson_count=len(u.unit_lessons),
+            skill_count=sum(len(ul.lesson.objectives or []) for ul in u.unit_lessons),
+            lesson_titles=[ul.lesson.title for ul in sorted(u.unit_lessons, key=lambda x: x.lesson_order)],
+        )
+        for u in units
+    ]
 
 
 @router.get("/{unit_id}", response_model=UnitOut)

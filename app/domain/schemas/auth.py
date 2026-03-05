@@ -42,10 +42,20 @@ class TokenResponse(BaseModel):
     name: str
 
 
+class ProfileUpdateRequest(BaseModel):
+    grade: Optional[str] = None
+    course: Optional[str] = None
+    interests: Optional[list[str]] = None
+
+
 class MeResponse(BaseModel):
     user_id: str
     email: str
     role: str
     name: str
     grade_level: Optional[str] = None
+    grade: Optional[str] = None
+    course: Optional[str] = None
     interests: list[str] = []
+    classroom_name: Optional[str] = None
+    classroom_code: Optional[str] = None

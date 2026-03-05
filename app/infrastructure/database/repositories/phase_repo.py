@@ -78,11 +78,14 @@ class ClassroomCurriculumRepository:
 
     async def _load_units_with_lessons(self, course_id: int | None) -> list[Unit]:
         """Load all active units for a course, with their lesson counts."""
+        from app.infrastructure.database.models import Course
+
         q = (
             select(Unit)
             .options(
                 selectinload(Unit.unit_lessons).selectinload(UnitLesson.lesson),
                 selectinload(Unit.phase),
+                selectinload(Unit.course),
             )
             .where(Unit.is_active == True)
             .order_by(Unit.phase_id.nullslast(), Unit.sort_order)
@@ -167,10 +170,16 @@ class ClassroomCurriculumRepository:
                 "gradient": unit.gradient,
                 "grade_id": unit.grade_id,
                 "course_id": unit.course_id,
+                "course_name": unit.course.name if unit.course else None,
                 "sort_order": unit.sort_order,
                 "is_active": unit.is_active,
                 "is_coming_soon": unit.is_coming_soon,
                 "lesson_count": len(unit.unit_lessons),
+                "skill_count": sum(
+                    len(ul.lesson.objectives or [])
+                    for ul in unit.unit_lessons
+                    if ul.lesson
+                ),
                 "lesson_titles": lesson_titles,
                 "effective_phase_id": effective_phase_id,
                 "effective_order": effective_order,
@@ -201,6 +210,7 @@ class ClassroomCurriculumRepository:
                 "phase_name": phase.name if phase else f"Phase {pid}",
                 "phase_description": phase.description if phase else None,
                 "phase_color": phase.color if phase else None,
+                "phase_course_id": phase.course_id if phase else None,
                 "sort_order": phase.sort_order if phase else 9999,
                 "units": [u for _, u in buckets[pid]],
             })
@@ -212,6 +222,7 @@ class ClassroomCurriculumRepository:
                 "phase_name": "Unassigned",
                 "phase_description": None,
                 "phase_color": None,
+                "phase_course_id": None,
                 "sort_order": 9999,
                 "units": [u for _, u in buckets[None]],
             })

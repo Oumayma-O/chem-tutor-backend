@@ -16,10 +16,13 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.logging import get_logger
-from app.domain.schemas.auth import LoginRequest, MeResponse, RegisterRequest, TokenResponse
+from app.domain.schemas.auth import LoginRequest, MeResponse, ProfileUpdateRequest, RegisterRequest, TokenResponse
 from app.infrastructure.database.connection import get_db
 from app.infrastructure.database.models import (
     Classroom,
+    ClassroomStudent,
+    Course,
+    Grade,
     Interest,
     StudentInterest,
     User,
@@ -130,42 +133,130 @@ async def login(req: LoginRequest, db: AsyncSession = Depends(get_db)) -> TokenR
     )
 
 
-# ── Me ─────────────────────────────────────────────────────────────────────
+# ── Auth dependency ─────────────────────────────────────────────────────────
 
-@router.get("/me", response_model=MeResponse)
-async def me(
+async def _current_user(
     credentials: Optional[HTTPAuthorizationCredentials] = Depends(bearer),
-    db: AsyncSession = Depends(get_db),
-) -> MeResponse:
+) -> uuid.UUID:
     if not credentials:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Not authenticated.")
     try:
         payload = decode_token(credentials.credentials)
     except JWTError:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid or expired token.")
+    return uuid.UUID(payload["sub"])
 
-    user_id = uuid.UUID(payload["sub"])
+
+async def _build_me_response(user_id: uuid.UUID, db: AsyncSession) -> MeResponse:
     result = await db.execute(select(User).where(User.id == user_id))
     user = result.scalar_one_or_none()
     if not user:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found.")
 
-    # Fetch interests
+    profile_result = await db.execute(select(UserProfile).where(UserProfile.user_id == user_id))
+    profile = profile_result.scalar_one_or_none()
+
+    # Resolve grade + course names
+    grade_name: Optional[str] = None
+    course_name: Optional[str] = None
+    if profile:
+        if profile.grade_id:
+            g = await db.get(Grade, profile.grade_id)
+            grade_name = g.name if g else None
+        if profile.course_id:
+            c = await db.get(Course, profile.course_id)
+            course_name = c.name if c else None
+
+    grade_level_parts = [p for p in [grade_name, course_name] if p]
+    grade_level = " · ".join(grade_level_parts) if grade_level_parts else None
+
+    # Interests
     si_result = await db.execute(
-        select(Interest).join(StudentInterest, Interest.id == StudentInterest.interest_id)
+        select(Interest)
+        .join(StudentInterest, Interest.id == StudentInterest.interest_id)
         .where(StudentInterest.user_id == user_id)
     )
     interest_slugs = [i.slug for i in si_result.scalars().all()]
 
-    # Fetch grade from profile
-    profile_result = await db.execute(select(UserProfile).where(UserProfile.user_id == user_id))
-    profile = profile_result.scalar_one_or_none()
+    # Classroom
+    classroom_name: Optional[str] = None
+    classroom_code: Optional[str] = None
+    cs_result = await db.execute(
+        select(ClassroomStudent).where(ClassroomStudent.student_id == user_id)
+    )
+    cs_row = cs_result.scalar_one_or_none()
+    if cs_row:
+        cls = await db.get(Classroom, cs_row.classroom_id)
+        if cls:
+            classroom_name = cls.name
+            classroom_code = cls.code
 
     return MeResponse(
         user_id=str(user.id),
         email=user.email,
         role=user.role,
         name=user.name,
-        grade_level=None,  # could join Grade here if needed
+        grade_level=grade_level,
+        grade=grade_name,
+        course=course_name,
         interests=interest_slugs,
+        classroom_name=classroom_name,
+        classroom_code=classroom_code,
     )
+
+
+# ── Me ─────────────────────────────────────────────────────────────────────
+
+@router.get("/me", response_model=MeResponse)
+async def me(
+    user_id: uuid.UUID = Depends(_current_user),
+    db: AsyncSession = Depends(get_db),
+) -> MeResponse:
+    return await _build_me_response(user_id, db)
+
+
+# ── Profile Update ─────────────────────────────────────────────────────────
+
+@router.patch("/profile", response_model=MeResponse)
+async def update_profile(
+    req: ProfileUpdateRequest,
+    user_id: uuid.UUID = Depends(_current_user),
+    db: AsyncSession = Depends(get_db),
+) -> MeResponse:
+    profile_result = await db.execute(select(UserProfile).where(UserProfile.user_id == user_id))
+    profile = profile_result.scalar_one_or_none()
+    if not profile:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Profile not found.")
+
+    # Frontend should send exact grade/course names as in the DB (e.g. from GET /grades, /courses).
+    if req.grade is not None:
+        grade_row = (await db.execute(
+            select(Grade).where(Grade.name.ilike(req.grade.strip()))
+        )).scalar_one_or_none()
+        if grade_row:
+            profile.grade_id = grade_row.id
+        # If no match, leave profile.grade_id unchanged (don't create ad-hoc grades).
+
+    if req.course is not None:
+        course_row = (await db.execute(
+            select(Course).where(Course.name.ilike(req.course.strip()))
+        )).scalar_one_or_none()
+        if course_row:
+            profile.course_id = course_row.id
+        # If no match, leave profile.course_id unchanged (don't create ad-hoc courses).
+
+    if req.interests is not None:
+        await db.execute(
+            select(StudentInterest).where(StudentInterest.user_id == user_id)
+        )
+        from sqlalchemy import delete as sa_delete
+        await db.execute(
+            sa_delete(StudentInterest).where(StudentInterest.user_id == user_id)
+        )
+        interest_ids = await _resolve_interest_ids(req.interests, db)
+        for iid in interest_ids:
+            db.add(StudentInterest(user_id=user_id, interest_id=iid))
+
+    await db.commit()
+    logger.info("profile_updated", user_id=str(user_id))
+    return await _build_me_response(user_id, db)
