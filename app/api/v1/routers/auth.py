@@ -78,6 +78,20 @@ async def register(req: RegisterRequest, db: AsyncSession = Depends(get_db)) -> 
     db.add(profile)
     await db.flush()
 
+    # Resolve grade + course (match names in grades/courses tables)
+    if req.grade is not None and req.grade.strip():
+        grade_row = (await db.execute(
+            select(Grade).where(Grade.name.ilike(req.grade.strip()))
+        )).scalar_one_or_none()
+        if grade_row:
+            profile.grade_id = grade_row.id
+    if req.course is not None and req.course.strip():
+        course_row = (await db.execute(
+            select(Course).where(Course.name.ilike(req.course.strip()))
+        )).scalar_one_or_none()
+        if course_row:
+            profile.course_id = course_row.id
+
     # Resolve + attach interests (students only)
     if req.role == "student" and req.interests:
         interest_ids = await _resolve_interest_ids(req.interests, db)

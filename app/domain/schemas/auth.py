@@ -10,6 +10,8 @@ class RegisterRequest(BaseModel):
     role: str  # "student" | "teacher"
     name: str
     grade_level: Optional[str] = None   # display string e.g. "High School (9–10)"
+    grade: Optional[str] = None         # grade name for profile (e.g. "12th Grade")
+    course: Optional[str] = None        # course name for profile (e.g. "AP Chemistry")
     class_name: Optional[str] = None    # teacher only
     interests: Optional[list[str]] = None  # interest slugs
 

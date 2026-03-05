@@ -47,8 +47,10 @@ MASTER_LESSONS: dict[str, dict] = {
     "L-atomic-history":              {"title": "History & Basics of Atomic Theory",         "is_ap_only": False, "key_equations": [],                                          "objectives": ["Trace development of the atomic model", "Describe contributions of key scientists"],              "canonical_unit": "unit-atomic-theory", "canonical_index": 0},
     "L-atomic-structure":            {"title": "Atomic Structure",                          "is_ap_only": False, "key_equations": [],                                          "objectives": ["Identify protons, neutrons, and electrons", "Use atomic number and mass number"],                 "canonical_unit": "unit-atomic-theory", "canonical_index": 1},
     "L-atomic-mass":                 {"title": "Atomic Mass",                               "is_ap_only": False, "key_equations": ["avg atomic mass = Σ(isotope mass × abundance)"], "objectives": ["Calculate average atomic mass from isotope data"],                                        "canonical_unit": "unit-atomic-theory", "canonical_index": 2},
-    "L-mass-spectrometry":           {"title": "Mass Spectrometry",                         "is_ap_only": True,  "key_equations": [],                                          "objectives": ["Interpret mass spectrometry data", "Identify isotopes from m/z peaks"],                           "canonical_unit": "ap-unit-1", "canonical_index": 8},
-    "L-pes":                         {"title": "Photoelectron Spectroscopy (PES)",          "is_ap_only": True,  "key_equations": ["IE = hν - KE"],                            "objectives": ["Interpret PES spectra", "Relate PES peaks to electron shell energies"],                          "canonical_unit": "ap-unit-1", "canonical_index": 9},
+    "L-mass-spectrometry":           {"title": "Mass Spectrometry",                         "is_ap_only": True,  "key_equations": [], "extension_of": "L-atomic-mass", "canonical_unit": "unit-atomic-theory", "canonical_index": 3,
+        "objectives": ["Interpret mass spectrometry data", "Identify isotopes from m/z peaks"]},
+    "L-pes":                         {"title": "Photoelectron Spectroscopy (PES)",          "is_ap_only": True,  "key_equations": ["IE = hν - KE"], "extension_of": "L-electrons-config-orbital", "canonical_unit": "unit-electrons", "canonical_index": 4,
+        "objectives": ["Interpret PES spectra", "Relate PES peaks to electron shell energies"]},
 
     # ── Nuclear Chemistry ─────────────────────────────────────
     "L-nuclear-intro":               {"title": "Intro to Nuclear Chemistry",                "is_ap_only": False, "key_equations": [],                                          "objectives": ["Identify types of radiation", "Describe nuclear stability"],                                     "canonical_unit": "unit-nuclear-chem", "canonical_index": 0},
@@ -73,8 +75,10 @@ MASTER_LESSONS: dict[str, dict] = {
     "L-bonding-covalent":            {"title": "Covalent Bonding",                          "is_ap_only": False, "key_equations": [],                                          "objectives": ["Explain covalent bond formation", "Draw Lewis structures for molecules"],                        "canonical_unit": "unit-bonding", "canonical_index": 2},
     "L-bonding-molecular-geometry":  {"title": "Molecular Geometry",                        "is_ap_only": False, "key_equations": [],                                          "objectives": ["Apply VSEPR theory", "Predict molecular shapes"],                                                "canonical_unit": "unit-bonding", "canonical_index": 3},
     "L-bonding-polarity":            {"title": "Polarity",                                  "is_ap_only": False, "key_equations": [],                                          "objectives": ["Determine bond polarity", "Predict molecular polarity"],                                         "canonical_unit": "unit-bonding", "canonical_index": 4},
-    "L-bonding-formal-charge":       {"title": "Formal Charge & Resonance",                 "is_ap_only": True,  "key_equations": ["FC = V - L - B/2"],                       "objectives": ["Calculate formal charge", "Draw resonance structures"],                                          "canonical_unit": "ap-unit-2", "canonical_index": 5},
-    "L-bonding-hybridization":       {"title": "Hybridization",                             "is_ap_only": True,  "key_equations": [],                                          "objectives": ["Explain sp, sp², sp³ hybridization", "Relate hybridization to geometry"],                        "canonical_unit": "ap-unit-2", "canonical_index": 6},
+    "L-bonding-formal-charge":       {"title": "Formal Charge & Resonance",                 "is_ap_only": True,  "key_equations": ["FC = V - L - B/2"], "extension_of": "L-bonding-covalent", "canonical_unit": "unit-bonding", "canonical_index": 5,
+        "objectives": ["Calculate formal charge", "Draw resonance structures"]},
+    "L-bonding-hybridization":       {"title": "Hybridization",                             "is_ap_only": True,  "key_equations": [], "extension_of": "L-bonding-molecular-geometry", "canonical_unit": "unit-bonding", "canonical_index": 6,
+        "objectives": ["Explain sp, sp², sp³ hybridization", "Relate hybridization to geometry"]},
 
     # ── Chemical Nomenclature ─────────────────────────────────
     "L-nomenclature-properties":     {"title": "Properties of Ionic & Covalent Compounds",  "is_ap_only": False, "key_equations": [],                                          "objectives": ["Compare properties of ionic and covalent compounds"],                                           "canonical_unit": "unit-nomenclature", "canonical_index": 0},
@@ -114,14 +118,16 @@ MASTER_LESSONS: dict[str, dict] = {
     "L-solutions-acids-bases-props": {"title": "Acids & Bases Properties",                  "is_ap_only": False, "key_equations": ["pH + pOH = 14"],                           "objectives": ["Describe Arrhenius and Brønsted-Lowry definitions", "Identify conjugate acid-base pairs"],     "canonical_unit": "unit-solutions", "canonical_index": 2},
     "L-solutions-acid-base-calc":    {"title": "Acid-Base Calculations",                    "is_ap_only": False, "key_equations": ["pH = -log[H⁺]"],                          "objectives": ["Calculate pH from [H⁺]", "Interconvert pH, pOH, [H⁺], [OH⁻]"],                              "canonical_unit": "unit-solutions", "canonical_index": 3},
     "L-solutions-beer-lambert":      {"title": "Beer-Lambert Law",                          "is_ap_only": True,  "key_equations": ["A = εlc"],                                 "objectives": ["Apply the Beer-Lambert law", "Determine concentration from absorbance"],                         "canonical_unit": "ap-unit-3", "canonical_index": 10},
-    "L-solutions-weak-acids":        {"title": "Weak Acids & Ka",                           "is_ap_only": True,  "key_equations": ["Ka = [H⁺][A⁻] / [HA]"],                  "objectives": ["Calculate pH of weak acid solutions", "Use Ka expressions"],                                   "canonical_unit": "ap-unit-8", "canonical_index": 2},
+    "L-solutions-weak-acids":        {"title": "Weak Acids & Ka",                           "is_ap_only": True,  "key_equations": ["Ka = [H⁺][A⁻] / [HA]"], "extension_of": "L-solutions-acid-base-calc", "canonical_unit": "unit-solutions", "canonical_index": 4,
+        "objectives": ["Calculate pH of weak acid solutions", "Use Ka expressions"]},
 
     # ── Thermochemistry ───────────────────────────────────────
     "L-thermo-intro":                {"title": "Intro to Thermochemistry",                  "is_ap_only": False, "key_equations": [],                                          "objectives": ["Distinguish endothermic and exothermic processes", "Define system and surroundings"],          "canonical_unit": "unit-thermochem", "canonical_index": 0},
     "L-thermo-calorimetry":          {"title": "Calorimetry",                               "is_ap_only": False, "key_equations": ["q = mcΔT"],                                "objectives": ["Perform calorimetry calculations", "Calculate specific heat capacity"],                          "canonical_unit": "unit-thermochem", "canonical_index": 1},
     "L-thermo-equations":            {"title": "Thermochemical Equations",                  "is_ap_only": False, "key_equations": ["Hess's Law"],                              "objectives": ["Write thermochemical equations", "Apply Hess's law"],                                            "canonical_unit": "unit-thermochem", "canonical_index": 2},
     "L-thermo-heating-curves":       {"title": "Heating Curves",                            "is_ap_only": False, "key_equations": ["q = mL"],                                  "objectives": ["Interpret heating/cooling curves", "Calculate heat for phase changes"],                          "canonical_unit": "unit-thermochem", "canonical_index": 3},
-    "L-thermo-bond-enthalpies":      {"title": "Bond Enthalpies",                           "is_ap_only": True,  "key_equations": ["ΔH = Σ BE(broken) - Σ BE(formed)"],       "objectives": ["Estimate ΔH using bond enthalpies", "Compare bond strengths"],                                  "canonical_unit": "ap-unit-6", "canonical_index": 4},
+    "L-thermo-bond-enthalpies":      {"title": "Bond Enthalpies",                           "is_ap_only": True,  "key_equations": ["ΔH = Σ BE(broken) - Σ BE(formed)"], "extension_of": "L-thermo-equations", "canonical_unit": "unit-thermochem", "canonical_index": 4,
+        "objectives": ["Estimate ΔH using bond enthalpies", "Compare bond strengths"]},
 
     # ── Kinetic Molecular Theory ──────────────────────────────
     "L-kmt-gases":                   {"title": "KMT: Gases",                                "is_ap_only": False, "key_equations": [],                                          "objectives": ["State the postulates of KMT for gases", "Explain pressure and temperature at molecular level"], "canonical_unit": "unit-kinetic-theory", "canonical_index": 0},
@@ -136,12 +142,20 @@ MASTER_LESSONS: dict[str, dict] = {
     "L-gas-ideal":                   {"title": "Ideal Gas Law",                             "is_ap_only": False, "key_equations": ["PV = nRT"],                                "objectives": ["Use the ideal gas law (PV = nRT)", "Solve for any gas variable"],                               "canonical_unit": "unit-gas-laws", "canonical_index": 3},
     "L-gas-van-der-waals":           {"title": "Real Gases & van der Waals Equation",       "is_ap_only": True,  "key_equations": ["(P + an²/V²)(V - nb) = nRT"],             "objectives": ["Explain deviations from ideal behavior", "Apply van der Waals equation"],                      "canonical_unit": "ap-unit-3", "canonical_index": 7},
 
-    # ── AP Unit 5: Kinetics ────────────────────────────────────
-    "L-ap-kinetics-rate-laws":       {"title": "Rate Laws & Reaction Rates",                "is_ap_only": True,  "key_equations": ["rate = k[A]ᵐ[B]ⁿ"],                      "objectives": ["Write rate law expressions", "Determine reaction order from experimental data"],               "canonical_unit": "ap-unit-5", "canonical_index": 0},
-    "L-ap-kinetics-integrated":      {"title": "Integrated Rate Laws",                      "is_ap_only": True,  "key_equations": ["[A]t = [A]₀ - kt", "ln[A]t = ln[A]₀ - kt", "1/[A]t = 1/[A]₀ + kt"], "objectives": ["Use integrated rate laws (0th, 1st, 2nd order)", "Calculate half-life"], "canonical_unit": "ap-unit-5", "canonical_index": 1},
-    "L-ap-kinetics-mechanisms":      {"title": "Reaction Mechanisms",                       "is_ap_only": True,  "key_equations": [],                                          "objectives": ["Identify elementary steps in a mechanism", "Determine rate-determining step"],                 "canonical_unit": "ap-unit-5", "canonical_index": 2},
-    "L-ap-kinetics-arrhenius":       {"title": "Arrhenius Equation & Activation Energy",    "is_ap_only": True,  "key_equations": ["k = Ae^(-Ea/RT)"],                        "objectives": ["Apply the Arrhenius equation", "Calculate activation energy from rate data"],                  "canonical_unit": "ap-unit-5", "canonical_index": 3},
-    "L-ap-kinetics-catalysis":       {"title": "Catalysis",                                 "is_ap_only": True,  "key_equations": [],                                          "objectives": ["Explain how catalysts affect reaction rate", "Distinguish homogeneous and heterogeneous catalysis"], "canonical_unit": "ap-unit-5", "canonical_index": 4},
+    # ── AP Unit 5: Kinetics (granular for simulations) ─────────
+    "L-ap-kinetics-rate-laws":       {"title": "Reaction Rates Introduction",               "is_ap_only": True,  "key_equations": ["rate = k[A]ᵐ[B]ⁿ"], "extension_of": "L-rxn-balancing", "canonical_unit": "ap-unit-5", "canonical_index": 0,
+        "objectives": ["Write rate law expressions", "Determine reaction order from experimental data"]},
+    "L-kinetics-zero-order":         {"title": "Zero Order Reactions",                      "is_ap_only": True,  "key_equations": ["[A]t = [A]₀ - kt"], "has_simulation": True, "extension_of": "L-ap-kinetics-rate-laws", "canonical_unit": "ap-unit-5", "canonical_index": 1,
+        "objectives": ["Apply zero-order integrated rate law", "Interpret concentration vs time graphs"]},
+    "L-kinetics-first-order":        {"title": "First Order Reactions",                     "is_ap_only": True,  "key_equations": ["ln[A]t = ln[A]₀ - kt", "t½ = ln2/k"], "has_simulation": True, "extension_of": "L-ap-kinetics-rate-laws", "canonical_unit": "ap-unit-5", "canonical_index": 2,
+        "objectives": ["Apply first-order integrated rate law", "Calculate half-life"]},
+    "L-kinetics-second-order":       {"title": "Second Order Reactions",                     "is_ap_only": True,  "key_equations": ["1/[A]t = 1/[A]₀ + kt"], "has_simulation": True, "extension_of": "L-ap-kinetics-rate-laws", "canonical_unit": "ap-unit-5", "canonical_index": 3,
+        "objectives": ["Apply second-order integrated rate law", "Compare with first-order kinetics"]},
+    "L-kinetics-comparison":        {"title": "Reaction Order Comparison",                   "is_ap_only": True,  "key_equations": [], "has_simulation": True, "extension_of": "L-kinetics-first-order", "canonical_unit": "ap-unit-5", "canonical_index": 4,
+        "objectives": ["Compare zero, first, and second order on one graph", "Identify order from experimental data"]},
+    "L-ap-kinetics-mechanisms":      {"title": "Reaction Mechanisms",                       "is_ap_only": True,  "key_equations": [],                                          "objectives": ["Identify elementary steps in a mechanism", "Determine rate-determining step"],                 "canonical_unit": "ap-unit-5", "canonical_index": 5},
+    "L-ap-kinetics-arrhenius":       {"title": "Arrhenius Equation & Activation Energy",    "is_ap_only": True,  "key_equations": ["k = Ae^(-Ea/RT)"],                        "objectives": ["Apply the Arrhenius equation", "Calculate activation energy from rate data"],                  "canonical_unit": "ap-unit-5", "canonical_index": 6},
+    "L-ap-kinetics-catalysis":       {"title": "Catalysis",                                 "is_ap_only": True,  "key_equations": [],                                          "objectives": ["Explain how catalysts affect reaction rate", "Distinguish homogeneous and heterogeneous catalysis"], "canonical_unit": "ap-unit-5", "canonical_index": 7},
 
     # ── AP Unit 7: Equilibrium ─────────────────────────────────
     "L-ap-eq-intro-kc":              {"title": "Intro to Equilibrium & Kc",                 "is_ap_only": True,  "key_equations": ["Kc = [products]/[reactants]"],             "objectives": ["Write equilibrium constant expressions", "Interpret the magnitude of Kc"],                    "canonical_unit": "ap-unit-7", "canonical_index": 0},
@@ -151,12 +165,17 @@ MASTER_LESSONS: dict[str, dict] = {
     "L-ap-eq-ice":                   {"title": "ICE Tables",                                "is_ap_only": True,  "key_equations": [],                                          "objectives": ["Set up ICE tables", "Solve for equilibrium concentrations"],                                   "canonical_unit": "ap-unit-7", "canonical_index": 4},
     "L-ap-eq-ksp":                   {"title": "Solubility Equilibria & Ksp",               "is_ap_only": True,  "key_equations": ["Ksp = [Aᵐ⁺]ᵃ[Bⁿ⁻]ᵇ"],                 "objectives": ["Write Ksp expressions", "Calculate molar solubility from Ksp"],                               "canonical_unit": "ap-unit-7", "canonical_index": 5},
 
-    # ── AP Unit 8: Acids & Bases (AP-only lessons) ────────────
-    "L-ap-acid-kakb":                {"title": "Ka, Kb & pKa / pKb",                        "is_ap_only": True,  "key_equations": ["Ka × Kb = Kw", "pKa + pKb = 14"],         "objectives": ["Use Ka and Kb to calculate pH", "Relate acid and base strengths"],                             "canonical_unit": "ap-unit-8", "canonical_index": 3},
-    "L-ap-acid-salt-hydrolysis":     {"title": "Salt Hydrolysis & pH",                      "is_ap_only": True,  "key_equations": [],                                          "objectives": ["Predict pH of salt solutions", "Explain hydrolysis of salts"],                                 "canonical_unit": "ap-unit-8", "canonical_index": 4},
-    "L-ap-acid-buffers":             {"title": "Buffer Design & Capacity",                  "is_ap_only": True,  "key_equations": ["pH = pKa + log([A⁻]/[HA])"],              "objectives": ["Design a buffer of a given pH", "Calculate buffer pH using Henderson-Hasselbalch"],           "canonical_unit": "ap-unit-8", "canonical_index": 5},
-    "L-ap-acid-titration-curves":    {"title": "Titration Curves & Indicators",             "is_ap_only": True,  "key_equations": [],                                          "objectives": ["Interpret strong and weak acid titration curves", "Select appropriate indicators"],            "canonical_unit": "ap-unit-8", "canonical_index": 6},
-    "L-ap-acid-polyprotic":          {"title": "Polyprotic Acids",                          "is_ap_only": True,  "key_equations": [],                                          "objectives": ["Calculate pH of polyprotic acid solutions", "Identify dominant species at each pH"],           "canonical_unit": "ap-unit-8", "canonical_index": 7},
+    # ── AP Unit 8: Acids & Bases (intro → buffers → titration) ─
+    "L-ap-acid-kakb":                {"title": "Ka, Kb & pKa / pKb",                        "is_ap_only": True,  "key_equations": ["Ka × Kb = Kw", "pKa + pKb = 14"], "extension_of": "L-solutions-weak-acids", "canonical_unit": "ap-unit-8", "canonical_index": 3,
+        "objectives": ["Use Ka and Kb to calculate pH", "Relate acid and base strengths"]},
+    "L-ap-acid-salt-hydrolysis":     {"title": "Salt Hydrolysis & pH",                      "is_ap_only": True,  "key_equations": [], "extension_of": "L-ap-acid-kakb", "canonical_unit": "ap-unit-8", "canonical_index": 4,
+        "objectives": ["Predict pH of salt solutions", "Explain hydrolysis of salts"]},
+    "L-ap-acid-buffers":             {"title": "Buffers: Design & Simulation",              "is_ap_only": True,  "key_equations": ["pH = pKa + log([A⁻]/[HA])"], "has_simulation": True, "extension_of": "L-solutions-acids-bases-props", "canonical_unit": "ap-unit-8", "canonical_index": 5,
+        "objectives": ["Design a buffer of a given pH", "Calculate buffer pH using Henderson-Hasselbalch"]},
+    "L-ap-acid-titration-curves":    {"title": "Titrations & Curves",                       "is_ap_only": True,  "key_equations": [], "has_simulation": True, "extension_of": "L-solutions-acid-base-calc", "canonical_unit": "ap-unit-8", "canonical_index": 6,
+        "objectives": ["Interpret strong and weak acid titration curves", "Select appropriate indicators"]},
+    "L-ap-acid-polyprotic":          {"title": "Polyprotic Acids",                          "is_ap_only": True,  "key_equations": [], "extension_of": "L-ap-acid-titration-curves", "canonical_unit": "ap-unit-8", "canonical_index": 7,
+        "objectives": ["Calculate pH of polyprotic acid solutions", "Identify dominant species at each pH"]},
 
     # ── AP Unit 9: Applications of Thermodynamics ─────────────
     "L-ap-thermo-entropy":           {"title": "Entropy & ΔS",                              "is_ap_only": True,  "key_equations": ["ΔS° = Σ S°(products) - Σ S°(reactants)"], "objectives": ["Define entropy and predict sign of ΔS", "Calculate standard entropy change"],                "canonical_unit": "ap-unit-9", "canonical_index": 0},
@@ -196,7 +215,7 @@ AP_UNITS = [
     {"id": "ap-unit-2", "sort_order": 2, "title": "Molecular & Ionic Compound Structure & Properties",  "icon": "🔗", "description": "All bond types, molecular geometry, polarity, formal charge, resonance, and hybridization.",                                "lesson_ids": ["L-bonding-basics", "L-bonding-ionic", "L-bonding-covalent", "L-bonding-molecular-geometry", "L-bonding-polarity", "L-bonding-formal-charge", "L-bonding-hybridization"]},
     {"id": "ap-unit-3", "sort_order": 3, "title": "Intermolecular Forces & Properties",                 "icon": "💧", "description": "KMT, phase diagrams, gas laws, real gases, solutions, molarity, and Beer-Lambert law.",                                    "lesson_ids": ["L-kmt-gases", "L-kmt-liquids", "L-kmt-solids", "L-kmt-phase-diagrams", "L-gas-boyle-charles", "L-gas-gay-lussac-combined", "L-gas-ideal", "L-gas-van-der-waals", "L-solutions-intro", "L-solutions-molarity", "L-solutions-beer-lambert"]},
     {"id": "ap-unit-4", "sort_order": 4, "title": "Chemical Reactions",                                 "icon": "⚗️", "description": "Balancing, reaction types, net ionic equations, redox, stoichiometry, and limiting reactants.",                             "lesson_ids": ["L-rxn-balancing", "L-rxn-synthesis-decomp", "L-rxn-single-replacement", "L-rxn-double-replacement", "L-rxn-net-ionic", "L-rxn-redox-titration", "L-stoich-mole-mole", "L-stoich-mass-mass", "L-stoich-limiting"]},
-    {"id": "ap-unit-5", "sort_order": 5, "title": "Kinetics",                                           "icon": "⏱️", "description": "Rate laws, integrated rate laws, reaction mechanisms, Arrhenius equation, and catalysis.",                                  "lesson_ids": ["L-ap-kinetics-rate-laws", "L-ap-kinetics-integrated", "L-ap-kinetics-mechanisms", "L-ap-kinetics-arrhenius", "L-ap-kinetics-catalysis"]},
+    {"id": "ap-unit-5", "sort_order": 5, "title": "Kinetics",                                           "icon": "⏱️", "description": "Reaction rates, zero/first/second order, comparison, mechanisms, Arrhenius, catalysis.",                                  "lesson_ids": ["L-ap-kinetics-rate-laws", "L-kinetics-zero-order", "L-kinetics-first-order", "L-kinetics-second-order", "L-kinetics-comparison", "L-ap-kinetics-mechanisms", "L-ap-kinetics-arrhenius", "L-ap-kinetics-catalysis"]},
     {"id": "ap-unit-6", "sort_order": 6, "title": "Thermodynamics",                                     "icon": "🔥", "description": "Thermochemistry, calorimetry, Hess's law, heating curves, and bond enthalpies.",                                          "lesson_ids": ["L-thermo-intro", "L-thermo-calorimetry", "L-thermo-equations", "L-thermo-heating-curves", "L-thermo-bond-enthalpies"]},
     {"id": "ap-unit-7", "sort_order": 7, "title": "Equilibrium",                                        "icon": "⚖️", "description": "Equilibrium constants Kc and Kp, reaction quotient Q, Le Châtelier's principle, ICE tables, and Ksp.",                   "lesson_ids": ["L-ap-eq-intro-kc", "L-ap-eq-kp", "L-ap-eq-q", "L-ap-eq-le-chatelier", "L-ap-eq-ice", "L-ap-eq-ksp"]},
     {"id": "ap-unit-8", "sort_order": 8, "title": "Acids & Bases",                                      "icon": "🧪", "description": "Acid-base properties, pH, weak acids, Ka/Kb, buffers, titration curves, and polyprotic acids.",                            "lesson_ids": ["L-solutions-acids-bases-props", "L-solutions-acid-base-calc", "L-solutions-weak-acids", "L-ap-acid-kakb", "L-ap-acid-salt-hydrolysis", "L-ap-acid-buffers", "L-ap-acid-titration-curves", "L-ap-acid-polyprotic"]},
@@ -232,6 +251,16 @@ AP_PHASES = [
     {"name": "Phase 3: Reaction Dynamics",      "description": "Rate laws, mechanisms, calorimetry, Hess's law, bond enthalpies.",          "sort_order": 2, "color": "#f59e0b", "units": [("ap-unit-5", 0), ("ap-unit-6", 1)]},
     {"name": "Phase 4: Chemical Equilibrium",   "description": "Ksp, Le Chatelier, buffers, titrations, polyprotic acids.",                 "sort_order": 3, "color": "#ef4444", "units": [("ap-unit-7", 0), ("ap-unit-8", 1)]},
     {"name": "Phase 5: Entropy & Electrons",    "description": "Gibbs free energy, galvanic/electrolytic cells, Faraday's laws.",           "sort_order": 4, "color": "#10b981", "units": [("ap-unit-9", 0)]},
+]
+
+# Maps Standard units to AP units they contribute to (for bridge UI / progress calc).
+UNIT_BRIDGE_MAP = [
+    {"standard_unit_id": "unit-atomic-theory", "leads_into_ap_unit": "ap-unit-1", "bridge_description": "Standard structure provides the 'What'; AP Mass Spec/PES provides the 'How we know'."},
+    {"standard_unit_id": "unit-bonding", "leads_into_ap_unit": "ap-unit-2", "bridge_description": "Standard bonding covers shapes; AP adds electron delocalization and orbital hybridization."},
+    {"standard_unit_id": "unit-chemical-reactions", "leads_into_ap_unit": "ap-unit-5", "bridge_description": "You can't study how fast a reaction goes until you know how to balance it."},
+    {"standard_unit_id": "unit-stoichiometry", "leads_into_ap_unit": "ap-unit-7", "bridge_description": "Equilibrium is stoichiometry with a limit."},
+    {"standard_unit_id": "unit-electrons", "leads_into_ap_unit": "ap-unit-9", "bridge_description": "Electron transfer and redox underpin electrochemistry."},
+    {"standard_unit_id": "unit-solutions", "leads_into_ap_unit": "ap-unit-8", "bridge_description": "Moving from basic pH of strong acids to equilibrium-based weak acid chemistry."},
 ]
 
 
@@ -298,6 +327,8 @@ async def seed(session: AsyncSession) -> None:
 
     for slug, data in MASTER_LESSONS.items():
         lesson = await session.scalar(select(Lesson).where(Lesson.slug == slug))
+        ext_of = data.get("extension_of")
+        has_sim = data.get("has_simulation", False)
         if lesson is None:
             lesson = Lesson(
                 slug=slug,
@@ -308,6 +339,8 @@ async def seed(session: AsyncSession) -> None:
                 objectives=data["objectives"],
                 unit_id=data["canonical_unit"],
                 lesson_index=data["canonical_index"],
+                extension_of=ext_of,
+                has_simulation=has_sim,
                 is_active=True,
             )
             session.add(lesson)
@@ -318,6 +351,8 @@ async def seed(session: AsyncSession) -> None:
             lesson.is_ap_only = data["is_ap_only"]
             lesson.key_equations = data["key_equations"]
             lesson.objectives = data["objectives"]
+            lesson.extension_of = ext_of
+            lesson.has_simulation = has_sim
         slug_to_lesson_id[slug] = lesson.id
 
     await session.flush()
@@ -473,6 +508,8 @@ async def main() -> None:
         await conn.execute(text("ALTER TABLE lessons ADD COLUMN IF NOT EXISTS slug VARCHAR(100)"))
         await conn.execute(text("ALTER TABLE lessons ADD COLUMN IF NOT EXISTS is_ap_only BOOLEAN NOT NULL DEFAULT FALSE"))
         await conn.execute(text("ALTER TABLE lessons ADD COLUMN IF NOT EXISTS objectives JSONB DEFAULT '[]'"))
+        await conn.execute(text("ALTER TABLE lessons ADD COLUMN IF NOT EXISTS extension_of VARCHAR(100)"))
+        await conn.execute(text("ALTER TABLE lessons ADD COLUMN IF NOT EXISTS has_simulation BOOLEAN NOT NULL DEFAULT FALSE"))
         await conn.execute(text("UPDATE lessons SET slug = 'L-legacy-' || id::text WHERE slug IS NULL"))
         await conn.execute(text("ALTER TABLE lessons ALTER COLUMN slug SET NOT NULL"))
 

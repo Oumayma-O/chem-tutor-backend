@@ -261,6 +261,11 @@ class Lesson(Base):
 
     is_ap_only: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
 
+    # Bridge: AP lesson extends this Standard lesson (slug). NULL = not an extension.
+    extension_of: Mapped[str | None] = mapped_column(String(100), nullable=True, default=None)
+    # True when this lesson has an associated simulation.
+    has_simulation: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+
     # Cached reference card — generated once by the LLM chain, never regenerated
     # unless manually cleared.  NULL = not yet generated.
     reference_card_json: Mapped[dict | None] = mapped_column(JSONB, nullable=True, default=None)
