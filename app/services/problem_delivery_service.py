@@ -1,0 +1,265 @@
+"""
+ProblemDeliveryService — orchestrates the full problem delivery pipeline.
+
+Encapsulates:
+  - Cap check (playlist limit)
+  - Cache lookup (Level 1)
+  - Lesson context fetch (key_equations, objectives)
+  - Problem generation (via ProblemGenerationService)
+  - Dedup guard
+  - Playlist append + navigation metadata
+  - Background tasks: cache store, generation log, cache backfill
+"""
+
+from __future__ import annotations
+
+import time
+import uuid as _uuid
+
+from fastapi import BackgroundTasks
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from app.core.config import get_settings
+from app.core.logging import get_logger
+from app.domain.schemas.tutor import GenerateProblemRequest, ProblemDeliveryResponse, ProblemOutput
+from app.infrastructure.database.repositories.unit_repo import LessonRepository
+from app.infrastructure.database.repositories.playlist_repo import (
+    MAX_PROBLEMS_PER_LEVEL,
+    UserLessonPlaylistRepository,
+)
+from app.services.ai.problem_generation.service import (
+    ProblemGenerationService,
+    enforce_step_types,
+)
+from app.services.problem_cache_service import ProblemCacheService
+
+logger = get_logger(__name__)
+
+
+class ProblemDeliveryService:
+    def __init__(self, db: AsyncSession, gen_service: ProblemGenerationService) -> None:
+        self._db = db
+        self._gen = gen_service
+        self._cache = ProblemCacheService(db)
+        self._lessons = LessonRepository(db)
+
+    async def deliver_worked_example(
+        self,
+        unit_id: str,
+        lesson_index: int,
+        background_tasks: BackgroundTasks,
+    ) -> ProblemOutput:
+        """Cache-first Level 1 worked example for the lesson side panel."""
+        problem = await self._cache.get_or_none(
+            unit_id=unit_id,
+            lesson_index=lesson_index,
+            difficulty="medium",
+            level=1,
+            context_tag=None,
+            exclude_ids=None,
+        )
+        if problem:
+            return enforce_step_types(problem, 1)
+
+        lesson = await self._lessons.get_by_index(unit_id, lesson_index)
+        lesson_context = {
+            "equations": lesson.key_equations or [],
+            "objectives": lesson.objectives or [],
+        } if lesson else None
+
+        problem = await self._gen.generate(
+            unit_id=unit_id,
+            lesson_index=lesson_index,
+            topic_name=lesson.title if lesson else "",
+            level=1,
+            difficulty="medium",
+            lesson_context=lesson_context,
+            db=self._db,
+        )
+        enforce_step_types(problem, 1)
+
+        stub_req = GenerateProblemRequest(
+            unit_id=unit_id,
+            lesson_index=lesson_index,
+            topic_name=lesson.title if lesson else "",
+            difficulty="medium",
+            level=1,
+        )
+        background_tasks.add_task(_store_in_cache, problem, stub_req, self._db)
+        return problem
+
+    async def deliver(
+        self,
+        req: GenerateProblemRequest,
+        background_tasks: BackgroundTasks,
+    ) -> ProblemDeliveryResponse:
+        """Full delivery pipeline: cap check → cache → generate → playlist append."""
+        playlist_repo = UserLessonPlaylistRepository(self._db) if req.user_id else None
+        context_tag = req.interests[0] if req.interests else None
+        max_p = MAX_PROBLEMS_PER_LEVEL.get(req.level, 5)
+        exclude = set(req.exclude_ids or [])
+
+        # ── Cap check ──────────────────────────────────────────
+        if playlist_repo and req.user_id:
+            playlist = await playlist_repo.get(
+                req.user_id, req.unit_id, req.lesson_index, req.level, req.difficulty
+            )
+            if playlist and len(playlist.problems) >= max_p:
+                ci = playlist.current_index
+                problem = ProblemOutput.model_validate(playlist.problems[ci])
+                enforce_step_types(problem, req.level)
+                total = len(playlist.problems)
+                return ProblemDeliveryResponse(
+                    problem=problem,
+                    current_index=ci, total=total, max_problems=max_p,
+                    has_prev=ci > 0, has_next=ci < total - 1, at_limit=True,
+                )
+
+        # ── Cache (Level 1 only) ───────────────────────────────
+        problem: ProblemOutput | None = None
+        if req.level == 1:
+            problem = await self._cache.get_or_none(
+                unit_id=req.unit_id,
+                lesson_index=req.lesson_index,
+                difficulty=req.difficulty,
+                level=1,
+                context_tag=context_tag,
+                exclude_ids=exclude or None,
+            )
+            if problem:
+                enforce_step_types(problem, 1)
+                if await self._cache.needs_backfill(
+                    req.unit_id, req.lesson_index, req.difficulty, 1, context_tag
+                ):
+                    background_tasks.add_task(
+                        _backfill_cache, req, self._gen, self._db, context_tag
+                    )
+
+        # ── Generate ───────────────────────────────────────────
+        elapsed_s = 0.0
+        if problem is None:
+            lesson_context = req.rag_context
+            if lesson_context is None:
+                lesson = await self._lessons.get_by_index(req.unit_id, req.lesson_index)
+                if lesson:
+                    lesson_context = {
+                        "equations": lesson.key_equations or [],
+                        "objectives": lesson.objectives or [],
+                    }
+
+            t0 = time.perf_counter()
+            problem = await self._gen.generate(
+                unit_id=req.unit_id,
+                lesson_index=req.lesson_index,
+                topic_name=req.topic_name,
+                level=req.level,
+                difficulty=req.difficulty,
+                interests=req.interests or None,
+                grade_level=req.grade_level,
+                focus_areas=req.focus_areas or None,
+                problem_style=req.problem_style,
+                lesson_context=lesson_context,
+                db=self._db,
+            )
+            elapsed_s = round(time.perf_counter() - t0, 3)
+
+            # Dedup guard
+            if exclude and problem.id in exclude:
+                problem.id = f"{problem.id}-{_uuid.uuid4().hex[:8]}"
+                logger.info("problem_id_deduplicated", new_id=problem.id)
+
+            background_tasks.add_task(_store_in_cache, problem, req, self._db)
+            background_tasks.add_task(
+                _log_generation, problem, req, elapsed_s,
+                self._gen.provider_name, self._gen.model_name, self._gen.prompt_version,
+            )
+
+        # ── Playlist append ────────────────────────────────────
+        if playlist_repo and req.user_id:
+            updated = await playlist_repo.append_and_advance(
+                user_id=req.user_id,
+                unit_id=req.unit_id,
+                lesson_index=req.lesson_index,
+                level=req.level,
+                difficulty=req.difficulty,
+                problem_data=problem.model_dump(by_alias=True),
+            )
+            await self._db.commit()
+            total = len(updated.problems)
+            ci = updated.current_index
+            return ProblemDeliveryResponse(
+                problem=problem,
+                current_index=ci, total=total, max_problems=max_p,
+                has_prev=ci > 0, has_next=ci < total - 1, at_limit=total >= max_p,
+            )
+
+        return ProblemDeliveryResponse(problem=problem)
+
+
+# ── Background helpers ─────────────────────────────────────────────────────────
+
+async def _store_in_cache(
+    problem: ProblemOutput,
+    req: GenerateProblemRequest,
+    db: AsyncSession,
+) -> None:
+    try:
+        await ProblemCacheService(db).store(problem, req.unit_id, req.lesson_index)
+    except Exception as exc:
+        logger.warning("cache_store_failed", error=str(exc))
+
+
+async def _log_generation(
+    problem: ProblemOutput,
+    req: GenerateProblemRequest,
+    elapsed_s: float,
+    provider: str,
+    model: str,
+    prompt_version: str,
+) -> None:
+    from app.infrastructure.database.connection import AsyncSessionFactory
+    from app.infrastructure.database.models import GenerationLog
+    try:
+        async with AsyncSessionFactory() as session:
+            session.add(GenerationLog(
+                problem_id=problem.id,
+                unit_id=req.unit_id,
+                lesson_index=req.lesson_index,
+                level=req.level,
+                difficulty=req.difficulty,
+                provider=provider,
+                model_name=model,
+                prompt_version=prompt_version,
+                execution_time_s=elapsed_s,
+                problem_json=problem.model_dump(by_alias=True),
+            ))
+            await session.commit()
+        logger.info(
+            "generation_logged",
+            provider=provider, model=model,
+            prompt_version=prompt_version, execution_time_s=elapsed_s,
+        )
+    except Exception as exc:
+        logger.warning("generation_log_failed", error=str(exc))
+
+
+async def _backfill_cache(
+    req: GenerateProblemRequest,
+    gen_service: ProblemGenerationService,
+    db: AsyncSession,
+    context_tag: str | None,
+) -> None:
+    try:
+        problem = await gen_service.generate(
+            unit_id=req.unit_id,
+            lesson_index=req.lesson_index,
+            topic_name=req.topic_name,
+            level=1,
+            difficulty=req.difficulty,
+            interests=[context_tag] if context_tag else None,
+            grade_level=req.grade_level,
+        )
+        await ProblemCacheService(db).store(problem, req.unit_id, req.lesson_index)
+        logger.info("cache_backfilled", unit=req.unit_id, lesson=req.lesson_index)
+    except Exception as exc:
+        logger.warning("cache_backfill_failed", error=str(exc))

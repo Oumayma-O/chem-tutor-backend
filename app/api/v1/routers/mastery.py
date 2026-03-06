@@ -2,7 +2,6 @@
 Mastery router — attempt lifecycle and mastery state endpoints.
 """
 
-from datetime import datetime
 import uuid
 
 from fastapi import APIRouter, Depends, HTTPException, status
@@ -10,7 +9,6 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.logging import get_logger
 from app.domain.schemas.mastery import (
-    CategoryScores,
     CompleteAttemptRequest,
     LessonProgressOut,
     MasteryState,
@@ -23,7 +21,6 @@ from app.domain.schemas.mastery import (
     UnlockLevel3Response,
 )
 from app.infrastructure.database.connection import get_db
-from app.infrastructure.database.models import SkillMastery
 from app.infrastructure.database.repositories.attempt_repo import (
     AttemptRepository,
     MisconceptionRepository,
@@ -138,29 +135,8 @@ async def get_mastery(
     lesson_index: int,
     service: MasteryService = Depends(_get_mastery_service),
 ) -> MasteryState:
-    """Return mastery state for user/unit/lesson. Returns default (0 attempts, 0% baseline) when no record exists."""
-    state = await service.get_mastery(user_id, unit_id, lesson_index)
-    if state is None:
-        from datetime import datetime
-        return MasteryState(
-            user_id=user_id,
-            unit_id=unit_id,
-            lesson_index=lesson_index,
-            mastery_score=0.0,
-            attempts_count=0,
-            consecutive_correct=0,
-            current_difficulty="medium",
-            error_counts={},
-            recent_scores=[],
-            category_scores=CategoryScores(),
-            updated_at=datetime.utcnow(),
-            has_mastered=False,
-            level3_unlocked=False,
-            level3_unlocked_at=None,
-            should_advance=False,
-            recommended_difficulty="medium",
-        )
-    return state
+    """Return mastery state for user/unit/lesson. Returns baseline defaults when no record exists."""
+    return await service.get_mastery_or_default(user_id, unit_id, lesson_index)
 
 
 # ── Lesson Progress endpoints ───────────────────────────────────
@@ -226,35 +202,8 @@ async def unlock_level3(
     user_id: uuid.UUID,
     unit_id: str,
     lesson_index: int,
-    db: AsyncSession = Depends(get_db),
+    service: MasteryService = Depends(_get_mastery_service),
 ) -> UnlockLevel3Response:
-    """
-    Permanently mark Level 3 as unlocked for a student/lesson.
-    One-way latch — cannot be reversed.
-    """
-    from datetime import datetime
-    now = datetime.utcnow()
-    repo = MasteryRepository(db)
-    existing = await repo.get_for_topic(user_id, unit_id, lesson_index)
-    if existing is None:
-        new_mastery = SkillMastery(
-            user_id=user_id,
-            unit_id=unit_id,
-            lesson_index=lesson_index,
-            mastery_score=0.0,
-            attempts_count=0,
-            consecutive_correct=0,
-            current_difficulty="medium",
-            level3_unlocked=True,
-            level3_unlocked_at=now,
-            category_scores={},
-            error_counts={},
-            recent_scores=[],
-            updated_at=now,
-        )
-        await repo.upsert(new_mastery)
-    elif not existing.level3_unlocked:
-        existing.level3_unlocked = True
-        existing.level3_unlocked_at = now
-        await repo.upsert(existing)
+    """Permanently mark Level 3 as unlocked. One-way latch — cannot be reversed."""
+    await service.unlock_level3(user_id, unit_id, lesson_index)
     return UnlockLevel3Response(level3_unlocked=True)

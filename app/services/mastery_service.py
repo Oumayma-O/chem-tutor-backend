@@ -189,6 +189,64 @@ class MasteryService:
             return None
         return _to_mastery_state(record, settings.mastery_threshold)
 
+    async def get_mastery_or_default(
+        self,
+        user_id: uuid.UUID,
+        unit_id: str,
+        lesson_index: int,
+    ) -> MasteryState:
+        state = await self.get_mastery(user_id, unit_id, lesson_index)
+        if state is not None:
+            return state
+        return MasteryState(
+            user_id=user_id,
+            unit_id=unit_id,
+            lesson_index=lesson_index,
+            mastery_score=0.0,
+            attempts_count=0,
+            consecutive_correct=0,
+            current_difficulty="medium",
+            error_counts={},
+            recent_scores=[],
+            category_scores=CategoryScores(),
+            updated_at=datetime.utcnow(),
+            has_mastered=False,
+            level3_unlocked=False,
+            level3_unlocked_at=None,
+            should_advance=False,
+            recommended_difficulty="medium",
+        )
+
+    async def unlock_level3(
+        self,
+        user_id: uuid.UUID,
+        unit_id: str,
+        lesson_index: int,
+    ) -> None:
+        """Permanently latch Level 3 unlocked for a student/lesson. One-way — cannot be reversed."""
+        now = datetime.utcnow()
+        existing = await self._mastery.get_for_topic(user_id, unit_id, lesson_index)
+        if existing is None:
+            await self._mastery.upsert(SkillMastery(
+                user_id=user_id,
+                unit_id=unit_id,
+                lesson_index=lesson_index,
+                mastery_score=0.0,
+                attempts_count=0,
+                consecutive_correct=0,
+                current_difficulty="medium",
+                level3_unlocked=True,
+                level3_unlocked_at=now,
+                category_scores={},
+                error_counts={},
+                recent_scores=[],
+                updated_at=now,
+            ))
+        elif not existing.level3_unlocked:
+            existing.level3_unlocked = True
+            existing.level3_unlocked_at = now
+            await self._mastery.upsert(existing)
+
     async def is_at_risk(self, user_id: uuid.UUID, unit_id: str) -> bool:
         """Returns True if the student is struggling across the unit."""
         records = await self._mastery.get_all_for_user(user_id)
