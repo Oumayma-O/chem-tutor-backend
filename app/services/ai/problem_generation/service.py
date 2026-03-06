@@ -28,18 +28,24 @@ _retry = retry(
     reraise=True,
 )
 
-_LEVEL_STEP_TYPES: dict[int, list[str]] = {
-    1: ["given", "given", "given", "given", "given"],
-    2: ["given", "given", "interactive", "interactive", "interactive"],
-    3: ["drag_drop", "variable_id", "interactive", "interactive", "interactive"],
-}
+def _expected_step_types(level: int, n: int) -> list[str]:
+    """Return the expected step-type sequence for `level` with `n` steps (3–6)."""
+    if level == 1:
+        return ["given"] * n
+    if level == 2:
+        given = min(2, n)
+        return ["given"] * given + ["interactive"] * (n - given)
+    # level == 3
+    if n == 1:
+        return ["drag_drop"]
+    if n == 2:
+        return ["drag_drop", "variable_id"]
+    return ["drag_drop", "variable_id"] + ["interactive"] * (n - 2)
 
 
 def enforce_step_types(problem: ProblemOutput, level: int) -> ProblemOutput:
     """Fix stale step types on cache hits served at a different level."""
-    expected = _LEVEL_STEP_TYPES.get(level)
-    if expected is None:
-        return problem
+    expected = _expected_step_types(level, len(problem.steps))
     for step, expected_type in zip(problem.steps, expected):
         step.type = expected_type  # type: ignore[assignment]
         if expected_type == "drag_drop" and not step.equation_parts:
@@ -104,7 +110,7 @@ class ProblemGenerationService:
             ),
             grade_block=f"Student grade level: {grade_level}." if grade_level else "",
             rag_block=_format_rag(rag_context),
-        ) + prompts.get_few_shot_block(unit_id, lesson_index, difficulty)
+        ) + prompts.get_few_shot_block(unit_id, lesson_index, difficulty, level)
 
         messages = [
             {"role": "system", "content": system},
@@ -116,6 +122,7 @@ class ProblemGenerationService:
         elapsed_s = round(time.perf_counter() - t0, 3)
 
         problem.level = level
+        problem.strategy = strategy
         problem.id = str(uuid.uuid4())
         # Fill step ids if LLM omitted them (structured output often skips step id)
         for step in problem.steps:
@@ -128,6 +135,7 @@ class ProblemGenerationService:
             problem_id=problem.id,
             execution_time_s=elapsed_s, unit=unit_id,
             lesson=lesson_index, level=level, difficulty=difficulty,
+            strategy=strategy, step_count=len(problem.steps),
         )
         return problem
 

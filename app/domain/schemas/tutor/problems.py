@@ -55,6 +55,8 @@ class ProblemOutput(BaseModel):
     topic: str
     difficulty: Literal["easy", "medium", "hard"]
     level: int = Field(default=2, ge=1, le=3)
+    # Set server-side after generation; not expected from the LLM.
+    strategy: Literal["quantitative", "conceptual", "analytical"] | None = None
 
     context_tag: str | None = Field(default=None, alias="contextTag")
     steps: list[ProblemStep] = Field(min_length=3, max_length=6)
@@ -101,7 +103,7 @@ class ReferenceStepCard(BaseModel):
     One step in the conceptual fiche de cours.
     Contains ONLY symbolic/conceptual text — no numerical examples.
     """
-    label: Literal["Equation", "Knowns", "Substitute", "Calculate", "Answer"]
+    label: str  # e.g. "Equation", "Identify Ions", "State Principle" — strategy-dependent
     content: str
 
 

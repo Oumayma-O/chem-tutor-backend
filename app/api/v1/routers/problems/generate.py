@@ -315,6 +315,16 @@ async def _log_generation(
         logger.warning("generation_log_failed", error=str(exc))
 
 
+@router.post("/few-shots/reload", tags=["Admin"])
+async def reload_few_shots(
+    db: AsyncSession = Depends(get_db),
+) -> dict:
+    """Admin: reload few-shot examples from DB into memory without restart."""
+    from app.services.ai.problem_generation.few_shots import load_few_shots
+    await load_few_shots(db)
+    return {"status": "ok", "message": "Few-shot store reloaded from DB."}
+
+
 async def _backfill_cache(
     req: GenerateProblemRequest,
     gen_service: ProblemGenerationService,

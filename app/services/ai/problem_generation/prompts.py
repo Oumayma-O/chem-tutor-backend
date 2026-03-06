@@ -50,8 +50,8 @@ STRATEGY: DATA & SPECTRA INTERPRETATION
 # style, step structure, and numeric precision.
 
 FEW_SHOT_EXAMPLES: dict[tuple[str, int], dict[str, dict]] = {
-    # ── Chemical Kinetics / Zero-Order ────────────────────────
-    ("chemical-kinetics", 0): {
+    # ── AP Unit 5: Chemical Kinetics / Zero-Order (lesson_order 0) ────────────
+    ("ap-unit-5", 0): {
         "easy": {
             "title": "Zero-Order Decay: Drug Elimination",
             "statement": (
@@ -96,8 +96,8 @@ FEW_SHOT_EXAMPLES: dict[tuple[str, int], dict[str, dict]] = {
             ],
         },
     },
-    # ── Chemical Kinetics / First-Order ───────────────────────
-    ("chemical-kinetics", 1): {
+    # ── AP Unit 5: Chemical Kinetics / First-Order (lesson_order 1) ──────────
+    ("ap-unit-5", 1): {
         "easy": {
             "title": "First-Order Radioactive Decay",
             "statement": (
@@ -353,14 +353,34 @@ DEFAULT_FEW_SHOT_EXAMPLES: dict[str, dict] = {
 }
 
 
-def get_few_shot_block(chapter_id: str, topic_index: int, difficulty: str) -> str:
-    """Return a formatted few-shot block to append to the system prompt."""
-    topic_bank = FEW_SHOT_EXAMPLES.get((chapter_id, topic_index), {})
-    example = topic_bank.get(difficulty) or DEFAULT_FEW_SHOT_EXAMPLES.get(difficulty)
+def get_few_shot_block(unit_id: str, topic_index: int, difficulty: str, level: int = 1) -> str:
+    """Return a formatted few-shot block to append to the system prompt.
+
+    Lookup order:
+      1. DB store (few_shots.py in-memory cache) — used when loaded at startup.
+      2. Hardcoded FEW_SHOT_EXAMPLES dict keyed by (unit_id, topic_index).
+      3. DEFAULT_FEW_SHOT_EXAMPLES fallback.
+    """
+    example: dict | None = None
+
+    # 1. DB-backed store (loaded at startup)
+    try:
+        from app.services.ai.problem_generation.few_shots import get_few_shot, is_loaded
+        if is_loaded():
+            example = get_few_shot(unit_id, topic_index, difficulty, level)
+    except ImportError:
+        pass
+
+    # 2. Hardcoded fallback
+    if not example:
+        topic_bank = FEW_SHOT_EXAMPLES.get((unit_id, topic_index), {})
+        example = topic_bank.get(difficulty) or DEFAULT_FEW_SHOT_EXAMPLES.get(difficulty)
+
     if not example:
         return ""
+
     steps_lines = "\n".join(
-        f"  {s['label']} ({s['type']}): {s['content']}"
+        f"  {s['label']} ({s['type']}): {s.get('instruction') or s.get('content', '')}"
         for s in example["steps"]
     )
     return (

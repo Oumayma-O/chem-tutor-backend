@@ -830,3 +830,37 @@ class PromptVersion(Base):
     version: Mapped[str] = mapped_column(String(20), primary_key=True)  # "v1", "v2", …
     template: Mapped[str] = mapped_column(Text, nullable=False)          # full system prompt text
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now)
+
+
+# ══════════════════════════════════════════════════════════════
+# FEW-SHOT EXAMPLE STORE
+# ══════════════════════════════════════════════════════════════
+
+class FewShotExample(Base):
+    """
+    Curated few-shot examples served to the LLM at generation time.
+
+    Loaded into memory at startup (see services/ai/problem_generation/few_shots.py).
+    Keyed by (unit_id, lesson_index, difficulty, level).  Multiple rows per key
+    are allowed; one is selected randomly at generation time.
+
+    Promotion pipeline: promoted=True rows come from admin review of
+    generation_logs; promoted=False rows are hand-authored seeds.
+    """
+    __tablename__ = "few_shot_examples"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    unit_id: Mapped[str] = mapped_column(String(100), nullable=False)
+    lesson_index: Mapped[int] = mapped_column(Integer, nullable=False)
+    difficulty: Mapped[str] = mapped_column(String(10), nullable=False)   # easy/medium/hard
+    level: Mapped[int] = mapped_column(Integer, nullable=False, default=1) # 1/2/3
+    strategy: Mapped[str | None] = mapped_column(String(20), nullable=True)  # quantitative/conceptual/analytical
+    # Full LLM-ready JSON: {title, statement, topic, steps: [...]}
+    example_json: Mapped[dict] = mapped_column(JSONB, nullable=False)
+    is_active: Mapped[bool] = mapped_column(Boolean, default=True)
+    promoted: Mapped[bool] = mapped_column(Boolean, default=False)  # True = promoted from generation_logs
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now)
+
+    __table_args__ = (
+        Index("ix_few_shot_lookup", "unit_id", "lesson_index", "difficulty", "level"),
+    )

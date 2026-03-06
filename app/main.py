@@ -59,12 +59,21 @@ async def _seed_prompt_version() -> None:
             logger.info("prompt_version_exists", version=PROMPT_VERSION)
 
 
+async def _load_few_shots() -> None:
+    """Load curated few-shot examples from DB into memory."""
+    from app.infrastructure.database.connection import AsyncSessionFactory
+    from app.services.ai.problem_generation.few_shots import load_few_shots
+    async with AsyncSessionFactory() as session:
+        await load_few_shots(session)
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     logger.info("startup", environment=settings.environment, provider=settings.default_ai_provider)
     await run_migrations()
     await _patch_schema()
     await _seed_prompt_version()
+    await _load_few_shots()
     yield
     logger.info("shutdown")
     await engine.dispose()
