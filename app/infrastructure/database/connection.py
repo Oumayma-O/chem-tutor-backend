@@ -19,6 +19,7 @@ engine: AsyncEngine = create_async_engine(
     max_overflow=settings.db_max_overflow,
     pool_pre_ping=True,   # Detect stale connections
     echo=settings.log_level.lower() == "debug",
+    connect_args={"timeout": 30},  # Neon free-tier can take ~15s to wake from suspend
 )
 
 # ── Session factory ───────────────────────────────────────────
@@ -80,6 +81,16 @@ async def run_migrations() -> None:
     # deadlocks because alembic env.py calls asyncio.run() from a thread.
     logger.info("running_create_all")
     import app.infrastructure.database.models  # noqa: F401 — registers all ORM models
-    async with engine.begin() as conn:
-        await conn.run_sync(Base.metadata.create_all)
-    logger.info("create_all_complete")
+    import asyncio
+    for attempt in range(1, 6):
+        try:
+            async with engine.begin() as conn:
+                await conn.run_sync(Base.metadata.create_all)
+            logger.info("create_all_complete")
+            return
+        except Exception as exc:
+            if attempt == 5:
+                raise
+            wait = attempt * 3
+            logger.warning("create_all_retry", attempt=attempt, wait_s=wait, error=str(exc))
+            await asyncio.sleep(wait)
