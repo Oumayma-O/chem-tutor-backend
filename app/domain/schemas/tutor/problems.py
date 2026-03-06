@@ -2,7 +2,7 @@
 
 import uuid
 from typing import Literal
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 
 
 class KnownVariable(BaseModel):
@@ -24,13 +24,20 @@ class ProblemStep(BaseModel):
       Level 3 (Unresolved):     step 1 "drag_drop", step 2 "variable_id",
                                  steps 3-5 "interactive"
     """
-    id: str
+    id: str = ""  # LLM often omits; service fills with problem_id + step_number if empty
     step_number: int = Field(alias="stepNumber")
     type: Literal["given", "interactive", "drag_drop", "variable_id"]
-    label: Literal["Equation", "Knowns", "Substitute", "Calculate", "Answer"]
-    instruction: str
-
+    label: str  # e.g. "Equation", "Knowns", "Unknown", "Step 1 — Equation"; flexible for strategy-based prompts
+    instruction: str = ""  # LLM few-shot uses "content"; validator below copies content → instruction when missing
     content: str | None = None
+
+    @model_validator(mode="after")
+    def instruction_from_content(self) -> "ProblemStep":
+        if not (self.instruction or "").strip() and (self.content or "").strip():
+            self.instruction = (self.content or "").strip()
+        if not (self.instruction or "").strip():
+            self.instruction = "(no instruction)"
+        return self
     placeholder: str | None = None
     equation_parts: list[str] | None = Field(default=None, alias="equationParts")
     known_variables: list[KnownVariable] | None = Field(default=None, alias="knownVariables")
@@ -50,7 +57,7 @@ class ProblemOutput(BaseModel):
     level: int = Field(default=2, ge=1, le=3)
 
     context_tag: str | None = Field(default=None, alias="contextTag")
-    steps: list[ProblemStep] = Field(min_length=5, max_length=5)
+    steps: list[ProblemStep] = Field(min_length=3, max_length=6)
 
     model_config = {"populate_by_name": True}
 

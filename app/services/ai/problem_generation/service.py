@@ -83,11 +83,19 @@ class ProblemGenerationService:
         problem_style: str | None = None,
         rag_context: dict | None = None,
     ) -> ProblemOutput:
+        strategy = prompts.get_strategy_for_unit(unit_id)
+        step_count = prompts.get_step_count_for_prompt(strategy, difficulty)
+        strategy_block = prompts.STRATEGY_BLOCKS.get(strategy, prompts.STRATEGY_BLOCKS["quantitative"])
+        interest_slug = (interests[0] if interests else "general chemistry").strip() or "general chemistry"
+
         system = prompts.GENERATE_PROBLEM_SYSTEM.format(
-            level_block=prompts.get_level_block(level),
+            strategy_block=strategy_block,
+            level_block=prompts.get_level_block(level, step_count),
+            step_count=step_count,
+            interest_slug=interest_slug,
             difficulty=difficulty,
             topic_name=topic_name,
-            chapter_id=unit_id,
+            unit_id=unit_id,
             focus_areas_block=f"FOCUS AREAS: {', '.join(focus_areas)}" if focus_areas else "",
             problem_style_block=f"PROBLEM STYLE: {problem_style}" if problem_style else "",
             interest_block=(
@@ -108,8 +116,11 @@ class ProblemGenerationService:
         elapsed_s = round(time.perf_counter() - t0, 3)
 
         problem.level = level
-        # Assign unique id server-side so "See Another" never gets a duplicate (LLM often returns same id for same topic/level/difficulty).
         problem.id = str(uuid.uuid4())
+        # Fill step ids if LLM omitted them (structured output often skips step id)
+        for step in problem.steps:
+            if not (step.id or "").strip():
+                step.id = f"{problem.id}-step-{step.step_number}"
 
         logger.info(
             "problem_generated",

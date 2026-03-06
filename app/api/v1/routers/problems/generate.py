@@ -16,6 +16,7 @@ import uuid as _uuid
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.config import get_settings
 from app.core.logging import get_logger
 from app.domain.schemas.tutor import GenerateProblemRequest, ProblemDeliveryResponse, ProblemOutput
 from app.infrastructure.database.connection import get_db
@@ -157,14 +158,6 @@ async def generate_problem(
     # ── Level 1: cache-first for worked examples ───────────────
     problem: ProblemOutput | None = None
     if req.level == 1:
-        # #region agent log
-        try:
-            import json as _j, time as _t
-            with open(r"c:\Users\htc\.cursor\chem-guide-frontend\debug-f6d775.log", "a", encoding="utf-8") as _f:
-                _f.write(_j.dumps({"sessionId":"f6d775","location":"generate.py:cache_lookup","message":"cache_lookup_start","data":{"exclude_ids":list(exclude),"level":req.level,"difficulty":req.difficulty,"unit":req.unit_id,"lesson":req.lesson_index},"hypothesisId":"H1","timestamp":int(_t.time()*1000)}) + "\n")
-        except Exception:
-            pass
-        # #endregion
         problem = await cache.get_or_none(
             unit_id=req.unit_id,
             lesson_index=req.lesson_index,
@@ -173,14 +166,6 @@ async def generate_problem(
             context_tag=context_tag,
             exclude_ids=exclude or None,
         )
-        # #region agent log
-        try:
-            import json as _j, time as _t
-            with open(r"c:\Users\htc\.cursor\chem-guide-frontend\debug-f6d775.log", "a", encoding="utf-8") as _f:
-                _f.write(_j.dumps({"sessionId":"f6d775","location":"generate.py:cache_lookup","message":"cache_lookup_result","data":{"cache_hit":problem is not None,"cached_id":problem.id if problem else None,"was_excluded":problem.id in exclude if problem else False},"hypothesisId":"H1","timestamp":int(_t.time()*1000)}) + "\n")
-        except Exception:
-            pass
-        # #endregion
         if problem:
             enforce_step_types(problem, 1)
             if await cache.needs_backfill(
@@ -231,10 +216,18 @@ async def generate_problem(
                 logger.info("problem_id_deduplicated", new_id=problem.id)
 
         except Exception as exc:
-            logger.error("problem_generation_failed", error=str(exc))
+            import traceback
+            logger.error(
+                "problem_generation_failed",
+                error=str(exc),
+                traceback=traceback.format_exc(),
+            )
+            detail = "Failed to generate problem. Please try again."
+            if get_settings().environment == "development":
+                detail += f" Backend: {type(exc).__name__}: {str(exc)[:200]}"
             raise HTTPException(
                 status_code=status.HTTP_502_BAD_GATEWAY,
-                detail="Failed to generate problem. Please try again.",
+                detail=detail,
             )
 
         background_tasks.add_task(_store_in_cache, problem, req, db)

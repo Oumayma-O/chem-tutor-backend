@@ -1,9 +1,47 @@
-"""Problem generation prompts — few-shot bank, level blocks, system prompt."""
+"""Problem generation prompts — strategy mapping, few-shot bank, level blocks, system prompt."""
 
 # ── Version ────────────────────────────────────────────────────────────────
-# Bump whenever the system prompt template changes.
-# Written to prompt_versions on startup and joined to generation_logs.
-PROMPT_VERSION = "v1"
+# Must fit DB prompt_versions.version column (varchar 20)
+PROMPT_VERSION = "v3-ped-strategies"
+
+# ── Strategy mapping: Unit ID → pedagogical "brain" ────────────────────────
+UNIT_STRATEGIES: dict[str, list[str]] = {
+    "conceptual": [
+        "unit-intro-chem", "unit-atomic-theory", "unit-electrons",
+        "unit-periodic-table", "unit-bonding", "unit-nomenclature",
+        "unit-chemical-reactions", "unit-kinetic-theory", "ap-unit-2",
+    ],
+    "quantitative": [
+        "unit-dimensional-analysis", "unit-mole", "unit-stoichiometry",
+        "unit-solutions", "unit-gas-laws", "unit-thermochem",
+        "ap-unit-4", "ap-unit-5", "ap-unit-6", "ap-unit-7", "ap-unit-9",
+    ],
+    "analytical": [
+        "unit-nuclear-chem", "ap-unit-1", "ap-unit-3", "ap-unit-8",
+    ],
+}
+
+# ── Strategy prompt blocks ─────────────────────────────────────────────────
+STRATEGY_BLOCKS: dict[str, str] = {
+    "quantitative": """
+STRATEGY: ALGEBRAIC PLUG-AND-CHUG (Tess Pattern)
+1. Unknown: Identify the target variable (e.g., 'Find [A]t').
+2. Knowns: Extract values with symbols and units (e.g., 'k = 0.2, t = 5').
+3. Equation: Select the correct formula (e.g., '[A]t = [A]o - kt').
+4. Substitute: Show the numbers plugged into the formula.
+5. Calculate/Answer: Final result with units and significant figures.
+""",
+    "conceptual": """
+STRATEGY: PARTICULATE & TREND REASONING
+- Focus: Use Periodic Trends, IMFs, or Atomic Structure to explain 'Why'.
+- Steps: (1) State Principle, (2) Compare species, (3) Predict, (4) Justify.
+""",
+    "analytical": """
+STRATEGY: DATA & SPECTRA INTERPRETATION
+- Focus: Interpret Mass Spec, PES, or Titration Curves.
+- Steps: (1) Data observation, (2) Property correlation, (3) Identity inference.
+""",
+}
 
 
 # ── Few-Shot Example Bank ──────────────────────────────────────────────────
@@ -103,6 +141,170 @@ FEW_SHOT_EXAMPLES: dict[tuple[str, int], dict[str, dict]] = {
             ],
         },
     },
+
+    # ── STRATEGY: QUANTITATIVE (Tess Pattern) ───────────────────────────────
+    ("unit-mole", 2): {
+        "medium": {
+            "title": "Two-Step Mole Conversion",
+            "statement": "Find the mass in grams of 1.22 moles of sodium (Na). The molar mass of Na is 22.99 g/mol.",
+            "steps": [
+                {"label": "Step 1 — Unknown",   "type": "given", "content": "Mass of Na (g)"},
+                {"label": "Step 2 — Knowns",    "type": "given", "content": "n = 1.22 mol, Molar Mass = 22.99 g/mol"},
+                {"label": "Step 3 — Equation",  "type": "given", "content": "m = n × Molar Mass"},
+                {"label": "Step 4 — Substitute", "type": "given", "content": "m = 1.22 mol × 22.99 g/mol"},
+                {"label": "Step 5 — Calculate",  "type": "given", "content": "1.22 × 22.99 = 28.0478"},
+                {"label": "Step 6 — Answer",     "type": "given", "content": "28.0 g (3 sig figs)"},
+            ],
+        },
+    },
+    ("unit-dimensional-analysis", 1): {
+        "hard": {
+            "title": "Multi-Step Metric Conversion",
+            "statement": "How many kg are equal to 45,000 mg? (K: 45,000 mg, U: ? kg)",
+            "steps": [
+                {"label": "Step 1 — Unknown",   "type": "given", "content": "Mass in kg"},
+                {"label": "Step 2 — Knowns",    "type": "given", "content": "Known = 45,000 mg. Factors: 1g=1000mg, 1kg=1000g"},
+                {"label": "Step 3 — Setup",     "type": "given", "content": "45,000 mg × (1 g / 1000 mg) × (1 kg / 1000 g)"},
+                {"label": "Step 4 — Calculate",  "type": "given", "content": "45,000 / 1,000,000 = 0.045"},
+                {"label": "Step 5 — Answer",     "type": "given", "content": "0.045 kg"},
+            ],
+        },
+    },
+
+    # ── STRATEGY: CONCEPTUAL (Logic Pattern) ───────────────────────────────
+    ("unit-nomenclature", 1): {
+        "medium": {
+            "title": "Writing Formula: Aluminum Sulfite",
+            "statement": "Write the chemical formula for Aluminum sulfite. Use ion charges to ensure a neutral compound.",
+            "steps": [
+                {"label": "Step 1 — Identify Ions", "type": "given", "content": "Aluminum = Al³⁺, Sulfite = SO₃²⁻"},
+                {"label": "Step 2 — Compare Charges", "type": "given", "content": "Al has +3 charge; SO₃ has -2 charge."},
+                {"label": "Step 3 — Balance Logic",   "type": "given", "content": "To reach net zero: two Al³⁺ (+6) and three SO₃²⁻ (-6)."},
+                {"label": "Step 4 — Final Formula",   "type": "given", "content": "Al₂(SO₃)₃"},
+            ],
+        },
+    },
+
+    # ── STRATEGY: ANALYTICAL (Data Pattern) ────────────────────────────────
+    ("ap-unit-1", 8): {
+        "medium": {
+            "title": "Interpreting Mass Spectrometry Peaks",
+            "statement": "A mass spectrum of an element shows two peaks: 35 amu (intensity 75%) and 37 amu (intensity 25%). Identify the element.",
+            "steps": [
+                {"label": "Step 1 — Observe Data", "type": "given", "content": "Two isotopes exist with mass 35 and 37."},
+                {"label": "Step 2 — Estimate Mean", "type": "given", "content": "The peak at 35 is 3x more abundant; average will be closer to 35."},
+                {"label": "Step 3 — Calculation",   "type": "given", "content": "(35 × 0.75) + (37 × 0.25) = 35.5 amu"},
+                {"label": "Step 4 — Identify",      "type": "given", "content": "Atomic mass 35.5 on Periodic Table corresponds to Chlorine."},
+                {"label": "Step 5 — Conclusion",    "type": "given", "content": "The element is Chlorine (Cl)."},
+            ],
+        },
+    },
+
+    # ── UNIT 11: STOICHIOMETRY (Quantitative) ──────────────────────────────
+    ("unit-stoichiometry", 0): {
+        "easy": {
+            "title": "Mole-Mole Stoichiometry",
+            "statement": "For the reaction 2K + 2H2O → 2KOH + H2, how many moles of H2 are produced from 3.86 moles of K?",
+            "steps": [
+                {"label": "Step 1 — Unknown",   "type": "given", "content": "Moles of H2"},
+                {"label": "Step 2 — Knowns",    "type": "given", "content": "3.86 mol K, Mole Ratio (1 H2 : 2 K)"},
+                {"label": "Step 3 — Equation",  "type": "given", "content": "mol Unknown = mol Known × (ratio)"},
+                {"label": "Step 4 — Substitute", "type": "given", "content": "3.86 mol K × (1 mol H2 / 2 mol K)"},
+                {"label": "Step 5 — Calculate",  "type": "given", "content": "3.86 / 2 = 1.93"},
+                {"label": "Step 6 — Answer",     "type": "given", "content": "1.93 mol H2"},
+            ],
+        },
+    },
+    ("unit-stoichiometry", 1): {
+        "hard": {
+            "title": "Mass-Mass Stoichiometry",
+            "statement": "What mass of AgCl will react with 15.0g of Al? Equation: Al + 3AgCl → 3Ag + AlCl3. (MM: Al=26.98, AgCl=143.32)",
+            "steps": [
+                {"label": "Step 1 — Unknown",   "type": "given", "content": "Mass of AgCl (g)"},
+                {"label": "Step 2 — Knowns",    "type": "given", "content": "15.0g Al, Ratio (3 AgCl : 1 Al)"},
+                {"label": "Step 3 — Convert to Moles", "type": "given", "content": "15.0g Al / 26.98 g/mol = 0.556 mol Al"},
+                {"label": "Step 4 — Mole Ratio", "type": "given", "content": "0.556 mol Al × (3 AgCl / 1 Al) = 1.668 mol AgCl"},
+                {"label": "Step 5 — Convert to Grams", "type": "given", "content": "1.668 mol AgCl × 143.32 g/mol = 239.057"},
+                {"label": "Step 6 — Answer",     "type": "given", "content": "239g AgCl"},
+            ],
+        },
+    },
+
+    # ── UNIT 12: SOLUTIONS & ACIDS (Quantitative) ───────────────────────────
+    ("unit-solutions", 1): {
+        "medium": {
+            "title": "Calculating Grams from Molarity",
+            "statement": "How many grams of CaBr2 are dissolved in 0.455 L of a 0.39 M CaBr2 solution? (MM of CaBr2 = 199.88 g/mol)",
+            "steps": [
+                {"label": "Step 1 — Unknown",   "type": "given", "content": "Mass of CaBr2 (g)"},
+                {"label": "Step 2 — Knowns",    "type": "given", "content": "M = 0.39 mol/L, V = 0.455 L, MM = 199.88 g/mol"},
+                {"label": "Step 3 — Find Moles", "type": "given", "content": "mol = M × L = 0.39 × 0.455 = 0.17745 mol"},
+                {"label": "Step 4 — Find Mass",  "type": "given", "content": "mass = 0.17745 mol × 199.88 g/mol"},
+                {"label": "Step 5 — Calculate",  "type": "given", "content": "35.4687..."},
+                {"label": "Step 6 — Answer",     "type": "given", "content": "35g CaBr2 (2 sig figs)"},
+            ],
+        },
+    },
+    ("unit-solutions", 3): {
+        "easy": {
+            "title": "Calculating pH from [H+]",
+            "statement": "What is the pH of a solution that has a hydrogen ion concentration [H+] = 1.0 × 10⁻⁴ M?",
+            "steps": [
+                {"label": "Step 1 — Unknown",   "type": "given", "content": "pH"},
+                {"label": "Step 2 — Knowns",    "type": "given", "content": "[H+] = 1.0 × 10⁻⁴ M"},
+                {"label": "Step 3 — Equation",  "type": "given", "content": "pH = -log[H+]"},
+                {"label": "Step 4 — Substitute", "type": "given", "content": "pH = -log(1.0 × 10⁻⁴)"},
+                {"label": "Step 5 — Calculate",  "type": "given", "content": "4.0"},
+                {"label": "Step 6 — Answer",     "type": "given", "content": "pH = 4.00"},
+            ],
+        },
+    },
+
+    # ── UNIT 13: THERMOCHEMISTRY (Quantitative) ────────────────────────────
+    ("unit-thermochem", 1): {
+        "medium": {
+            "title": "Specific Heat Calculation",
+            "statement": "How many calories of heat are required to raise the temperature of 525g of Aluminum from 13.0°C to 47.8°C? (c = 0.21 cal/g°C)",
+            "steps": [
+                {"label": "Step 1 — Unknown",   "type": "given", "content": "Heat (q) in calories"},
+                {"label": "Step 2 — Knowns",    "type": "given", "content": "m = 525g, c = 0.21, ΔT = (47.8 - 13.0) = 34.8°C"},
+                {"label": "Step 3 — Equation",  "type": "given", "content": "q = m × c × ΔT"},
+                {"label": "Step 4 — Substitute", "type": "given", "content": "q = 525 × 0.21 × 34.8"},
+                {"label": "Step 5 — Calculate",  "type": "given", "content": "3836.7"},
+                {"label": "Step 6 — Answer",     "type": "given", "content": "3,840 cal"},
+            ],
+        },
+    },
+
+    # ── UNIT 15: GAS LAWS (Quantitative) ───────────────────────────────────
+    ("unit-gas-laws", 2): {
+        "hard": {
+            "title": "Combined Gas Law (Unit Conversions)",
+            "statement": "A gas occupies 3.78L at 529mmHg and 17.2°C. At what pressure (mmHg) would the volume be 4.54L if the temperature is 34.8°C?",
+            "steps": [
+                {"label": "Step 1 — Unknown",   "type": "given", "content": "Final Pressure (P2)"},
+                {"label": "Step 2 — Knowns",    "type": "given", "content": "P1=529, V1=3.78, T1=290.2K, V2=4.54, T2=307.8K"},
+                {"label": "Step 3 — Equation",  "type": "given", "content": "(P1V1)/T1 = (P2V2)/T2"},
+                {"label": "Step 4 — Rearrange",  "type": "given", "content": "P2 = (P1V1T2) / (T1V2)"},
+                {"label": "Step 5 — Substitute", "type": "given", "content": "P2 = (529 × 3.78 × 307.8) / (290.2 × 4.54)"},
+                {"label": "Step 6 — Answer",     "type": "given", "content": "467 mmHg"},
+            ],
+        },
+    },
+    ("unit-gas-laws", 3): {
+        "medium": {
+            "title": "Ideal Gas Law Calculation",
+            "statement": "At what pressure would 0.212 mol of a gas occupy 6.84L at 89°C? (R = 0.0821 L·atm/mol·K)",
+            "steps": [
+                {"label": "Step 1 — Unknown",   "type": "given", "content": "Pressure (P) in atm"},
+                {"label": "Step 2 — Knowns",    "type": "given", "content": "n = 0.212, V = 6.84, T = 362K, R = 0.0821"},
+                {"label": "Step 3 — Equation",  "type": "given", "content": "P = (nRT) / V"},
+                {"label": "Step 4 — Substitute", "type": "given", "content": "P = (0.212 × 0.0821 × 362) / 6.84"},
+                {"label": "Step 5 — Calculate",  "type": "given", "content": "0.921..."},
+                {"label": "Step 6 — Answer",     "type": "given", "content": "0.921 atm"},
+            ],
+        },
+    },
 }
 
 DEFAULT_FEW_SHOT_EXAMPLES: dict[str, dict] = {
@@ -170,67 +372,56 @@ def get_few_shot_block(chapter_id: str, topic_index: int, difficulty: str) -> st
     )
 
 
-# ── Level blocks ───────────────────────────────────────────────────────────
-_LEVEL_BLOCKS: dict[int, str] = {
-    1: """
-LEVEL 1 — FULLY WORKED EXAMPLE
-All 5 steps must use type="given". The student reads but never answers.
-  Step 1 — Equation   : type=given  → write the rate law/formula in "content"
-  Step 2 — Knowns     : type=given  → list variables extracted from statement in "content"
-  Step 3 — Substitute : type=given  → show full substitution in "content"
-  Step 4 — Calculate  : type=given  → show arithmetic in "content"
-  Step 5 — Answer     : type=given  → state final answer with units in "content"
-Set "correctAnswer" on every step (reference only). Leave "hint" empty for all steps.""",
-
-    2: """
-LEVEL 2 — FADED EXAMPLE
-Steps 1-2 are type="given" (shown); steps 3-5 are type="interactive" (student fills in).
-  Step 1 — Equation   : type=given       → fill "content" with the rate law
-  Step 2 — Knowns     : type=given       → fill "content" with extracted variables
-  Step 3 — Substitute : type=interactive → set "correctAnswer" (student substitutes values)
-  Step 4 — Calculate  : type=interactive → set "correctAnswer" (student computes result)
-  Step 5 — Answer     : type=interactive → set "correctAnswer" with correct units
-For steps 3-5: write a "hint" that guides thinking WITHOUT revealing the answer or any value.""",
-
-    3: """
-LEVEL 3 — FULLY UNRESOLVED
-All 5 steps require student input — use the specific types below:
-  Step 1 — Equation   : type=drag_drop
-    → set "equationParts" as ordered token list, e.g. ["[A]t","=","[A]0","−","k","·","t"]
-    → set "correctAnswer" to the full equation string, e.g. "[A]t = [A]0 − k·t"
-  Step 2 — Knowns     : type=variable_id
-    → set "knownVariables" as [{"variable":"[A]0","value":"0.75","unit":"M"}, ...]
-    → set "correctAnswer" as comma-separated pairs, e.g. "[A]0=0.75M,k=0.025M/s,t=8s"
-  Step 3 — Substitute : type=interactive → set "correctAnswer" (student substitutes)
-  Step 4 — Calculate  : type=interactive → set "correctAnswer" (student computes)
-  Step 5 — Answer     : type=interactive → set "correctAnswer" with correct units
-Hints must NEVER reveal numeric values. Randomise values so students cannot copy L1/L2 answers.""",
-}
+# ── Strategy lookup: unit_id → strategy name ─────────────────────────────────
+def get_strategy_for_unit(unit_id: str) -> str:
+    """Return 'conceptual', 'quantitative', or 'analytical'. Default 'quantitative'."""
+    for strategy, unit_ids in UNIT_STRATEGIES.items():
+        if unit_id in unit_ids:
+            return strategy
+    return "quantitative"
 
 
-def get_level_block(level: int) -> str:
-    """Return step-type instructions for the given level."""
-    return _LEVEL_BLOCKS.get(level, _LEVEL_BLOCKS[2])
+def get_step_count_for_prompt(strategy: str, difficulty: str) -> int:
+    """Return step count 3–6 for the system prompt. Quantitative tends to use more steps."""
+    if strategy == "quantitative":
+        return {"easy": 4, "medium": 5, "hard": 6}.get(difficulty, 5)
+    if strategy == "conceptual":
+        return {"easy": 3, "medium": 4, "hard": 4}.get(difficulty, 4)
+    # analytical
+    return {"easy": 4, "medium": 5, "hard": 5}.get(difficulty, 5)
+
+
+# ── Level blocks (parameterized by step_count) ──────────────────────────────
+def get_level_block(level: int, step_count: int = 5) -> str:
+    """Return step-type instructions for the given level and step count."""
+    n = max(3, min(6, step_count))
+    given_range = "1-2" if n >= 2 else "1"
+    interactive_start = 3 if n >= 3 else 2
+    interactive_range = f"{interactive_start}-{n}" if n >= interactive_start else str(n)
+    return f"""
+LEVEL {level} LOGIC:
+- Level 1: Fully worked. All {n} steps are type="given".
+- Level 2: Faded. Steps {given_range} are type="given"; steps {interactive_range} are type="interactive".
+- Level 3: Unresolved. Step 1 is type="drag_drop", Step 2 is type="variable_id", steps 3-{n} are type="interactive".
+
+Use exactly {n} steps. Step labels (e.g. Equation, Knowns, Substitute, Calculate, Answer) should match the strategy.
+For Level 1: set "correctAnswer" on every step; leave "hint" empty.
+For Level 2/3: set "correctAnswer" on interactive steps; hints must NOT reveal numeric values."""
 
 
 # ── System prompt ──────────────────────────────────────────────────────────
-GENERATE_PROBLEM_SYSTEM = """You are an expert chemistry problem generator.
+GENERATE_PROBLEM_SYSTEM = """You are an expert Chemistry tutor generating a {difficulty} problem.
 
-OUTPUT FIELDS:
-- "statement": A full narrative paragraph presenting the scenario.
-  EXPLICITLY embed ALL given values with their symbol and unit in the text.
-  Example: "A sports drink manufacturer tests a preservative that degrades by zero-order
-  kinetics. The initial concentration is [A]₀ = 0.80 M and the rate constant is k = 0.20 M/s.
-  Find the concentration after t = 3 s."
-- "title": Short descriptive title (5-8 words)
+PEDAGOGICAL STRATEGY:
+{strategy_block}
+
 {level_block}
 
-RULES (all levels):
-- "statement" must contain ALL numeric values naturally embedded in the narrative
-- Step 2 Knowns: list ONLY values that appear in the statement as "symbol = value unit"
-- Use simple chemistry numbers; final answer computable with basic arithmetic
-- Difficulty "{difficulty}": easy=whole numbers, medium=2-3 sig figs, hard=3 sig figs + unit conversions
-- context_tag must be set to the interest slug if interests are provided
+CONSTRAINTS:
+- Use exactly {step_count} steps.
+- Statement: embed all numeric values with symbols and units in the narrative.
+- Sig Figs: easy=whole numbers, medium/hard=strict sig figs.
+- Context: If student interests are provided, frame the narrative around {interest_slug}.
 {focus_areas_block}
 {problem_style_block}
 {interest_block}
@@ -238,4 +429,4 @@ RULES (all levels):
 {rag_block}
 
 Topic: {topic_name}
-Chapter: {chapter_id}"""
+Unit: {unit_id}"""

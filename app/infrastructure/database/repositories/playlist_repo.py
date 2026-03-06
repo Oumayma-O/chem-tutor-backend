@@ -49,11 +49,24 @@ class UserLessonPlaylistRepository:
         difficulty: str,
         problem_data: dict,
     ) -> UserLessonPlaylist:
-        """Append a new problem to the end of the playlist and advance current_index to it."""
+        """
+        Append a new problem to the end of the playlist and advance current_index to it.
+        If this problem's id is already in the playlist (e.g. cache returned a duplicate),
+        we do not append again; we set current_index to that existing position.
+        """
         existing = await self.get(user_id, unit_id, lesson_index, level, difficulty)
         now = datetime.utcnow()
-        new_problems = (list(existing.problems) if existing else []) + [problem_data]
-        new_index = len(new_problems) - 1
+        problem_id = problem_data.get("id") if isinstance(problem_data, dict) else None
+        existing_list = list(existing.problems or []) if existing else []
+
+        for i, p in enumerate(existing_list):
+            if problem_id is not None and isinstance(p, dict) and p.get("id") == problem_id:
+                new_index = i
+                new_problems = existing_list
+                break
+        else:
+            new_problems = existing_list + [problem_data]
+            new_index = len(new_problems) - 1
 
         stmt = (
             insert(UserLessonPlaylist)
