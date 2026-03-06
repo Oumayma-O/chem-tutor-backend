@@ -353,25 +353,22 @@ DEFAULT_FEW_SHOT_EXAMPLES: dict[str, dict] = {
 }
 
 
-def get_few_shot_block(unit_id: str, topic_index: int, difficulty: str, level: int = 1) -> str:
+def get_few_shot_block(
+    unit_id: str,
+    topic_index: int,
+    difficulty: str,
+    level: int = 1,
+    db_example: dict | None = None,
+) -> str:
     """Return a formatted few-shot block to append to the system prompt.
 
     Lookup order:
-      1. DB store (few_shots.py in-memory cache) — used when loaded at startup.
+      1. db_example — fetched from DB by service.generate() when a session is available.
       2. Hardcoded FEW_SHOT_EXAMPLES dict keyed by (unit_id, topic_index).
-      3. DEFAULT_FEW_SHOT_EXAMPLES fallback.
+      3. DEFAULT_FEW_SHOT_EXAMPLES global fallback.
     """
-    example: dict | None = None
+    example: dict | None = db_example
 
-    # 1. DB-backed store (loaded at startup)
-    try:
-        from app.services.ai.problem_generation.few_shots import get_few_shot, is_loaded
-        if is_loaded():
-            example = get_few_shot(unit_id, topic_index, difficulty, level)
-    except ImportError:
-        pass
-
-    # 2. Hardcoded fallback
     if not example:
         topic_bank = FEW_SHOT_EXAMPLES.get((unit_id, topic_index), {})
         example = topic_bank.get(difficulty) or DEFAULT_FEW_SHOT_EXAMPLES.get(difficulty)

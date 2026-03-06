@@ -1,22 +1,16 @@
 """
 Units router — content catalog management.
 
-GET  /units               → list all active units (filtered by grade/course)
-GET  /units/{id}          → unit detail with lessons
-POST /units               → create unit (teacher/admin)
-POST /curriculum/upload   → upload curriculum document for RAG context
-GET  /units/{id}/rag-context → get aggregated RAG context for a unit/lesson
+GET  /units       → list all active units (filtered by grade/course)
+GET  /units/{id}  → unit detail with lessons
+POST /units       → create unit (teacher/admin)
 """
-
-import uuid
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.logging import get_logger
 from app.domain.schemas.units import (
-    CurriculumDocOut,
-    CurriculumUploadRequest,
     LessonCreate,
     LessonOut,
     StandardOut,
@@ -25,9 +19,8 @@ from app.domain.schemas.units import (
     UnitOut,
 )
 from app.infrastructure.database.connection import get_db
-from app.infrastructure.database.models import CurriculumDocument, Lesson, LessonStandard, Standard, Unit
+from app.infrastructure.database.models import Lesson, LessonStandard, Standard, Unit
 from app.infrastructure.database.repositories.unit_repo import (
-    CurriculumDocumentRepository,
     LessonRepository,
     StandardRepository,
     UnitRepository,
@@ -165,114 +158,3 @@ async def create_unit(
     return await get_unit(req.id, db)
 
 
-@router.get("/{unit_id}/rag-context")
-async def get_rag_context(
-    unit_id: str,
-    lesson_id: int | None = Query(default=None),
-    db: AsyncSession = Depends(get_db),
-) -> dict:
-    """
-    Aggregate curriculum documents into the rag_context dict for AI services.
-    Also includes key_equations and objectives from lessons.
-    """
-    doc_repo = CurriculumDocumentRepository(db)
-    lesson_repo = LessonRepository(db)
-
-    rag = await doc_repo.build_rag_context(unit_id=unit_id, lesson_id=lesson_id)
-
-    # Augment with lesson key_equations and objectives
-    if lesson_id is not None:
-        lesson = await lesson_repo.get_by_index(unit_id, lesson_id)
-        if lesson:
-            if lesson.key_equations:
-                existing = set(rag.get("equations", []))
-                for eq in lesson.key_equations:
-                    if eq not in existing:
-                        rag.setdefault("equations", []).append(eq)
-            if lesson.objectives:
-                existing = set(rag.get("objectives", []))
-                for obj in lesson.objectives:
-                    if obj not in existing:
-                        rag.setdefault("objectives", []).append(obj)
-    else:
-        lessons = await lesson_repo.get_by_unit(unit_id)
-        eq_existing = set(rag.get("equations", []))
-        obj_existing = set(rag.get("objectives", []))
-        for l in lessons:
-            for eq in (l.key_equations or []):
-                if eq not in eq_existing:
-                    rag.setdefault("equations", []).append(eq)
-                    eq_existing.add(eq)
-            for obj in (l.objectives or []):
-                if obj not in obj_existing:
-                    rag.setdefault("objectives", []).append(obj)
-                    obj_existing.add(obj)
-
-    return rag
-
-
-# ── Curriculum Document Endpoints ────────────────────────────
-
-curriculum_router = APIRouter(prefix="/curriculum")
-
-
-@curriculum_router.post("/upload", response_model=CurriculumDocOut, status_code=status.HTTP_201_CREATED)
-async def upload_curriculum(
-    req: CurriculumUploadRequest,
-    uploaded_by: uuid.UUID | None = Query(default=None),
-    db: AsyncSession = Depends(get_db),
-) -> CurriculumDocOut:
-    """
-    Upload a curriculum document (text extracted by the caller from PDF/JSON/text).
-    The extracted text is stored for RAG context injection into AI prompts.
-    """
-    doc = CurriculumDocument(
-        unit_id=req.unit_id,
-        lesson_id=req.lesson_id,
-        title=req.title,
-        source_type=req.source_type,
-        filename=req.filename,
-        content_text=req.content_text,
-        doc_metadata={
-            "standards": req.standards,
-            "equations": req.equations,
-            "skills": req.skills,
-        },
-        uploaded_by=uploaded_by,
-    )
-    db.add(doc)
-    await db.flush()
-
-    return CurriculumDocOut(
-        id=str(doc.id),
-        unit_id=doc.unit_id,
-        lesson_id=doc.lesson_id,
-        title=doc.title,
-        source_type=doc.source_type,
-        filename=doc.filename,
-        standards=req.standards,
-        equations=req.equations,
-    )
-
-
-@curriculum_router.get("/units/{unit_id}", response_model=list[CurriculumDocOut])
-async def list_curriculum_docs(
-    unit_id: str,
-    lesson_id: int | None = Query(default=None),
-    db: AsyncSession = Depends(get_db),
-) -> list[CurriculumDocOut]:
-    repo = CurriculumDocumentRepository(db)
-    docs = await repo.get_for_lesson(unit_id=unit_id, lesson_id=lesson_id)
-    return [
-        CurriculumDocOut(
-            id=str(d.id),
-            unit_id=d.unit_id,
-            lesson_id=d.lesson_id,
-            title=d.title,
-            source_type=d.source_type,
-            filename=d.filename,
-            standards=d.doc_metadata.get("standards", []) if d.doc_metadata else [],
-            equations=d.doc_metadata.get("equations", []) if d.doc_metadata else [],
-        )
-        for d in docs
-    ]

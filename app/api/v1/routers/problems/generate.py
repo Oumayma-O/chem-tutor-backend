@@ -20,10 +20,7 @@ from app.core.config import get_settings
 from app.core.logging import get_logger
 from app.domain.schemas.tutor import GenerateProblemRequest, ProblemDeliveryResponse, ProblemOutput
 from app.infrastructure.database.connection import get_db
-from app.infrastructure.database.repositories.unit_repo import (
-    CurriculumDocumentRepository,
-    LessonRepository,
-)
+from app.infrastructure.database.repositories.unit_repo import LessonRepository
 from app.infrastructure.database.repositories.playlist_repo import (
     MAX_PROBLEMS_PER_LEVEL,
     UserLessonPlaylistRepository,
@@ -69,13 +66,10 @@ async def get_worked_example(
     lesson_repo = LessonRepository(db)
     lesson = await lesson_repo.get_by_index(unit_id, lesson_index)
     lesson_name = lesson.title if lesson else ""
-
-    doc_repo = CurriculumDocumentRepository(db)
-    rag_context = await doc_repo.build_rag_context(unit_id=unit_id, lesson_id=None)
-    if lesson and lesson.key_equations:
-        rag_context.setdefault("equations", []).extend(lesson.key_equations)
-    if lesson and lesson.objectives:
-        rag_context.setdefault("objectives", []).extend(lesson.objectives)
+    lesson_context = {
+        "equations": lesson.key_equations or [],
+        "objectives": lesson.objectives or [],
+    } if lesson else None
 
     try:
         problem = await gen_service.generate(
@@ -84,11 +78,8 @@ async def get_worked_example(
             topic_name=lesson_name,
             level=1,
             difficulty="medium",
-            interests=None,
-            grade_level=None,
-            focus_areas=None,
-            problem_style=None,
-            rag_context=rag_context,
+            lesson_context=lesson_context,
+            db=db,
         )
     except Exception as exc:
         logger.error("reference_generation_failed", error=str(exc))
@@ -179,19 +170,15 @@ async def generate_problem(
     elapsed_s = 0.0
     if problem is None:
         try:
-            rag_context = req.rag_context
-            if rag_context is None:
-                doc_repo = CurriculumDocumentRepository(db)
+            lesson_context = req.rag_context  # caller may supply pre-built context
+            if lesson_context is None:
                 lesson_repo = LessonRepository(db)
-                rag_context = await doc_repo.build_rag_context(
-                    unit_id=req.unit_id,
-                    lesson_id=None,
-                )
                 lesson = await lesson_repo.get_by_index(req.unit_id, req.lesson_index)
-                if lesson and lesson.key_equations:
-                    rag_context.setdefault("equations", []).extend(lesson.key_equations)
-                if lesson and lesson.objectives:
-                    rag_context.setdefault("objectives", []).extend(lesson.objectives)
+                if lesson:
+                    lesson_context = {
+                        "equations": lesson.key_equations or [],
+                        "objectives": lesson.objectives or [],
+                    }
 
             t0 = time.perf_counter()
             problem = await gen_service.generate(
@@ -204,7 +191,8 @@ async def generate_problem(
                 grade_level=req.grade_level,
                 focus_areas=req.focus_areas or None,
                 problem_style=req.problem_style,
-                rag_context=rag_context,
+                lesson_context=lesson_context,
+                db=db,
             )
             elapsed_s = round(time.perf_counter() - t0, 3)
 
@@ -313,16 +301,6 @@ async def _log_generation(
         )
     except Exception as exc:
         logger.warning("generation_log_failed", error=str(exc))
-
-
-@router.post("/few-shots/reload", tags=["Admin"])
-async def reload_few_shots(
-    db: AsyncSession = Depends(get_db),
-) -> dict:
-    """Admin: reload few-shot examples from DB into memory without restart."""
-    from app.services.ai.problem_generation.few_shots import load_few_shots
-    await load_few_shots(db)
-    return {"status": "ok", "message": "Few-shot store reloaded from DB."}
 
 
 async def _backfill_cache(

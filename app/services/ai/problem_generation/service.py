@@ -9,7 +9,7 @@ structured output, but we overwrite it so "See Another" never gets a duplicate i
 
 import time
 import uuid
-from typing import Literal
+from typing import TYPE_CHECKING, Literal
 
 from tenacity import retry, retry_if_exception_type, stop_after_attempt, wait_exponential
 
@@ -18,6 +18,9 @@ from app.core.logging import get_logger
 from app.domain.schemas.tutor import ProblemOutput
 from app.services.ai.llm import generate_structured, get_llm
 from app.services.ai.problem_generation import prompts
+
+if TYPE_CHECKING:
+    from sqlalchemy.ext.asyncio import AsyncSession
 
 logger = get_logger(__name__)
 
@@ -87,12 +90,19 @@ class ProblemGenerationService:
         grade_level: str | None = None,
         focus_areas: list[str] | None = None,
         problem_style: str | None = None,
-        rag_context: dict | None = None,
+        lesson_context: dict | None = None,
+        db: "AsyncSession | None" = None,
     ) -> ProblemOutput:
         strategy = prompts.get_strategy_for_unit(unit_id)
         step_count = prompts.get_step_count_for_prompt(strategy, difficulty)
         strategy_block = prompts.STRATEGY_BLOCKS.get(strategy, prompts.STRATEGY_BLOCKS["quantitative"])
         interest_slug = (interests[0] if interests else "general chemistry").strip() or "general chemistry"
+
+        # Fetch curated few-shot example from DB when a session is available
+        db_example: dict | None = None
+        if db is not None:
+            from app.services.ai.problem_generation.few_shots import get_few_shot
+            db_example = await get_few_shot(db, unit_id, lesson_index, difficulty, level)
 
         system = prompts.GENERATE_PROBLEM_SYSTEM.format(
             strategy_block=strategy_block,
@@ -109,8 +119,8 @@ class ProblemGenerationService:
                 f'Set context_tag to "{interests[0]}".' if interests else ""
             ),
             grade_block=f"Student grade level: {grade_level}." if grade_level else "",
-            rag_block=_format_rag(rag_context),
-        ) + prompts.get_few_shot_block(unit_id, lesson_index, difficulty, level)
+            rag_block=_format_lesson_context(lesson_context),
+        ) + prompts.get_few_shot_block(unit_id, lesson_index, difficulty, level, db_example=db_example)
 
         messages = [
             {"role": "system", "content": system},
@@ -140,16 +150,15 @@ class ProblemGenerationService:
         return problem
 
 
-def _format_rag(rag_context: dict | None) -> str:
-    if not rag_context:
+def _format_lesson_context(ctx: dict | None) -> str:
+    """Format lesson key_equations and objectives for injection into the system prompt."""
+    if not ctx:
         return ""
     lines = []
-    if standards := rag_context.get("standards"):
-        lines.append(f"STANDARDS: {'; '.join(standards)}")
-    if equations := rag_context.get("equations"):
+    if equations := ctx.get("equations"):
         lines.append(f"KEY EQUATIONS: {'; '.join(equations)}")
-    if skills := rag_context.get("skills"):
-        lines.append(f"SKILLS: {'; '.join(skills)}")
+    if objectives := ctx.get("objectives"):
+        lines.append(f"LEARNING OBJECTIVES: {'; '.join(objectives)}")
     return "\n".join(lines)
 
 
