@@ -25,7 +25,7 @@ from sqlalchemy import delete, select, text
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
 from app.core.config import get_settings
-from app.infrastructure.database.models import Course, Grade, Interest, Lesson, Phase, Unit, UnitLesson
+from app.infrastructure.database.models import Course, FewShotExample, Grade, Interest, Lesson, Phase, Unit, UnitLesson
 
 settings = get_settings()
 
@@ -474,7 +474,7 @@ _TRUNCATE_TABLES = [
     "student_interests", "user_profiles",
     "classroom_students", "classrooms",
     "interests", "courses", "grades",
-    "prompt_versions", "users",
+    "prompt_versions", "few_shot_examples", "users",
 ]
 
 
@@ -523,7 +523,82 @@ async def main() -> None:
     async with async_session() as session:
         async with session.begin():
             await seed(session)
+    await _seed_few_shots(async_session)
     await eng.dispose()
+
+
+# ── Few-shot examples ─────────────────────────────────────────────────────────
+
+def _fs_strategy(unit_id: str) -> str | None:
+    from app.services.ai.problem_generation.prompts import UNIT_STRATEGIES
+    for strategy, ids in UNIT_STRATEGIES.items():
+        if unit_id in ids:
+            return strategy
+    return None
+
+
+def _fs_normalize_steps(steps: list[dict]) -> list[dict]:
+    return [
+        {
+            "stepNumber": i + 1,
+            "label": s.get("label", f"Step {i + 1}"),
+            "type": s.get("type", "given"),
+            "instruction": s.get("content") or s.get("instruction", ""),
+        }
+        for i, s in enumerate(steps)
+    ]
+
+
+async def _seed_few_shots(async_session) -> None:
+    from app.services.ai.problem_generation.prompts import FEW_SHOT_EXAMPLES, DEFAULT_FEW_SHOT_EXAMPLES
+
+    print("\n─── Few-shot examples ───")
+    inserted = 0
+    skipped = 0
+
+    async with async_session() as session:
+        all_examples = [
+            (unit_id, lesson_index, difficulty, ex, _fs_strategy(unit_id))
+            for (unit_id, lesson_index), diff_map in FEW_SHOT_EXAMPLES.items()
+            for difficulty, ex in diff_map.items()
+        ] + [
+            ("__default__", -1, difficulty, ex, "quantitative")
+            for difficulty, ex in DEFAULT_FEW_SHOT_EXAMPLES.items()
+        ]
+
+        for unit_id, lesson_index, difficulty, ex, strategy in all_examples:
+            existing = await session.execute(
+                select(FewShotExample).where(
+                    FewShotExample.unit_id == unit_id,
+                    FewShotExample.lesson_index == lesson_index,
+                    FewShotExample.difficulty == difficulty,
+                    FewShotExample.level == 1,
+                )
+            )
+            if existing.scalar_one_or_none():
+                skipped += 1
+                continue
+
+            session.add(FewShotExample(
+                unit_id=unit_id,
+                lesson_index=lesson_index,
+                difficulty=difficulty,
+                level=1,
+                strategy=strategy,
+                example_json={
+                    "title": ex["title"],
+                    "statement": ex["statement"],
+                    "topic": ex.get("topic", ""),
+                    "steps": _fs_normalize_steps(ex["steps"]),
+                },
+                is_active=True,
+                promoted=False,
+            ))
+            inserted += 1
+
+        await session.commit()
+
+    print(f"  {inserted} inserted, {skipped} skipped")
 
 
 if __name__ == "__main__":
