@@ -23,10 +23,8 @@ from app.core.config import get_settings
 from app.core.logging import get_logger
 from app.domain.schemas.tutor import GenerateProblemRequest, ProblemDeliveryResponse, ProblemOutput
 from app.infrastructure.database.repositories.unit_repo import LessonRepository
-from app.infrastructure.database.repositories.playlist_repo import (
-    MAX_PROBLEMS_PER_LEVEL,
-    UserLessonPlaylistRepository,
-)
+from app.infrastructure.database.repositories.mastery_repo import MasteryRepository
+from app.infrastructure.database.repositories.playlist_repo import UserLessonPlaylistRepository
 from app.services.ai.problem_generation.service import (
     ProblemGenerationService,
     enforce_step_types,
@@ -138,13 +136,24 @@ class ProblemDeliveryService:
         """Full delivery pipeline: cap check → cache → generate → playlist append."""
         playlist_repo = UserLessonPlaylistRepository(self._db) if req.user_id else None
         context_tag = req.interests[0] if req.interests else None
-        max_p = MAX_PROBLEMS_PER_LEVEL.get(req.level, 5)
+        _settings = get_settings()
+        max_p = {1: _settings.l1_max_problems, 2: _settings.l2_max_problems, 3: _settings.l3_max_problems}.get(req.level, _settings.l2_max_problems)
         exclude = set(req.exclude_ids or [])
+
+        # Derive difficulty from mastery for L2/L3 — backend is the source of truth.
+        # L1 (worked examples) always uses "medium"; no mastery tracking there.
+        effective_difficulty = req.difficulty
+        if req.user_id and req.level >= 2:
+            mastery_record = await MasteryRepository(self._db).get_for_topic(
+                req.user_id, req.unit_id, req.lesson_index
+            )
+            if mastery_record:
+                effective_difficulty = mastery_record.current_difficulty
 
         # ── Cap check ──────────────────────────────────────────
         if playlist_repo and req.user_id:
             playlist = await playlist_repo.get(
-                req.user_id, req.unit_id, req.lesson_index, req.level, req.difficulty
+                req.user_id, req.unit_id, req.lesson_index, req.level, effective_difficulty
             )
             if playlist and len(playlist.problems) >= max_p:
                 ci = playlist.current_index
@@ -163,7 +172,7 @@ class ProblemDeliveryService:
             problem = await self._cache.get_or_none(
                 unit_id=req.unit_id,
                 lesson_index=req.lesson_index,
-                difficulty=req.difficulty,
+                difficulty=effective_difficulty,
                 level=1,
                 context_tag=context_tag,
                 exclude_ids=exclude or None,
@@ -171,7 +180,7 @@ class ProblemDeliveryService:
             if problem:
                 enforce_step_types(problem, 1)
                 if await self._cache.needs_backfill(
-                    req.unit_id, req.lesson_index, req.difficulty, 1, context_tag
+                    req.unit_id, req.lesson_index, effective_difficulty, 1, context_tag
                 ):
                     background_tasks.add_task(
                         _backfill_cache, req, self._gen, self._db, context_tag
@@ -190,7 +199,7 @@ class ProblemDeliveryService:
                 lesson_index=req.lesson_index,
                 topic_name=req.topic_name,
                 level=req.level,
-                difficulty=req.difficulty,
+                difficulty=effective_difficulty,
                 interests=req.interests or None,
                 grade_level=req.grade_level,
                 focus_areas=req.focus_areas or None,
@@ -217,7 +226,7 @@ class ProblemDeliveryService:
                 unit_id=req.unit_id,
                 lesson_index=req.lesson_index,
                 level=req.level,
-                difficulty=req.difficulty,
+                difficulty=effective_difficulty,
                 problem_data=problem.model_dump(by_alias=True),
             )
             await self._db.commit()

@@ -61,6 +61,38 @@ class AttemptRepository(BaseRepository[ProblemAttempt]):
         rows = result.scalars().all()
         return [float(s) for s in rows]
 
+    async def get_recent_scores_for_level(
+        self,
+        user_id: uuid.UUID,
+        unit_id: str,
+        lesson_index: int,
+        level: int,
+        window: int = 5,
+        passing_score: float = 0.0,
+    ) -> list[float]:
+        """Returns up to `window` most recent completed scores for a specific level.
+
+        Pass `passing_score` > 0 to exclude low-quality attempts from band-filling.
+        """
+        q = (
+            select(ProblemAttempt.score)
+            .where(
+                ProblemAttempt.user_id == user_id,
+                ProblemAttempt.unit_id == unit_id,
+                ProblemAttempt.lesson_index == lesson_index,
+                ProblemAttempt.is_complete == True,  # noqa: E712
+                ProblemAttempt.score.is_not(None),
+                ProblemAttempt.level == level,
+            )
+            .order_by(ProblemAttempt.completed_at.desc())
+            .limit(window)
+        )
+        if passing_score > 0:
+            q = q.where(ProblemAttempt.score >= passing_score)
+        result = await self._session.execute(q)
+        rows = result.scalars().all()
+        return [float(s) for s in rows]
+
     async def get_max_level_attempted(
         self,
         user_id: uuid.UUID,

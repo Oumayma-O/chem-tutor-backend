@@ -47,6 +47,20 @@ class Settings(BaseSettings):
     # ── Mastery ──────────────────────────────────────────────
     mastery_threshold: float = 0.75
     mastery_window: int = 5
+    # Minimum attempt score to count toward band-filling (below this = ignored)
+    mastery_passing_score: float = 0.6
+    # Mastery ceilings per level band  (exit ticket unlocks the remaining 0.15)
+    l2_mastery_ceiling: float = 0.60
+    l3_mastery_ceiling: float = 0.85
+    # Qualifying attempts needed to fully fill each level's band
+    l2_attempts_to_fill: int = 3
+    l3_attempts_to_fill: int = 3
+
+    # ── Playlist caps ────────────────────────────────────────
+    # Max new problems a student can generate per (user, unit, lesson, level) slot.
+    l1_max_problems: int = 3   # worked examples — see pattern, then do it yourself
+    l2_max_problems: int = 5   # faded practice — variety before mastery check
+    l3_max_problems: int = 5   # challenge — high-effort; spaced practice elsewhere
 
     # ── Auth ─────────────────────────────────────────────────
     jwt_secret_key: str = "chemtutor-dev-secret-key-change-in-production-32chars"

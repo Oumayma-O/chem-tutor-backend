@@ -28,7 +28,6 @@ from app.infrastructure.database.repositories.mastery_repo import MasteryReposit
 logger = get_logger(__name__)
 settings = get_settings()
 
-_DIFFICULTY_LADDER = ["easy", "medium", "hard"]
 _AT_RISK_THRESHOLD = 0.4
 _AT_RISK_MIN_ATTEMPTS = 3
 
@@ -90,11 +89,8 @@ class MasteryService:
         """
         await self._attempts.mark_complete(attempt_id, score, step_log)
 
-        # Pull recent scores from DB (Level 2+ only; Level 1 excluded)
-        recent = await self._attempts.get_recent_scores(
-            user_id, unit_id, lesson_index, window=settings.mastery_window, min_level=2
-        )
-        max_level = await self._attempts.get_max_level_attempted(user_id, unit_id, lesson_index)
+        # Pull per-level scores for band-filling computation
+        l2_scores, l3_scores = await self._fetch_band_scores(user_id, unit_id, lesson_index)
 
         # Load or create mastery record
         mastery_record = await self._mastery.get_for_topic(user_id, unit_id, lesson_index)
@@ -122,15 +118,10 @@ class MasteryService:
         # Compute per-category scores from step_log
         category_scores = _compute_category_scores(step_log, mastery_record.category_scores)
 
-        # Compute new mastery, capped by the highest level the student has attempted
-        new_mastery = min(_compute_mastery(recent), _level_ceiling(max_level))
+        # Compute new mastery using band-filling across L2 and L3
+        new_mastery = _compute_mastery_banded(l2_scores, l3_scores)
         consecutive = _update_consecutive(mastery_record.consecutive_correct, score)
-        new_difficulty = _adapt_difficulty(
-            current=mastery_record.current_difficulty,
-            mastery=new_mastery,
-            consecutive=consecutive,
-            threshold=settings.mastery_threshold,
-        )
+        new_difficulty = _difficulty_from_mastery(new_mastery)
 
         # Determine Level 3 unlock
         # Condition: student answers ALL steps correctly in a single Level 2 attempt
@@ -149,7 +140,7 @@ class MasteryService:
         mastery_record.current_difficulty = new_difficulty
         mastery_record.error_counts = error_counts
         mastery_record.category_scores = category_scores
-        mastery_record.recent_scores = list(recent)
+        mastery_record.recent_scores = list(l2_scores + l3_scores)
         mastery_record.level3_unlocked = level3_unlocked
         mastery_record.level3_unlocked_at = level3_unlocked_at
         mastery_record.updated_at = datetime.utcnow()
@@ -226,26 +217,17 @@ class MasteryService:
 
         # Mastery preview uses only committed (completed) attempts.
         # Blending the in-progress score inflates mastery on partial step data.
-        recent_completed = await self._attempts.get_recent_scores(
-            attempt.user_id, attempt.unit_id, attempt.lesson_index,
-            window=settings.mastery_window, min_level=2,
-        )
-        max_level = await self._attempts.get_max_level_attempted(
+        l2_scores, l3_scores = await self._fetch_band_scores(
             attempt.user_id, attempt.unit_id, attempt.lesson_index
         )
-        preview_mastery = min(_compute_mastery(list(recent_completed)), _level_ceiling(max_level))
+        preview_mastery = _compute_mastery_banded(l2_scores, l3_scores)
 
         preview_error_counts = _aggregate_errors(step_log, mastery_record.error_counts)
         preview_category_scores = _compute_category_scores(step_log, mastery_record.category_scores)
         preview_consecutive = _update_consecutive(
             mastery_record.consecutive_correct, attempt_score
         )
-        preview_difficulty = _adapt_difficulty(
-            current=mastery_record.current_difficulty,
-            mastery=preview_mastery,
-            consecutive=preview_consecutive,
-            threshold=settings.mastery_threshold,
-        )
+        preview_difficulty = _difficulty_from_mastery(preview_mastery)
 
         transient = SkillMastery(
             user_id=mastery_record.user_id,
@@ -259,7 +241,7 @@ class MasteryService:
             level3_unlocked_at=mastery_record.level3_unlocked_at,
             category_scores=preview_category_scores,
             error_counts=preview_error_counts,
-            recent_scores=list(recent_completed),
+            recent_scores=list(l2_scores + l3_scores),
             updated_at=datetime.utcnow(),
         )
         state = _to_mastery_state(transient, settings.mastery_threshold)
@@ -337,6 +319,27 @@ class MasteryService:
             existing.level3_unlocked_at = now
             await self._mastery.upsert(existing)
 
+    async def _fetch_band_scores(
+        self,
+        user_id: uuid.UUID,
+        unit_id: str,
+        lesson_index: int,
+    ) -> tuple[list[float], list[float]]:
+        """Fetch recent qualifying scores for L2 and L3 bands in parallel."""
+        l2 = await self._attempts.get_recent_scores_for_level(
+            user_id, unit_id, lesson_index,
+            level=2,
+            window=settings.l2_attempts_to_fill,
+            passing_score=settings.mastery_passing_score,
+        )
+        l3 = await self._attempts.get_recent_scores_for_level(
+            user_id, unit_id, lesson_index,
+            level=3,
+            window=settings.l3_attempts_to_fill,
+            passing_score=settings.mastery_passing_score,
+        )
+        return l2, l3
+
     async def is_at_risk(self, user_id: uuid.UUID, unit_id: str) -> bool:
         """Returns True if the student is struggling across the unit."""
         records = await self._mastery.get_all_for_user(user_id)
@@ -355,29 +358,48 @@ class MasteryService:
 
 # ── Pure functions (easy to unit-test) ───────────────────────
 
-# ── Level-based mastery ceiling ──────────────────────────────
-# Mastery is gated by the highest level the student has independently attempted.
-# Level 1 (worked examples) is excluded from scoring entirely — students observe,
-# not perform. Exit ticket (handled outside this service) is needed for 1.0.
-_LEVEL_MASTERY_CEILING: dict[int, float] = {
-    0: 0.0,   # no qualifying attempts yet
-    2: 0.60,  # faded practice only
-    3: 0.85,  # independent practice (exit ticket needed for 1.0)
-}
+def _compute_mastery_banded(l2_scores: list[float], l3_scores: list[float]) -> float:
+    """Band-filling mastery score.
 
+    L2 band (0 → l2_ceiling): filled by qualifying Level 2 attempts.
+    L3 band (l2_ceiling → l3_ceiling): filled by qualifying Level 3 attempts.
+    Exit ticket fills the remaining band to 1.0 (handled separately).
 
-def _level_ceiling(max_level: int) -> float:
-    """Return the mastery ceiling for the highest level attempted."""
-    if max_level >= 3:
-        return _LEVEL_MASTERY_CEILING[3]
-    return _LEVEL_MASTERY_CEILING.get(max_level, 0.0)
-
-
-def _compute_mastery(recent_scores: list[float]) -> float:
-    """Rolling window average. Returns 0.0 if no data — progress bars start empty."""
-    if not recent_scores:
+    Each qualifying attempt contributes proportionally. Three perfect L2 attempts
+    → 60%; one perfect L2 attempt → 20%. This prevents a single attempt from
+    instantly maxing out the band.
+    """
+    s = settings
+    if not l2_scores and not l3_scores:
         return 0.0
-    return sum(recent_scores) / len(recent_scores)
+
+    l2_fill = min(sum(l2_scores) / s.l2_attempts_to_fill, 1.0)
+    l2_band = l2_fill * s.l2_mastery_ceiling
+
+    if l3_scores:
+        l3_band_width = s.l3_mastery_ceiling - s.l2_mastery_ceiling
+        l3_fill = min(sum(l3_scores) / s.l3_attempts_to_fill, 1.0)
+        l3_band = l3_fill * l3_band_width
+    else:
+        l3_band = 0.0
+
+    return round(l2_band + l3_band, 4)
+
+
+def _difficulty_from_mastery(mastery: float) -> str:
+    """Map mastery score to the appropriate difficulty for the next problem.
+
+    Thresholds relative to the L2 band:
+      < 30% of L2 ceiling  → easy   (student is still struggling)
+      30–80% of L2 ceiling → medium (making progress)
+      ≥ 80% of L2 ceiling  → hard   (approaching L2 mastery, ready for challenge)
+    """
+    s = settings
+    if mastery < s.l2_mastery_ceiling * 0.3:
+        return "easy"
+    if mastery < s.l2_mastery_ceiling * 0.8:
+        return "medium"
+    return "hard"
 
 
 def _compute_attempt_score_from_step_log(step_log: list[dict]) -> tuple[float, int]:
@@ -396,24 +418,6 @@ def _compute_attempt_score_from_step_log(step_log: list[dict]) -> tuple[float, i
 def _update_consecutive(current: int, score: float) -> int:
     """Increment consecutive correct if score >= 0.8, else reset."""
     return current + 1 if score >= 0.8 else 0
-
-
-def _adapt_difficulty(
-    current: str,
-    mastery: float,
-    consecutive: int,
-    threshold: float,
-) -> str:
-    idx = _DIFFICULTY_LADDER.index(current) if current in _DIFFICULTY_LADDER else 1
-
-    if mastery >= threshold and consecutive >= 2:
-        # Level up, but not past hard
-        return _DIFFICULTY_LADDER[min(idx + 1, len(_DIFFICULTY_LADDER) - 1)]
-    elif mastery < threshold - 0.15:
-        # Level down, but not past easy
-        return _DIFFICULTY_LADDER[max(idx - 1, 0)]
-
-    return current
 
 
 def _aggregate_errors(step_log: list[dict], existing: dict) -> dict:

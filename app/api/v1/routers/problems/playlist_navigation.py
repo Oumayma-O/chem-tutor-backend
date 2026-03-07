@@ -8,11 +8,9 @@ from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.domain.schemas.tutor import ProblemDeliveryResponse, ProblemOutput
+from app.core.config import get_settings
 from app.infrastructure.database.connection import get_db
-from app.infrastructure.database.repositories.playlist_repo import (
-    MAX_PROBLEMS_PER_LEVEL,
-    UserLessonPlaylistRepository,
-)
+from app.infrastructure.database.repositories.playlist_repo import UserLessonPlaylistRepository
 from app.services.ai.problem_generation.service import enforce_step_types
 
 router = APIRouter()
@@ -54,7 +52,8 @@ async def navigate_problem(
         )
 
     total = len(playlist.problems)
-    max_p = MAX_PROBLEMS_PER_LEVEL.get(req.level, 5)
+    _s = get_settings()
+    max_p = {1: _s.l1_max_problems, 2: _s.l2_max_problems, 3: _s.l3_max_problems}.get(req.level, _s.l2_max_problems)
     ci = playlist.current_index
 
     if req.direction == "prev":

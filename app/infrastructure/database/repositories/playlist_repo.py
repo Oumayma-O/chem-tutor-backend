@@ -9,13 +9,6 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.infrastructure.database.models import UserLessonPlaylist
 
-# Pedagogical caps: max new problems a student can generate per level/slot.
-# After the cap, they can only navigate their existing playlist.
-#   L1 (worked examples) : 3 — see the solution pattern, then do it yourself
-#   L2 (faded)           : 5 — enough practice variety before mastery check
-#   L3 (challenge)       : 5 — high-effort problems; spaced practice elsewhere
-MAX_PROBLEMS_PER_LEVEL: dict[int, int] = {1: 3, 2: 5, 3: 5}
-
 
 class UserLessonPlaylistRepository:
     def __init__(self, session: AsyncSession) -> None:
