@@ -94,6 +94,8 @@ async def get_unit(
                 is_ap_only=l.is_ap_only,
                 objectives=l.objectives or [],
                 key_equations=l.key_equations or [],
+                key_rules=l.key_rules or [],
+                misconceptions=l.misconceptions or [],
                 standards=stds,
                 is_active=l.is_active,
             )
@@ -145,6 +147,8 @@ async def create_unit(
             lesson_index=l.lesson_index,
             objectives=l.objectives,
             key_equations=l.key_equations,
+            key_rules=l.key_rules,
+            misconceptions=l.misconceptions,
             is_active=l.is_active,
         )
         db.add(lesson)

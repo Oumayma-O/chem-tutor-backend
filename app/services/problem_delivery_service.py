@@ -4,7 +4,7 @@ ProblemDeliveryService — orchestrates the full problem delivery pipeline.
 Encapsulates:
   - Cap check (playlist limit)
   - Cache lookup (Level 1)
-  - Lesson context fetch (key_equations, objectives)
+  - Lesson context fetch (key_equations, objectives, key_rules, misconceptions)
   - Problem generation (via ProblemGenerationService)
   - Dedup guard
   - Playlist append + navigation metadata
@@ -43,6 +43,52 @@ class ProblemDeliveryService:
         self._cache = ProblemCacheService(db)
         self._lessons = LessonRepository(db)
 
+    @staticmethod
+    def _build_lesson_context(lesson: object | None) -> dict | None:
+        """Normalize lesson metadata used by generation prompts."""
+        if lesson is None:
+            return None
+        return {
+            "equations": getattr(lesson, "key_equations", None) or [],
+            "objectives": getattr(lesson, "objectives", None) or [],
+            "key_rules": getattr(lesson, "key_rules", None) or [],
+            "misconceptions": getattr(lesson, "misconceptions", None) or [],
+        }
+
+    async def _load_lesson_and_context(self, unit_id: str, lesson_index: int) -> tuple[object | None, dict | None]:
+        """Fetch lesson once and derive standardized generation context."""
+        lesson = await self._lessons.get_by_index(unit_id, lesson_index)
+        return lesson, self._build_lesson_context(lesson)
+
+    async def _generate_problem(
+        self,
+        *,
+        unit_id: str,
+        lesson_index: int,
+        topic_name: str,
+        level: int,
+        difficulty: str,
+        lesson_context: dict | None,
+        interests: list[str] | None = None,
+        grade_level: str | None = None,
+        focus_areas: list[str] | None = None,
+        problem_style: str | None = None,
+    ) -> ProblemOutput:
+        """Shared wrapper around AI generation call."""
+        return await self._gen.generate(
+            unit_id=unit_id,
+            lesson_index=lesson_index,
+            topic_name=topic_name,
+            level=level,  # type: ignore[arg-type]
+            difficulty=difficulty,  # type: ignore[arg-type]
+            interests=interests,
+            grade_level=grade_level,
+            focus_areas=focus_areas,
+            problem_style=problem_style,
+            lesson_context=lesson_context,
+            db=self._db,
+        )
+
     async def deliver_worked_example(
         self,
         unit_id: str,
@@ -61,27 +107,23 @@ class ProblemDeliveryService:
         if problem:
             return enforce_step_types(problem, 1)
 
-        lesson = await self._lessons.get_by_index(unit_id, lesson_index)
-        lesson_context = {
-            "equations": lesson.key_equations or [],
-            "objectives": lesson.objectives or [],
-        } if lesson else None
+        lesson, lesson_context = await self._load_lesson_and_context(unit_id, lesson_index)
+        topic_name = lesson.title if lesson else ""
 
-        problem = await self._gen.generate(
+        problem = await self._generate_problem(
             unit_id=unit_id,
             lesson_index=lesson_index,
-            topic_name=lesson.title if lesson else "",
+            topic_name=topic_name,
             level=1,
             difficulty="medium",
             lesson_context=lesson_context,
-            db=self._db,
         )
         enforce_step_types(problem, 1)
 
         stub_req = GenerateProblemRequest(
             unit_id=unit_id,
             lesson_index=lesson_index,
-            topic_name=lesson.title if lesson else "",
+            topic_name=topic_name,
             difficulty="medium",
             level=1,
         )
@@ -138,17 +180,12 @@ class ProblemDeliveryService:
         # ── Generate ───────────────────────────────────────────
         elapsed_s = 0.0
         if problem is None:
-            lesson_context = req.rag_context
+            lesson_context = req.lesson_context.model_dump() if req.lesson_context else None
             if lesson_context is None:
-                lesson = await self._lessons.get_by_index(req.unit_id, req.lesson_index)
-                if lesson:
-                    lesson_context = {
-                        "equations": lesson.key_equations or [],
-                        "objectives": lesson.objectives or [],
-                    }
+                _, lesson_context = await self._load_lesson_and_context(req.unit_id, req.lesson_index)
 
             t0 = time.perf_counter()
-            problem = await self._gen.generate(
+            problem = await self._generate_problem(
                 unit_id=req.unit_id,
                 lesson_index=req.lesson_index,
                 topic_name=req.topic_name,
@@ -159,7 +196,6 @@ class ProblemDeliveryService:
                 focus_areas=req.focus_areas or None,
                 problem_style=req.problem_style,
                 lesson_context=lesson_context,
-                db=self._db,
             )
             elapsed_s = round(time.perf_counter() - t0, 3)
 

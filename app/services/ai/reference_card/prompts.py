@@ -1,94 +1,68 @@
 """
-System prompt and few-shot examples for the reference card LLM chain.
+Reference card generation prompts — strategy-aware, mirrors problem generation templates.
 
-Design rules enforced in the prompt:
-  - Symbolic equations only (e.g. "[A]t = [A]₀ - k·t", not "0.50 - 0.02×30")
-  - No numbers, no worked-out values, no specific measurements
-  - Exactly 5 steps: Equation | Knowns | Substitute | Calculate | Answer
-  - Each step is one concise sentence or short phrase — fiche-de-cours density
+Each strategy maps to a different set of step labels and logic:
+  quantitative → Knowns | Equation | Substitute | Answer  (4 steps)
+  conceptual   → Governing Principle | Concept Application | Final Justification  (3 steps)
+  analytical   → Data Observation | Feature Correlation | Scientific Inference  (3 steps)
 """
 
-REFERENCE_CARD_SYSTEM = """\
+from app.services.ai.problem_generation.prompts import (
+    STRATEGY_CONFIG,
+    get_strategy_for_unit,  # re-exported for callers
+)
+from app.services.ai.reference_card.few_shots import get_few_shots_for_strategy  # noqa: F401
+
+__all__ = [
+    "build_reference_card_system",
+    "get_few_shots_for_strategy",
+    "get_strategy_for_unit",
+]
+
+# ---------------------------------------------------------------------------
+# System prompt template
+# ---------------------------------------------------------------------------
+
+_SYSTEM_TEMPLATE = """\
 You are a chemistry teacher writing a concise "fiche de cours" (study reference card) \
 for a single chemistry topic.
 
+BLUEPRINT for {strategy} topics:
+- Step Labels (use EXACTLY these, in order): {labels_block}
+- Total Steps: {step_count}
+- Logic: {strategy_logic}
+
 RULES (strictly follow all of them):
 1. Show the GENERAL METHOD only — NO numerical examples, NO specific values.
-2. Use symbolic variables (e.g. [A]₀, k, t, n, V, ΔH) but NEVER concrete numbers. For exponents use ^ (e.g. [A]^m, k^2). For subscripts use _ (e.g. [A]_t, [A]_0, t_{1/2}). For inverse units use ^-1 (e.g. M^-1 s^-1).
-3. Produce exactly 5 steps with these exact labels in order:
-     Equation  → the key formula(s) in symbolic form
-     Knowns    → which variables to identify from the problem
-     Substitute → how to plug values in (conceptual instruction only)
-     Calculate  → what arithmetic/algebra to perform (symbolic description)
-     Answer     → what units/significant figures/form the result should take
-4. Each "content" field is a SHORT phrase (max 5–8 words). No full sentences. Bullet-style when possible.
-5. Write the "hint" as one sentence encouraging the student to apply the card to their problem.
-6. Output valid JSON matching the schema — nothing else.
-"""
+2. Use symbolic variables (e.g. [A]_0, k, t, n, V, DeltaH) but NEVER concrete numbers.
+   Exponents: ^ (e.g. [A]^2, k^2).
+   Subscripts: _ (e.g. [A]_t, t_{{1/2}}).
+   Inverse units: ^-1 (e.g. M^-1 s^-1).
+3. Produce exactly {step_count} steps labelled: {labels_block}.
+4. Each "content" field is a SHORT phrase (max 8 words). Bullet-style when possible.
+5. Write "hint" as one sentence encouraging the student to apply the card to their problem.
+6. Output valid JSON matching the schema — nothing else.{equations_rule}"""
 
-# ---------------------------------------------------------------------------
-# Few-shot examples (human → assistant pairs)
-# ---------------------------------------------------------------------------
 
-FEW_SHOT_EXAMPLES = [
-    {
-        "human": (
-            "Generate a reference card for topic 'Zero-Order Kinetics' "
-            "(chapter_id='chemical-kinetics', topic_index=0)."
-        ),
-        "assistant": """\
-{
-  "topic": "Zero-Order Kinetics",
-  "chapter_id": "chemical-kinetics",
-  "topic_index": 0,
-  "steps": [
-    {"label": "Equation",    "content": "[A]_t = [A]_0 − k·t"},
-    {"label": "Knowns",      "content": "[A]_0, k, t"},
-    {"label": "Substitute",  "content": "Plug [A]_0, k, t into equation"},
-    {"label": "Calculate",   "content": "k×t, subtract from [A]_0"},
-    {"label": "Answer",      "content": "M, correct sig figs"}
-  ],
-  "hint": "This shows the general zero-order approach — apply it to the numbers in your current problem!"
-}""",
-    },
-    {
-        "human": (
-            "Generate a reference card for topic 'First-Order Kinetics' "
-            "(chapter_id='chemical-kinetics', topic_index=1)."
-        ),
-        "assistant": """\
-{
-  "topic": "First-Order Kinetics",
-  "chapter_id": "chemical-kinetics",
-  "topic_index": 1,
-  "steps": [
-    {"label": "Equation",    "content": "ln[A]_t = ln[A]_0 − k·t"},
-    {"label": "Knowns",      "content": "[A]_0, [A]_t, k, t — which unknown?"},
-    {"label": "Substitute",  "content": "ln of concentrations, plug knowns"},
-    {"label": "Calculate",   "content": "Rearrange, isolate unknown"},
-    {"label": "Answer",      "content": "M or s, match problem units"}
-  ],
-  "hint": "Apply this first-order method — use the actual values from your problem!"
-}""",
-    },
-    {
-        "human": (
-            "Generate a reference card for topic 'Mole-to-Mole Stoichiometry' "
-            "(chapter_id='stoichiometry', topic_index=0)."
-        ),
-        "assistant": """\
-{
-  "topic": "Mole-to-Mole Stoichiometry",
-  "chapter_id": "stoichiometry",
-  "topic_index": 0,
-  "steps": [
-    {"label": "Equation",    "content": "moles A × (coeff B / coeff A) = moles B"},
-    {"label": "Knowns",      "content": "Given substance, target, coeffs"},
-    {"label": "Substitute",  "content": "Mole ratio × given moles"},
-    {"label": "Calculate",   "content": "Multiply by ratio"},
-    {"label": "Answer",      "content": "mol, sig figs"}
-  ],
-  "hint": "Use the balanced equation from your problem to fill in the coefficients — the rest follows this card!"
-}""",
-    },
-]
+def build_reference_card_system(
+    strategy: str,
+    key_equations: list[str] | None = None,
+) -> str:
+    """Return a strategy-specific system prompt for reference card generation."""
+    config = STRATEGY_CONFIG.get(strategy, STRATEGY_CONFIG["quantitative"])
+    labels_block = " | ".join(config["labels"])
+    equations_rule = ""
+    if key_equations:
+        formatted = " | ".join(key_equations)
+        equations_rule = (
+            f"\n7. Use these exact equation(s) verbatim in the Equation"
+            f" or Governing Principle step: {formatted}"
+        )
+    return _SYSTEM_TEMPLATE.format(
+        strategy=strategy,
+        labels_block=labels_block,
+        step_count=config["step_count"],
+        strategy_logic=config["logic"],
+        equations_rule=equations_rule,
+    )
+

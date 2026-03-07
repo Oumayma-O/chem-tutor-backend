@@ -102,6 +102,13 @@ class MasteryService:
                 user_id=user_id,
                 unit_id=unit_id,
                 lesson_index=lesson_index,
+                mastery_score=0.0,
+                attempts_count=0,
+                consecutive_correct=0,
+                current_difficulty="medium",
+                level3_unlocked=False,
+                category_scores={},
+                error_counts={},
             )
 
         # Was L3 already unlocked before this attempt?
@@ -175,6 +182,82 @@ class MasteryService:
                 new_mastery, score, settings.mastery_threshold, level3_just_unlocked
             ),
         )
+
+    async def preview_step_progress(
+        self,
+        attempt_id: uuid.UUID,
+        step_log: list[dict],
+    ) -> tuple[MasteryState, float, int]:
+        """
+        Persist in-progress step_log and return a live mastery snapshot.
+
+        This does NOT increment attempts_count and does NOT write preview values
+        into SkillMastery. Final mastery is committed on complete_attempt().
+        """
+        attempt = await self._attempts.get(attempt_id)
+        if attempt is None:
+            raise ValueError("Attempt not found.")
+        if attempt.is_complete:
+            # Completed attempts should no longer receive incremental updates.
+            raise ValueError("Attempt is already complete.")
+
+        await self._attempts.update_step_log(attempt_id, step_log)
+
+        mastery_record = await self._mastery.get_for_topic(
+            attempt.user_id, attempt.unit_id, attempt.lesson_index
+        )
+        if mastery_record is None:
+            mastery_record = SkillMastery(
+                user_id=attempt.user_id,
+                unit_id=attempt.unit_id,
+                lesson_index=attempt.lesson_index,
+                mastery_score=0.0,
+                attempts_count=0,
+                consecutive_correct=0,
+                current_difficulty="medium",
+                level3_unlocked=False,
+                category_scores={},
+                error_counts={},
+            )
+
+        attempt_score, attempted_steps = _compute_attempt_score_from_step_log(step_log)
+
+        # Blend rolling completed-attempt history with current in-progress score.
+        recent_completed = await self._attempts.get_recent_scores(
+            attempt.user_id, attempt.unit_id, attempt.lesson_index, window=settings.mastery_window
+        )
+        preview_recent = [attempt_score, *recent_completed][: settings.mastery_window]
+        preview_mastery = _compute_mastery(preview_recent)
+
+        preview_error_counts = _aggregate_errors(step_log, mastery_record.error_counts)
+        preview_category_scores = _compute_category_scores(step_log, mastery_record.category_scores)
+        preview_consecutive = _update_consecutive(
+            mastery_record.consecutive_correct, attempt_score
+        )
+        preview_difficulty = _adapt_difficulty(
+            current=mastery_record.current_difficulty,
+            mastery=preview_mastery,
+            consecutive=preview_consecutive,
+            threshold=settings.mastery_threshold,
+        )
+
+        transient = SkillMastery(
+            user_id=mastery_record.user_id,
+            unit_id=mastery_record.unit_id,
+            lesson_index=mastery_record.lesson_index,
+            mastery_score=preview_mastery,
+            attempts_count=mastery_record.attempts_count,
+            consecutive_correct=preview_consecutive,
+            current_difficulty=preview_difficulty,
+            level3_unlocked=mastery_record.level3_unlocked,
+            level3_unlocked_at=mastery_record.level3_unlocked_at,
+            category_scores=preview_category_scores,
+            error_counts=preview_error_counts,
+            recent_scores=preview_recent,
+            updated_at=datetime.utcnow(),
+        )
+        state = _to_mastery_state(transient, settings.mastery_threshold)
+        return state, attempt_score, attempted_steps
 
     # ── Read Mastery ──────────────────────────────────────────
 
@@ -272,6 +355,19 @@ def _compute_mastery(recent_scores: list[float]) -> float:
     return sum(recent_scores) / len(recent_scores)
 
 
+def _compute_attempt_score_from_step_log(step_log: list[dict]) -> tuple[float, int]:
+    """Compute current in-progress attempt score from attempted steps only."""
+    attempted = [
+        bool(step.get("isCorrect"))
+        for step in step_log
+        if isinstance(step.get("isCorrect"), bool)
+    ]
+    if not attempted:
+        return 0.0, 0
+    correct = sum(1 for ok in attempted if ok)
+    return correct / len(attempted), len(attempted)
+
+
 def _update_consecutive(current: int, score: float) -> int:
     """Increment consecutive correct if score >= 0.8, else reset."""
     return current + 1 if score >= 0.8 else 0
@@ -306,7 +402,7 @@ def _aggregate_errors(step_log: list[dict], existing: dict) -> dict:
 
 def _compute_category_scores(
     step_log: list[dict],
-    existing: dict,
+    existing: dict | None,
 ) -> dict:
     """
     Update per-category mastery scores from this attempt's step log.
@@ -326,6 +422,7 @@ def _compute_category_scores(
     }
 
     # Start from existing scores (or defaults of 0.0 for new users)
+    existing = existing or {}
     scores = {
         "conceptual":     existing.get("conceptual", 0.0),
         "procedural":     existing.get("procedural", 0.0),

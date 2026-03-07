@@ -15,6 +15,7 @@ from app.domain.schemas.mastery import (
     ProgressionDecision,
     ResumeAttemptResponse,
     SaveStepRequest,
+    SaveStepResponse,
     SetTopicStatusRequest,
     StartAttemptRequest,
     StartAttemptResponse,
@@ -80,20 +81,37 @@ async def complete_attempt(
         )
 
 
-@router.post("/attempts/save-step", status_code=204)
+@router.post("/attempts/save-step", response_model=SaveStepResponse)
 async def save_step(
     req: SaveStepRequest,
+    service: MasteryService = Depends(_get_mastery_service),
     db: AsyncSession = Depends(get_db),
-) -> None:
+) -> SaveStepResponse:
     """
     Checkpoint: persist the current step_log for an in-progress attempt.
 
     Call this after each step the student completes so their progress is saved
     and can be restored if they log out mid-problem.
     """
-    repo = AttemptRepository(db)
-    await repo.update_step_log(req.attempt_id, req.step_log)
+    try:
+        mastery_state, attempt_score, attempted_steps = await service.preview_step_progress(
+            req.attempt_id, req.step_log
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc)) from exc
+    except Exception as exc:
+        logger.error("save_step_failed", error=str(exc))
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to save step progress.",
+        ) from exc
+
     await db.commit()
+    return SaveStepResponse(
+        mastery=mastery_state,
+        attempt_score=attempt_score,
+        attempted_steps=attempted_steps,
+    )
 
 
 @router.get(

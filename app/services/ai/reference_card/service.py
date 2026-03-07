@@ -5,14 +5,15 @@ Uses a few-shot LangChain chain with structured output.
 The result is meant to be generated ONCE per topic and persisted in the DB.
 """
 
-import json
-
 from langchain_core.messages import AIMessage, HumanMessage, SystemMessage
-from langchain_core.prompts import ChatPromptTemplate
 
 from app.domain.schemas.tutor.problems import ReferenceCardOutput
 from app.services.ai.llm import get_llm
-from app.services.ai.reference_card.prompts import FEW_SHOT_EXAMPLES, REFERENCE_CARD_SYSTEM
+from app.services.ai.reference_card.prompts import (
+    build_reference_card_system,
+    get_few_shots_for_strategy,
+    get_strategy_for_unit,
+)
 
 
 async def generate_reference_card(
@@ -34,22 +35,20 @@ async def generate_reference_card(
     Returns:
         A validated ReferenceCardOutput instance.
     """
+    strategy = get_strategy_for_unit(unit_id)
+    system_prompt = build_reference_card_system(strategy, key_equations)
+
     llm = get_llm(fast=True, temperature=0.1)
     structured_llm = llm.with_structured_output(ReferenceCardOutput)
 
-    equation_hint = ""
-    if key_equations:
-        formatted = " | ".join(key_equations)
-        equation_hint = f"\n\nKey equation(s) to use verbatim in the Equation step: {formatted}"
-
     user_prompt = (
         f"Generate a reference card for topic '{topic_name}' "
-        f"(unit_id='{unit_id}', lesson_index={lesson_index}).{equation_hint}"
+        f"(unit_id='{unit_id}', lesson_index={lesson_index})."
     )
 
-    # Build few-shot message sequence
-    messages: list = [SystemMessage(content=REFERENCE_CARD_SYSTEM)]
-    for ex in FEW_SHOT_EXAMPLES:
+    # Build strategy-specific few-shot message sequence
+    messages: list = [SystemMessage(content=system_prompt)]
+    for ex in get_few_shots_for_strategy(strategy):
         messages.append(HumanMessage(content=ex["human"]))
         messages.append(AIMessage(content=ex["assistant"]))
     messages.append(HumanMessage(content=user_prompt))

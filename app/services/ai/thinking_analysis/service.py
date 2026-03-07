@@ -21,49 +21,53 @@ class ThinkingAnalysisService:
     @_retry
     async def classify_errors(
         self,
-        student_input: str,
-        step_instruction: str,
-        correct_answer: str,
-        thinking_entries: list[dict],
-        topic_name: str = "",
+        incorrect_steps: list[dict],
+        all_steps: list[dict],
+        problem_context: str = "",
     ) -> ErrorClassificationOutput:
         messages = [
-            {"role": "system", "content": prompts.CLASSIFY_ERRORS_SYSTEM.format(topic_name=topic_name)},
+            {"role": "system", "content": prompts.CLASSIFY_ERROR_SYSTEM},
             {
                 "role": "user",
                 "content": (
-                    f"Step instruction: {step_instruction}\n"
-                    f"Correct answer: {correct_answer}\n"
-                    f"Student's final answer: {student_input}\n"
-                    f"Thinking entries: {thinking_entries}"
+                    f"Problem context: {problem_context}\n"
+                    f"Incorrect steps: {incorrect_steps}\n"
+                    f"All attempt steps: {all_steps}\n"
+                    "Return one error entry per incorrect step."
                 ),
             },
         ]
         result: ErrorClassificationOutput = await generate_structured(
             messages, ErrorClassificationOutput, temperature=0.2, fast=True
         )
-        logger.debug("errors_classified", topic=topic_name)
+        logger.debug("errors_classified", error_count=len(result.errors))
         return result
 
     @_retry
     async def generate_class_insights(
         self,
-        topic_name: str,
-        error_patterns: list[dict],
         student_count: int,
+        class_mastery: float,
+        error_frequencies: dict[str, int],
+        misconception_data: list[dict],
     ) -> ClassInsightsOutput:
         messages = [
-            {"role": "system", "content": prompts.CLASS_INSIGHTS_SYSTEM.format(student_count=student_count)},
+            {
+                "role": "system",
+                "content": prompts.GENERATE_CLASS_INSIGHTS_SYSTEM.format(student_count=student_count),
+            },
             {
                 "role": "user",
                 "content": (
-                    f"Topic: {topic_name}\n"
-                    f"Error patterns from {student_count} students:\n{error_patterns}"
+                    f"Student count: {student_count}\n"
+                    f"Class mastery: {class_mastery:.2f}\n"
+                    f"Error frequencies: {error_frequencies}\n"
+                    f"Misconception data: {misconception_data}\n"
                 ),
             },
         ]
         result: ClassInsightsOutput = await generate_structured(messages, ClassInsightsOutput, temperature=0.3)
-        logger.info("class_insights_generated", topic=topic_name, students=student_count)
+        logger.info("class_insights_generated", students=student_count)
         return result
 
 

@@ -19,6 +19,8 @@ class LessonOut(BaseModel):
     is_ap_only: bool = False
     objectives: list[str] = Field(default_factory=list)
     key_equations: list[str] = Field(default_factory=list)
+    key_rules: list[str] = Field(default_factory=list)
+    misconceptions: list[str] = Field(default_factory=list)
     standards: list[StandardOut] = Field(default_factory=list)
     is_active: bool
 
@@ -62,6 +64,8 @@ class LessonCreate(BaseModel):
     lesson_index: int
     objectives: list[str] = Field(default_factory=list)
     key_equations: list[str] = Field(default_factory=list)
+    key_rules: list[str] = Field(default_factory=list)
+    misconceptions: list[str] = Field(default_factory=list)
     standard_codes: list[str] = Field(default_factory=list)  # ["NGSS HS-PS1-5", …]
     is_active: bool = True
 

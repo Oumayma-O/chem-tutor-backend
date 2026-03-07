@@ -21,30 +21,35 @@ class ProblemStep(BaseModel):
     Step types by level:
       Level 1 (Worked Example):  all steps are "given"
       Level 2 (Faded):           steps 1-2 "given", steps 3-5 "interactive"
-      Level 3 (Unresolved):     step 1 "drag_drop", step 2 "variable_id",
-                                 steps 3-5 "interactive"
+      Level 3 (Unresolved):      step 1 "drag_drop", step 2 "variable_id",
+                                  steps 3-5 "interactive"
     """
     id: str = ""  # LLM often omits; service fills with problem_id + step_number if empty
-    step_number: int = Field(alias="stepNumber")
+    step_number: int = Field(validation_alias="stepNumber")
     type: Literal["given", "interactive", "drag_drop", "variable_id"]
-    label: str  # e.g. "Equation", "Knowns", "Unknown", "Step 1 — Equation"; flexible for strategy-based prompts
-    instruction: str = ""  # LLM few-shot uses "content"; validator below copies content → instruction when missing
-    content: str | None = None
-
-    @model_validator(mode="after")
-    def instruction_from_content(self) -> "ProblemStep":
-        if not (self.instruction or "").strip() and (self.content or "").strip():
-            self.instruction = (self.content or "").strip()
-        if not (self.instruction or "").strip():
-            self.instruction = "(no instruction)"
-        return self
-    placeholder: str | None = None
-    equation_parts: list[str] | None = Field(default=None, alias="equationParts")
-    known_variables: list[KnownVariable] | None = Field(default=None, alias="knownVariables")
-    correct_answer: str | None = Field(default=None, alias="correctAnswer")
-    hint: str | None = None
+    label: str
+    instruction: str
+    skill_used: str | None = Field(default=None, validation_alias="skillUsed")
+    correct_answer: str | None = Field(default=None, validation_alias="correctAnswer")
+    equation_parts: list[str] | None = Field(default=None, validation_alias="equationParts")
+    known_variables: list[KnownVariable] | None = Field(default=None, validation_alias="knownVariables")
 
     model_config = {"populate_by_name": True}
+
+    @model_validator(mode="after")
+    def validate_type_specific_fields(self) -> "ProblemStep":
+        """Enforce type-specific payload shape for step interaction widgets."""
+        if self.type == "drag_drop":
+            if not self.equation_parts:
+                raise ValueError('type="drag_drop" requires non-empty "equationParts".')
+            if self.known_variables:
+                raise ValueError('type="drag_drop" must not include "knownVariables".')
+        elif self.type == "variable_id":
+            if not self.known_variables:
+                raise ValueError('type="variable_id" requires non-empty "knownVariables".')
+            if self.equation_parts:
+                raise ValueError('type="variable_id" must not include "equationParts".')
+        return self
 
 
 class ProblemOutput(BaseModel):
@@ -58,13 +63,20 @@ class ProblemOutput(BaseModel):
     # Set server-side after generation; not expected from the LLM.
     strategy: Literal["quantitative", "conceptual", "analytical"] | None = None
 
-    context_tag: str | None = Field(default=None, alias="contextTag")
+    context_tag: str | None = Field(default=None, validation_alias="contextTag")
     steps: list[ProblemStep] = Field(min_length=3, max_length=6)
 
     model_config = {"populate_by_name": True}
 
 
 class GenerateProblemRequest(BaseModel):
+    class LessonContext(BaseModel):
+        """Optional lesson metadata used to guide problem generation."""
+        equations: list[str] = Field(default_factory=list)
+        objectives: list[str] = Field(default_factory=list)
+        key_rules: list[str] = Field(default_factory=list)
+        misconceptions: list[str] = Field(default_factory=list)
+
     user_id: uuid.UUID | None = None   # enables playlist tracking when provided
     unit_id: str
     lesson_index: int
@@ -75,7 +87,7 @@ class GenerateProblemRequest(BaseModel):
     grade_level: str | None = None
     focus_areas: list[str] = Field(default_factory=list)
     problem_style: str | None = None
-    rag_context: dict | None = None
+    lesson_context: LessonContext | None = None
     exclude_ids: list[str] = Field(default_factory=list)  # e.g. current problem id so "See Another" returns a different one
 
 
@@ -117,5 +129,5 @@ class ReferenceCardOutput(BaseModel):
     topic: str
     unit_id: str
     lesson_index: int
-    steps: list[ReferenceStepCard] = Field(min_length=5, max_length=5)
+    steps: list[ReferenceStepCard] = Field(min_length=3, max_length=5)
     hint: str = "Apply this general approach to the current problem!"

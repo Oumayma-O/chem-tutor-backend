@@ -31,24 +31,34 @@ _retry = retry(
     reraise=True,
 )
 
-def _expected_step_types(level: int, n: int) -> list[str]:
+def _expected_step_types(level: int, n: int, labels: list[str] | None = None) -> list[str]:
     """Return the expected step-type sequence for `level` with `n` steps (3–6)."""
     if level == 1:
         return ["given"] * n
     if level == 2:
         given = min(2, n)
         return ["given"] * given + ["interactive"] * (n - given)
-    # level == 3
-    if n == 1:
-        return ["drag_drop"]
-    if n == 2:
-        return ["drag_drop", "variable_id"]
-    return ["drag_drop", "variable_id"] + ["interactive"] * (n - 2)
+    # level == 3: same template as level 2, use interactive for unknown labels
+    drag_drop_labels = {"equation", "substitute", "formula", "expression"}
+    variable_id_labels = {"knowns", "given", "variables", "identify", "known values"}
+    result = []
+    for label in (labels or []):
+        lower = label.lower()
+        if any(kw in lower for kw in drag_drop_labels):
+            result.append("drag_drop")
+        elif any(kw in lower for kw in variable_id_labels):
+            result.append("variable_id")
+        else:
+            result.append("interactive")
+    while len(result) < n:
+        result.append("interactive")
+    return result[:n]
 
 
 def enforce_step_types(problem: ProblemOutput, level: int) -> ProblemOutput:
     """Fix stale step types on cache hits served at a different level."""
-    expected = _expected_step_types(level, len(problem.steps))
+    labels = [step.label for step in problem.steps]
+    expected = _expected_step_types(level, len(problem.steps), labels=labels)
     for step, expected_type in zip(problem.steps, expected):
         step.type = expected_type  # type: ignore[assignment]
         if expected_type == "drag_drop" and not step.equation_parts:
@@ -95,8 +105,11 @@ class ProblemGenerationService:
     ) -> ProblemOutput:
         strategy = prompts.get_strategy_for_unit(unit_id)
         step_count = prompts.get_step_count_for_prompt(strategy, difficulty)
-        strategy_block = prompts.STRATEGY_BLOCKS.get(strategy, prompts.STRATEGY_BLOCKS["quantitative"])
+        strategy_config = prompts.STRATEGY_CONFIG.get(strategy, prompts.STRATEGY_CONFIG["quantitative"])
+        labels_block = " | ".join(strategy_config["labels"])
+        strategy_logic = strategy_config["logic"]
         interest_slug = (interests[0] if interests else "general chemistry").strip() or "general chemistry"
+        skill_list = prompts.collect_skills_from_lesson_objectives(lesson_context, strategy)
 
         # Fetch curated few-shot example from DB when a session is available
         db_example: dict | None = None
@@ -105,8 +118,10 @@ class ProblemGenerationService:
             db_example = await get_few_shot(db, unit_id, lesson_index, difficulty, level)
 
         system = prompts.GENERATE_PROBLEM_SYSTEM.format(
-            strategy_block=strategy_block,
-            level_block=prompts.get_level_block(level, step_count),
+            strategy=strategy,
+            labels_block=labels_block,
+            strategy_logic=strategy_logic,
+            level_block=prompts.get_level_block(level, step_count, unit_id),
             step_count=step_count,
             interest_slug=interest_slug,
             difficulty=difficulty,
@@ -119,8 +134,9 @@ class ProblemGenerationService:
                 f'Set context_tag to "{interests[0]}".' if interests else ""
             ),
             grade_block=f"Student grade level: {grade_level}." if grade_level else "",
-            rag_block=_format_lesson_context(lesson_context),
-        ) + prompts.get_few_shot_block(unit_id, lesson_index, difficulty, level, db_example=db_example)
+            skills_block=prompts.build_skills_block(skill_list),
+            lesson_guidance_block=prompts.build_lesson_guidance_block(lesson_context),
+        ) + prompts.get_few_shot_block(db_example)
 
         messages = [
             {"role": "system", "content": system},
@@ -139,6 +155,8 @@ class ProblemGenerationService:
             if not (step.id or "").strip():
                 step.id = f"{problem.id}-step-{step.step_number}"
 
+        sanitize_problem(problem)
+
         logger.info(
             "problem_generated",
             provider=self.provider_name, model=self.model_name,
@@ -149,17 +167,32 @@ class ProblemGenerationService:
         )
         return problem
 
+def _strip_null_bytes(v: object) -> object:
+    """Recursively remove \\u0000 characters PostgreSQL cannot store in text columns."""
+    if isinstance(v, str):
+        return v.replace("\x00", "")
+    if isinstance(v, dict):
+        return {k: _strip_null_bytes(val) for k, val in v.items()}
+    if isinstance(v, list):
+        return [_strip_null_bytes(item) for item in v]
+    return v
 
-def _format_lesson_context(ctx: dict | None) -> str:
-    """Format lesson key_equations and objectives for injection into the system prompt."""
-    if not ctx:
-        return ""
-    lines = []
-    if equations := ctx.get("equations"):
-        lines.append(f"KEY EQUATIONS: {'; '.join(equations)}")
-    if objectives := ctx.get("objectives"):
-        lines.append(f"LEARNING OBJECTIVES: {'; '.join(objectives)}")
-    return "\n".join(lines)
+
+def sanitize_problem(problem: ProblemOutput) -> ProblemOutput:
+    """Strip null bytes from all string fields produced by the LLM."""
+    problem.title = problem.title.replace("\x00", "")
+    problem.statement = problem.statement.replace("\x00", "")
+    problem.topic = problem.topic.replace("\x00", "")
+    for step in problem.steps:
+        step.label = step.label.replace("\x00", "")
+        step.instruction = step.instruction.replace("\x00", "")
+        if step.correct_answer:
+            step.correct_answer = step.correct_answer.replace("\x00", "")
+        if step.skill_used:
+            step.skill_used = step.skill_used.replace("\x00", "")
+        if step.equation_parts:
+            step.equation_parts = [p.replace("\x00", "") for p in step.equation_parts]
+    return problem
 
 
 def get_problem_generation_service() -> ProblemGenerationService:

@@ -95,6 +95,13 @@ class SaveStepRequest(BaseModel):
     step_log: list[dict]
 
 
+class SaveStepResponse(BaseModel):
+    """Live mastery snapshot computed from in-progress step work."""
+    mastery: MasteryState
+    attempt_score: float
+    attempted_steps: int
+
+
 class ResumeAttemptResponse(BaseModel):
     """
     Returned when the student logs back in mid-problem.
