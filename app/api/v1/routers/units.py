@@ -98,6 +98,7 @@ async def get_unit(
                 misconceptions=l.misconceptions or [],
                 standards=stds,
                 is_active=l.is_active,
+                required_tools=l.required_tools or [],
             )
         )
 
@@ -150,6 +151,7 @@ async def create_unit(
             key_rules=l.key_rules,
             misconceptions=l.misconceptions,
             is_active=l.is_active,
+            required_tools=l.required_tools,
         )
         db.add(lesson)
         await db.flush()

@@ -20,7 +20,7 @@ from app.domain.schemas.tutor.hints import GenerateHintRequest, HintOutput
 from app.domain.schemas.tutor.insights import ClassInsightsOutput, GenerateInsightsRequest
 from app.domain.schemas.tutor.problems import (
     GenerateProblemRequest,
-    KnownVariable,
+    LabeledValue,
     ProblemDeliveryResponse,
     ProblemOutput,
     ProblemStep,
@@ -38,7 +38,7 @@ __all__ = [
     "GenerateInsightsRequest",
     "GenerateProblemRequest",
     "HintOutput",
-    "KnownVariable",
+    "LabeledValue",
     "ProblemDeliveryResponse",
     "ProblemOutput",
     "ProblemStep",

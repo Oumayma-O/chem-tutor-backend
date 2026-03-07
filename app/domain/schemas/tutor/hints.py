@@ -13,7 +13,7 @@ class GenerateHintRequest(BaseModel):
     problem_context: str | None = None
     interests: list[str] = Field(default_factory=list)
     grade_level: str | None = None
-    rag_context: dict | None = None
+    lesson_context: dict | None = None  # equations, objectives, key_rules, misconceptions (same as problem generation)
     error_category: str | None = None
     misconception_tag: str | None = None
 

@@ -105,6 +105,8 @@ async def seed(session: AsyncSession) -> None:
                 objectives=data["objectives"],
                 key_rules=data.get("key_rules", []),
                 misconceptions=data.get("misconceptions", []),
+                blueprint=data.get("blueprint", "solver"),
+                required_tools=data.get("required_tools", []),
                 unit_id=data["canonical_unit"],
                 lesson_index=data["canonical_index"],
                 extension_of=ext_of,
@@ -121,6 +123,8 @@ async def seed(session: AsyncSession) -> None:
             lesson.objectives     = data["objectives"]
             lesson.key_rules      = data.get("key_rules", [])
             lesson.misconceptions = data.get("misconceptions", [])
+            lesson.blueprint      = data.get("blueprint", "solver")
+            lesson.required_tools = data.get("required_tools", [])
             lesson.extension_of   = ext_of
             lesson.has_simulation = has_sim
         slug_to_lesson_id[slug] = lesson.id
@@ -232,21 +236,25 @@ async def _seed_phases(
 # ── Few-shot examples ─────────────────────────────────────────────────────────
 
 def _fs_normalize_steps(steps: list[dict]) -> list[dict]:
-    """Normalize curated few-shot steps into API-facing structure."""
+    """Normalize curated few-shot steps into API-facing structure, preserving all widget fields."""
     normalized: list[dict] = []
     for i, s in enumerate(steps):
-        label = s["label"]
-        solved = s["correctAnswer"]
-        instruction = s["instruction"]
         step = {
             "stepNumber": i + 1,
-            "label": label,
+            "label": s["label"],
             "type": s["type"],
-            "instruction": instruction,
-            "correctAnswer": solved,
+            "instruction": s["instruction"],
+            "correctAnswer": s.get("correctAnswer"),
         }
         if skill_used := s.get("skillUsed"):
             step["skillUsed"] = skill_used
+        # Preserve widget-specific fields
+        if eq := s.get("equationParts"):
+            step["equationParts"] = eq
+        if lv := s.get("labeledValues"):
+            step["labeledValues"] = lv
+        if cp := s.get("comparisonParts"):
+            step["comparisonParts"] = cp
         normalized.append(step)
     return normalized
 
@@ -256,7 +264,7 @@ async def _seed_few_shots(async_session) -> None:
     inserted = 0
 
     async with async_session() as session:
-        for unit_id, lesson_index, difficulty, strategy, ex in FEW_SHOT_DATA:
+        for unit_id, lesson_index, difficulty, blueprint, ex in FEW_SHOT_DATA:
             normalized_json = {
                 "title": ex["title"],
                 "statement": ex["statement"],
@@ -268,7 +276,7 @@ async def _seed_few_shots(async_session) -> None:
                 lesson_index=lesson_index,
                 difficulty=difficulty,
                 level=1,
-                strategy=strategy,
+                strategy=blueprint,  # column reused for blueprint name
                 example_json=normalized_json,
                 is_active=True,
                 promoted=False,

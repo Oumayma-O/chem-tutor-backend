@@ -6,6 +6,7 @@ from app.core.logging import get_logger
 from app.domain.schemas.tutor import ExitTicketOutput
 from app.services.ai.llm import generate_structured
 from app.services.ai.exit_ticket import prompts
+from app.services.ai.lesson_guidance import build_lesson_guidance_block
 
 logger = get_logger(__name__)
 
@@ -25,11 +26,15 @@ class ExitTicketService:
         unit_id: str,
         errors_summary: list[dict] | None = None,
         grade_level: str | None = None,
-        rag_context: dict | None = None,
+        lesson_context: dict | None = None,
     ) -> ExitTicketOutput:
         system = prompts.GENERATE_EXIT_TICKET_SYSTEM.format(
             grade_block=f"Student level: {grade_level}." if grade_level else "",
-            rag_block=_format_rag(rag_context),
+            lesson_guidance_block=build_lesson_guidance_block(lesson_context),
+            question_count=3,
+            difficulty="medium",
+            topic_name=topic_name,
+            chapter_id=unit_id,
         )
         user_msg = f"Topic: {topic_name} (Unit: {unit_id})"
         if errors_summary:
@@ -43,17 +48,6 @@ class ExitTicketService:
         result: ExitTicketOutput = await generate_structured(messages, ExitTicketOutput, temperature=0.4)
         logger.info("exit_ticket_generated", topic=topic_name, unit=unit_id)
         return result
-
-
-def _format_rag(rag_context: dict | None) -> str:
-    if not rag_context:
-        return ""
-    lines = []
-    if s := rag_context.get("standards"):
-        lines.append(f"STANDARDS: {'; '.join(s)}")
-    if e := rag_context.get("equations"):
-        lines.append(f"KEY EQUATIONS: {'; '.join(e)}")
-    return "\n".join(lines)
 
 
 def get_exit_ticket_service() -> ExitTicketService:

@@ -157,29 +157,3 @@ class CurriculumDocumentRepository(BaseRepository[CurriculumDocument]):
             q = q.where(CurriculumDocument.lesson_id == lesson_id)
         result = await self._session.execute(q.order_by(CurriculumDocument.created_at.desc()))
         return result.scalars().all()
-
-    async def build_rag_context(
-        self,
-        unit_id: str,
-        lesson_id: int | None = None,
-    ) -> dict:
-        """
-        Aggregate curriculum documents and lesson objectives into the rag_context dict
-        that ProblemGenerationService and HintGenerationService accept.
-        """
-        docs = await self.get_for_lesson(unit_id, lesson_id)
-        standards: list[str] = []
-        equations: list[str] = []
-        skills: list[str] = []
-        objectives: list[str] = []
-        for doc in docs:
-            meta = doc.doc_metadata or {}
-            standards.extend(meta.get("standards", []))
-            equations.extend(meta.get("equations", []))
-            skills.extend(meta.get("skills", []))
-        return {
-            "standards": list(dict.fromkeys(standards)),   # deduplicate
-            "equations": list(dict.fromkeys(equations)),
-            "skills": list(dict.fromkeys(skills)),
-            "objectives": list(dict.fromkeys(objectives)),
-        }

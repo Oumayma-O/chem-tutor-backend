@@ -48,12 +48,14 @@ async def get_reference_card(
 
     # ── LLM generation ────────────────────────────────────────
     key_equations: list[str] = (lesson.key_equations or []) if lesson else []
+    lesson_blueprint: str = getattr(lesson, "blueprint", None) or "solver"
 
     card = await generate_reference_card(
         topic_name=topic_name,
         unit_id=unit_id,
         lesson_index=lesson_index,
         key_equations=key_equations if key_equations else None,
+        blueprint=lesson_blueprint,
     )
 
     # Persist if the lesson row exists in the DB

@@ -76,7 +76,7 @@ async def get_class_analytics(
 
     # 7. Per-student summaries
     mastery_by_student = {r.user_id: r for r in mastery_records}
-    at_risk_threshold = settings.mastery_threshold - 0.35  # e.g. < 0.40
+    at_risk_threshold = settings.l3_mastery_ceiling - 0.45  # e.g. < 0.40 when ceiling=0.85
 
     student_summaries: list[StudentMasterySummary] = []
     for sid in student_ids:

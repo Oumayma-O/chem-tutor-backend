@@ -16,6 +16,7 @@ from tenacity import retry, retry_if_exception_type, stop_after_attempt, wait_ex
 from app.core.config import get_settings
 from app.core.logging import get_logger
 from app.domain.schemas.tutor import ProblemOutput
+from app.services.ai.lesson_guidance import build_lesson_guidance_block
 from app.services.ai.llm import generate_structured, get_llm
 from app.services.ai.problem_generation import prompts
 
@@ -63,7 +64,7 @@ def enforce_step_types(problem: ProblemOutput, level: int) -> ProblemOutput:
         step.type = expected_type  # type: ignore[assignment]
         if expected_type == "drag_drop" and not step.equation_parts:
             step.type = "interactive"  # type: ignore[assignment]
-        if expected_type == "variable_id" and not step.known_variables:
+        if expected_type == "variable_id" and not step.labeled_values:
             step.type = "interactive"  # type: ignore[assignment]
     return problem
 
@@ -102,14 +103,16 @@ class ProblemGenerationService:
         problem_style: str | None = None,
         lesson_context: dict | None = None,
         db: "AsyncSession | None" = None,
+        blueprint: str | None = None,
     ) -> ProblemOutput:
-        strategy = prompts.get_strategy_for_unit(unit_id)
-        step_count = prompts.get_step_count_for_prompt(strategy, difficulty)
-        strategy_config = prompts.STRATEGY_CONFIG.get(strategy, prompts.STRATEGY_CONFIG["quantitative"])
-        labels_block = " | ".join(strategy_config["labels"])
-        strategy_logic = strategy_config["logic"]
+        # Blueprint lookup: caller passes Lesson.blueprint from DB; fall back to "solver"
+        resolved_blueprint = blueprint or "solver"
+        blueprint_config = prompts.BLUEPRINT_CONFIG.get(resolved_blueprint, prompts.BLUEPRINT_CONFIG["solver"])
+        step_count = prompts.get_step_count_for_prompt(resolved_blueprint)
+        labels_block = " | ".join(blueprint_config["labels"])
+        blueprint_logic = blueprint_config["logic"]
         interest_slug = (interests[0] if interests else "general chemistry").strip() or "general chemistry"
-        skill_list = prompts.collect_skills_from_lesson_objectives(lesson_context, strategy)
+        skill_list = prompts.collect_skills_from_lesson_objectives(lesson_context, resolved_blueprint)
 
         # Fetch curated few-shot example from DB when a session is available
         db_example: dict | None = None
@@ -118,10 +121,10 @@ class ProblemGenerationService:
             db_example = await get_few_shot(db, unit_id, lesson_index, difficulty, level)
 
         system = prompts.GENERATE_PROBLEM_SYSTEM.format(
-            strategy=strategy,
+            blueprint=resolved_blueprint,
             labels_block=labels_block,
-            strategy_logic=strategy_logic,
-            level_block=prompts.get_level_block(level, step_count, unit_id),
+            blueprint_logic=blueprint_logic,
+            level_block=prompts.get_level_block(level, step_count),
             step_count=step_count,
             interest_slug=interest_slug,
             difficulty=difficulty,
@@ -135,7 +138,7 @@ class ProblemGenerationService:
             ),
             grade_block=f"Student grade level: {grade_level}." if grade_level else "",
             skills_block=prompts.build_skills_block(skill_list),
-            lesson_guidance_block=prompts.build_lesson_guidance_block(lesson_context),
+            lesson_guidance_block=build_lesson_guidance_block(lesson_context),
         ) + prompts.get_few_shot_block(db_example)
 
         messages = [
@@ -148,7 +151,7 @@ class ProblemGenerationService:
         elapsed_s = round(time.perf_counter() - t0, 3)
 
         problem.level = level
-        problem.strategy = strategy
+        problem.blueprint = resolved_blueprint
         problem.id = str(uuid.uuid4())
         # Fill step ids if LLM omitted them (structured output often skips step id)
         for step in problem.steps:
@@ -163,7 +166,7 @@ class ProblemGenerationService:
             problem_id=problem.id,
             execution_time_s=elapsed_s, unit=unit_id,
             lesson=lesson_index, level=level, difficulty=difficulty,
-            strategy=strategy, step_count=len(problem.steps),
+            blueprint=resolved_blueprint, step_count=len(problem.steps),
         )
         return problem
 

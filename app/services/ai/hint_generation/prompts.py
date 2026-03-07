@@ -21,4 +21,4 @@ Current level: {hint_level}
 {misconception_block}
 {interest_block}
 {grade_block}
-{rag_block}"""
+{lesson_guidance_block}"""

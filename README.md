@@ -116,7 +116,8 @@ backend/
 
 ## Mastery Logic
 
-- **Rolling window average** of last N attempts (default: 5, configurable via `MASTERY_WINDOW`)
-- **Threshold**: 75% to advance (configurable via `MASTERY_THRESHOLD`)
-- **Difficulty adaptation**: levels up after 2 consecutive correct at threshold, levels down if mastery drops 15% below threshold
-- **At-risk detection**: mastery < 40% after at least 3 attempts
+- **Band-filling**: L2 band (0 → 60%), L3 band (60% → 85%). Lesson complete when mastery ≥ `l3_mastery_ceiling` (default 0.85).
+- **Level 3 unlock**: one perfect L2 attempt unlocks L3; further attempts fill the L3 band.
+- **should_advance / has_mastered**: true when `mastery_score >= l3_mastery_ceiling` (no separate threshold).
+- **Difficulty adaptation**: from position within the L2 band (`MASTERY_WINDOW` for rolling context).
+- **At-risk detection**: mastery < 40% after at least 3 attempts.

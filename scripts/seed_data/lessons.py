@@ -14,6 +14,8 @@ MASTER_LESSONS: dict[str, dict] = {
 
     "L-intro-safety": {
         "title": "Safety",
+        "blueprint": "lawyer",
+        "required_tools": [],
         "is_ap_only": False,
         "key_equations": [],
         "key_rules": [
@@ -37,6 +39,8 @@ MASTER_LESSONS: dict[str, dict] = {
 
     "L-intro-scientific-method": {
         "title": "Scientific Method",
+        "blueprint": "lawyer",
+        "required_tools": [],
         "is_ap_only": False,
         "key_equations": [],
         "key_rules": [
@@ -60,6 +64,8 @@ MASTER_LESSONS: dict[str, dict] = {
 
     "L-intro-classification-matter": {
         "title": "Classification of Matter",
+        "blueprint": "lawyer",
+        "required_tools": [],
         "is_ap_only": False,
         "key_equations": [],
         "key_rules": [
@@ -83,6 +89,8 @@ MASTER_LESSONS: dict[str, dict] = {
 
     "L-intro-chem-phys-changes": {
         "title": "Chemical & Physical Changes",
+        "blueprint": "lawyer",
+        "required_tools": [],
         "is_ap_only": False,
         "key_equations": [],
         "key_rules": [
@@ -105,6 +113,8 @@ MASTER_LESSONS: dict[str, dict] = {
 
     "L-intro-measurement": {
         "title": "Measurement & Scientific Notation",
+        "blueprint": "recipe",
+        "required_tools": ['calculator'],
         "is_ap_only": False,
         "key_equations": [
             "value × 10^n",
@@ -137,6 +147,8 @@ MASTER_LESSONS: dict[str, dict] = {
 
     "L-atomic-history": {
         "title": "History & Basics of Atomic Theory",
+        "blueprint": "lawyer",
+        "required_tools": [],
         "is_ap_only": False,
         "key_equations": [],
         "key_rules": [
@@ -160,6 +172,8 @@ MASTER_LESSONS: dict[str, dict] = {
 
     "L-atomic-structure": {
         "title": "Atomic Structure",
+        "blueprint": "architect",
+        "required_tools": ['periodic_table'],
         "is_ap_only": False,
         "key_equations": [
             "Mass Number (A) = Z + n",
@@ -185,6 +199,8 @@ MASTER_LESSONS: dict[str, dict] = {
 
     "L-atomic-mass": {
         "title": "Atomic Mass",
+        "blueprint": "solver",
+        "required_tools": ['calculator', 'periodic_table'],
         "is_ap_only": False,
         "key_equations": [
             "Avg Atomic Mass = Σ(Isotope Mass × Fractional Abundance)",
@@ -212,6 +228,8 @@ MASTER_LESSONS: dict[str, dict] = {
 
     "L-nuclear-intro": {
         "title": "Introduction to Nuclear Chemistry",
+        "blueprint": "lawyer",
+        "required_tools": ['periodic_table'],
         "is_ap_only": False,
         "key_equations": [],
         "key_rules": [],
@@ -226,6 +244,8 @@ MASTER_LESSONS: dict[str, dict] = {
 
     "L-nuclear-radioactive-decay": {
         "title": "Radioactive Decay & Half-Life",
+        "blueprint": "solver",
+        "required_tools": ['calculator'],
         "is_ap_only": False,
         "key_equations": [
             "t½ = 0.693 / k",
@@ -243,6 +263,8 @@ MASTER_LESSONS: dict[str, dict] = {
 
     "L-nuclear-reactions": {
         "title": "Nuclear Reactions",
+        "blueprint": "architect",
+        "required_tools": ['periodic_table'],
         "is_ap_only": False,
         "key_equations": [
             "E = mc²",
@@ -263,6 +285,8 @@ MASTER_LESSONS: dict[str, dict] = {
 
     "L-electrons-ions": {
         "title": "Ions",
+        "blueprint": "architect",
+        "required_tools": ['periodic_table'],
         "is_ap_only": False,
         "key_equations": [],
         "key_rules": [
@@ -285,6 +309,8 @@ MASTER_LESSONS: dict[str, dict] = {
 
     "L-electrons-intro-config": {
         "title": "Intro to Electron Configurations",
+        "blueprint": "architect",
+        "required_tools": ['periodic_table'],
         "is_ap_only": False,
         "key_equations": [],
         "key_rules": [
@@ -307,6 +333,8 @@ MASTER_LESSONS: dict[str, dict] = {
 
     "L-electrons-config-orbital": {
         "title": "Electron Configurations & Orbital Notations",
+        "blueprint": "architect",
+        "required_tools": ['periodic_table'],
         "is_ap_only": False,
         "key_equations": [],
         "key_rules": [
@@ -329,6 +357,8 @@ MASTER_LESSONS: dict[str, dict] = {
 
     "L-electrons-noble-gas": {
         "title": "Noble Gas Abbreviations & Valence Electrons",
+        "blueprint": "architect",
+        "required_tools": ['periodic_table'],
         "is_ap_only": False,
         "key_equations": [],
         "key_rules": [],
@@ -347,6 +377,8 @@ MASTER_LESSONS: dict[str, dict] = {
 
     "L-periodic-history": {
         "title": "History of the Periodic Table",
+        "blueprint": "lawyer",
+        "required_tools": ['periodic_table'],
         "is_ap_only": False,
         "key_equations": [],
         "key_rules": [],
@@ -361,6 +393,8 @@ MASTER_LESSONS: dict[str, dict] = {
 
     "L-periodic-atomic-size": {
         "title": "Atomic Size",
+        "blueprint": "lawyer",
+        "required_tools": ['periodic_table'],
         "is_ap_only": False,
         "key_equations": [],
         "key_rules": [
@@ -382,6 +416,8 @@ MASTER_LESSONS: dict[str, dict] = {
 
     "L-periodic-ionization": {
         "title": "Ionization Energy",
+        "blueprint": "lawyer",
+        "required_tools": ['periodic_table'],
         "is_ap_only": False,
         "key_equations": [],
         "key_rules": [
@@ -404,6 +440,8 @@ MASTER_LESSONS: dict[str, dict] = {
 
     "L-periodic-electronegativity": {
         "title": "Electronegativity",
+        "blueprint": "lawyer",
+        "required_tools": ['periodic_table'],
         "is_ap_only": False,
         "key_equations": [],
         "key_rules": [],
@@ -422,6 +460,8 @@ MASTER_LESSONS: dict[str, dict] = {
 
     "L-bonding-basics": {
         "title": "Bonding Basics",
+        "blueprint": "lawyer",
+        "required_tools": ['periodic_table'],
         "is_ap_only": False,
         "key_equations": [],
         "key_rules": [
@@ -444,6 +484,8 @@ MASTER_LESSONS: dict[str, dict] = {
 
     "L-bonding-ionic": {
         "title": "Ionic Bonding",
+        "blueprint": "architect",
+        "required_tools": ['periodic_table'],
         "is_ap_only": False,
         "key_equations": [
             "Lattice Energy ∝ (q₁q₂ / r)",
@@ -468,6 +510,8 @@ MASTER_LESSONS: dict[str, dict] = {
 
     "L-bonding-covalent": {
         "title": "Covalent Bonding",
+        "blueprint": "architect",
+        "required_tools": ['periodic_table'],
         "is_ap_only": False,
         "key_equations": [],
         "key_rules": [
@@ -490,6 +534,8 @@ MASTER_LESSONS: dict[str, dict] = {
 
     "L-bonding-molecular-geometry": {
         "title": "Molecular Geometry",
+        "blueprint": "architect",
+        "required_tools": ['periodic_table'],
         "is_ap_only": False,
         "key_equations": [],
         "key_rules": [
@@ -512,6 +558,8 @@ MASTER_LESSONS: dict[str, dict] = {
 
     "L-bonding-polarity": {
         "title": "Polarity",
+        "blueprint": "lawyer",
+        "required_tools": ['periodic_table'],
         "is_ap_only": False,
         "key_equations": [],
         "key_rules": [],
@@ -530,6 +578,8 @@ MASTER_LESSONS: dict[str, dict] = {
 
     "L-nomenclature-properties": {
         "title": "Properties of Ionic & Covalent Compounds",
+        "blueprint": "lawyer",
+        "required_tools": ['periodic_table'],
         "is_ap_only": False,
         "key_equations": [],
         "key_rules": [],
@@ -544,6 +594,8 @@ MASTER_LESSONS: dict[str, dict] = {
 
     "L-nomenclature-name-formula": {
         "title": "Name to Formula (Ionic)",
+        "blueprint": "architect",
+        "required_tools": ['periodic_table'],
         "is_ap_only": False,
         "key_equations": [],
         "key_rules": [],
@@ -558,6 +610,8 @@ MASTER_LESSONS: dict[str, dict] = {
 
     "L-nomenclature-formula-name": {
         "title": "Formula to Name (Ionic)",
+        "blueprint": "architect",
+        "required_tools": ['periodic_table'],
         "is_ap_only": False,
         "key_equations": [],
         "key_rules": [],
@@ -572,6 +626,8 @@ MASTER_LESSONS: dict[str, dict] = {
 
     "L-nomenclature-acids": {
         "title": "Naming Acids",
+        "blueprint": "architect",
+        "required_tools": ['periodic_table'],
         "is_ap_only": False,
         "key_equations": [],
         "key_rules": [],
@@ -586,6 +642,8 @@ MASTER_LESSONS: dict[str, dict] = {
 
     "L-nomenclature-covalent": {
         "title": "Naming Covalent Compounds",
+        "blueprint": "architect",
+        "required_tools": ['periodic_table'],
         "is_ap_only": False,
         "key_equations": [],
         "key_rules": [],
@@ -604,6 +662,8 @@ MASTER_LESSONS: dict[str, dict] = {
 
     "L-da-intro": {
         "title": "Intro to Dimensional Analysis",
+        "blueprint": "recipe",
+        "required_tools": ['calculator'],
         "is_ap_only": False,
         "key_equations": [
             "Known Value × (Desired Unit / Known Unit) = Result",
@@ -628,6 +688,8 @@ MASTER_LESSONS: dict[str, dict] = {
 
     "L-da-multi-step": {
         "title": "Multi-Step Dimensional Analysis",
+        "blueprint": "recipe",
+        "required_tools": ['calculator'],
         "is_ap_only": False,
         "key_equations": [],
         "key_rules": [],
@@ -646,6 +708,8 @@ MASTER_LESSONS: dict[str, dict] = {
 
     "L-mole-history": {
         "title": "History & Particle Conversions",
+        "blueprint": "recipe",
+        "required_tools": ['calculator'],
         "is_ap_only": False,
         "key_equations": [
             "N = n × Nₐ  (Nₐ = 6.022 × 10²³ mol⁻¹)",
@@ -662,6 +726,8 @@ MASTER_LESSONS: dict[str, dict] = {
 
     "L-mole-molar-mass-1step": {
         "title": "Molar Mass (1-Step)",
+        "blueprint": "recipe",
+        "required_tools": ['calculator', 'periodic_table'],
         "is_ap_only": False,
         "key_equations": [
             "n = m / M",
@@ -686,6 +752,8 @@ MASTER_LESSONS: dict[str, dict] = {
 
     "L-mole-molar-mass-2step": {
         "title": "Molar Mass (2-Step)",
+        "blueprint": "recipe",
+        "required_tools": ['calculator', 'periodic_table'],
         "is_ap_only": False,
         "key_equations": [
             "n = m / M",
@@ -703,6 +771,8 @@ MASTER_LESSONS: dict[str, dict] = {
 
     "L-mole-percent-composition": {
         "title": "Percent Composition",
+        "blueprint": "recipe",
+        "required_tools": ['calculator', 'periodic_table'],
         "is_ap_only": False,
         "key_equations": [
             "% Element = (Mass of Element / Total Molar Mass) × 100",
@@ -730,6 +800,8 @@ MASTER_LESSONS: dict[str, dict] = {
 
     "L-rxn-equations": {
         "title": "Word & Formula Equations",
+        "blueprint": "architect",
+        "required_tools": ['periodic_table'],
         "is_ap_only": False,
         "key_equations": [],
         "key_rules": [],
@@ -744,6 +816,8 @@ MASTER_LESSONS: dict[str, dict] = {
 
     "L-rxn-balancing": {
         "title": "Balancing Chemical Equations",
+        "blueprint": "architect",
+        "required_tools": [],
         "is_ap_only": False,
         "key_equations": [],
         "key_rules": [
@@ -766,6 +840,8 @@ MASTER_LESSONS: dict[str, dict] = {
 
     "L-rxn-both-skills": {
         "title": "Word Equations & Balancing Together",
+        "blueprint": "architect",
+        "required_tools": ['periodic_table'],
         "is_ap_only": False,
         "key_equations": [],
         "key_rules": [],
@@ -779,6 +855,8 @@ MASTER_LESSONS: dict[str, dict] = {
 
     "L-rxn-synthesis-decomp": {
         "title": "Synthesis & Decomposition Reactions",
+        "blueprint": "architect",
+        "required_tools": ['periodic_table'],
         "is_ap_only": False,
         "key_equations": [],
         "key_rules": [],
@@ -793,6 +871,8 @@ MASTER_LESSONS: dict[str, dict] = {
 
     "L-rxn-single-replacement": {
         "title": "Single Replacement Reactions",
+        "blueprint": "architect",
+        "required_tools": ['periodic_table'],
         "is_ap_only": False,
         "key_equations": [],
         "key_rules": [],
@@ -807,6 +887,8 @@ MASTER_LESSONS: dict[str, dict] = {
 
     "L-rxn-double-replacement": {
         "title": "Double Replacement Reactions",
+        "blueprint": "architect",
+        "required_tools": ['periodic_table'],
         "is_ap_only": False,
         "key_equations": [],
         "key_rules": [],
@@ -825,6 +907,8 @@ MASTER_LESSONS: dict[str, dict] = {
 
     "L-stoich-mole-mole": {
         "title": "Mole-Mole Calculations",
+        "blueprint": "recipe",
+        "required_tools": ['calculator'],
         "is_ap_only": False,
         "key_equations": [
             "Moles A × (coeff B / coeff A) = Moles B",
@@ -841,6 +925,8 @@ MASTER_LESSONS: dict[str, dict] = {
 
     "L-stoich-mass-mass": {
         "title": "Mass-Mass Calculations",
+        "blueprint": "recipe",
+        "required_tools": ['calculator', 'periodic_table'],
         "is_ap_only": False,
         "key_equations": [
             "Mass A → Moles A → Moles B → Mass B",
@@ -864,6 +950,8 @@ MASTER_LESSONS: dict[str, dict] = {
 
     "L-stoich-limiting": {
         "title": "Limiting Reactants",
+        "blueprint": "recipe",
+        "required_tools": ['calculator', 'periodic_table'],
         "is_ap_only": False,
         "key_equations": [
             "% Yield = (Actual / Theoretical) × 100",
@@ -892,6 +980,8 @@ MASTER_LESSONS: dict[str, dict] = {
 
     "L-solutions-intro": {
         "title": "Introduction to Solutions",
+        "blueprint": "lawyer",
+        "required_tools": [],
         "is_ap_only": False,
         "key_equations": [],
         "key_rules": [],
@@ -906,6 +996,8 @@ MASTER_LESSONS: dict[str, dict] = {
 
     "L-solutions-molarity": {
         "title": "Molarity",
+        "blueprint": "solver",
+        "required_tools": ['calculator', 'periodic_table'],
         "is_ap_only": False,
         "key_equations": [
             "M = n / V",
@@ -931,6 +1023,8 @@ MASTER_LESSONS: dict[str, dict] = {
 
     "L-solutions-acids-bases-props": {
         "title": "Acids & Bases Properties",
+        "blueprint": "lawyer",
+        "required_tools": ['periodic_table'],
         "is_ap_only": False,
         "key_equations": [],
         "key_rules": [],
@@ -945,6 +1039,8 @@ MASTER_LESSONS: dict[str, dict] = {
 
     "L-solutions-acid-base-calc": {
         "title": "Acid-Base Calculations",
+        "blueprint": "solver",
+        "required_tools": ['calculator'],
         "is_ap_only": False,
         "key_equations": [
             "pH = −log[H⁺]",
@@ -976,6 +1072,8 @@ MASTER_LESSONS: dict[str, dict] = {
 
     "L-thermo-intro": {
         "title": "Introduction to Thermochemistry",
+        "blueprint": "lawyer",
+        "required_tools": [],
         "is_ap_only": False,
         "key_equations": [],
         "key_rules": [],
@@ -990,6 +1088,8 @@ MASTER_LESSONS: dict[str, dict] = {
 
     "L-thermo-calorimetry": {
         "title": "Calorimetry",
+        "blueprint": "solver",
+        "required_tools": ['calculator'],
         "is_ap_only": False,
         "key_equations": [
             "q = mcΔT",
@@ -1015,6 +1115,8 @@ MASTER_LESSONS: dict[str, dict] = {
 
     "L-thermo-equations": {
         "title": "Thermochemical Equations",
+        "blueprint": "recipe",
+        "required_tools": ['calculator'],
         "is_ap_only": False,
         "key_equations": [
             "ΔH°rxn = Σ ΔH°f(products) − Σ ΔH°f(reactants)",
@@ -1031,6 +1133,8 @@ MASTER_LESSONS: dict[str, dict] = {
 
     "L-thermo-heating-curves": {
         "title": "Heating Curves",
+        "blueprint": "detective",
+        "required_tools": ['calculator'],
         "is_ap_only": False,
         "key_equations": [
             "q = mcΔT  (for temperature changes)",
@@ -1052,6 +1156,8 @@ MASTER_LESSONS: dict[str, dict] = {
 
     "L-kmt-gases": {
         "title": "KMT: Gases",
+        "blueprint": "lawyer",
+        "required_tools": [],
         "is_ap_only": False,
         "key_equations": [],
         "key_rules": [],
@@ -1066,6 +1172,8 @@ MASTER_LESSONS: dict[str, dict] = {
 
     "L-kmt-liquids": {
         "title": "KMT: Liquids",
+        "blueprint": "lawyer",
+        "required_tools": [],
         "is_ap_only": False,
         "key_equations": [],
         "key_rules": [],
@@ -1080,6 +1188,8 @@ MASTER_LESSONS: dict[str, dict] = {
 
     "L-kmt-solids": {
         "title": "KMT: Solids",
+        "blueprint": "lawyer",
+        "required_tools": [],
         "is_ap_only": False,
         "key_equations": [],
         "key_rules": [],
@@ -1094,6 +1204,8 @@ MASTER_LESSONS: dict[str, dict] = {
 
     "L-kmt-phase-diagrams": {
         "title": "Phase Diagrams",
+        "blueprint": "detective",
+        "required_tools": [],
         "is_ap_only": False,
         "key_equations": [],
         "key_rules": [],
@@ -1112,6 +1224,8 @@ MASTER_LESSONS: dict[str, dict] = {
 
     "L-gas-intro": {
         "title": "Introduction to Gas Laws",
+        "blueprint": "recipe",
+        "required_tools": ['calculator'],
         "is_ap_only": False,
         "key_equations": [],
         "key_rules": [],
@@ -1126,6 +1240,8 @@ MASTER_LESSONS: dict[str, dict] = {
 
     "L-gas-boyle-charles": {
         "title": "Boyle's Law & Charles' Law",
+        "blueprint": "solver",
+        "required_tools": ['calculator'],
         "is_ap_only": False,
         "key_equations": [
             "P₁V₁ = P₂V₂  (Boyle's Law)",
@@ -1143,6 +1259,8 @@ MASTER_LESSONS: dict[str, dict] = {
 
     "L-gas-gay-lussac-combined": {
         "title": "Gay-Lussac's Law & Combined Gas Law",
+        "blueprint": "solver",
+        "required_tools": ['calculator'],
         "is_ap_only": False,
         "key_equations": [
             "P₁/T₁ = P₂/T₂  (Gay-Lussac's Law)",
@@ -1160,6 +1278,8 @@ MASTER_LESSONS: dict[str, dict] = {
 
     "L-gas-ideal": {
         "title": "Ideal Gas Law",
+        "blueprint": "solver",
+        "required_tools": ['calculator', 'periodic_table'],
         "is_ap_only": False,
         "key_equations": [
             "PV = nRT",
@@ -1188,6 +1308,8 @@ MASTER_LESSONS: dict[str, dict] = {
 
     "L-mass-spectrometry": {
         "title": "Mass Spectrometry",
+        "blueprint": "detective",
+        "required_tools": ['calculator', 'periodic_table'],
         "is_ap_only": True,
         "key_equations": [],
         "key_rules": [
@@ -1211,6 +1333,8 @@ MASTER_LESSONS: dict[str, dict] = {
 
     "L-pes": {
         "title": "Photoelectron Spectroscopy (PES)",
+        "blueprint": "detective",
+        "required_tools": ['periodic_table'],
         "is_ap_only": True,
         "key_equations": [
             "Binding Energy = hν − Kinetic Energy",
@@ -1240,6 +1364,8 @@ MASTER_LESSONS: dict[str, dict] = {
 
     "L-bonding-formal-charge": {
         "title": "Formal Charge & Resonance",
+        "blueprint": "architect",
+        "required_tools": ['calculator', 'periodic_table'],
         "is_ap_only": True,
         "key_equations": [
             "FC = V − L − B/2",
@@ -1265,6 +1391,8 @@ MASTER_LESSONS: dict[str, dict] = {
 
     "L-bonding-hybridization": {
         "title": "Hybridization",
+        "blueprint": "architect",
+        "required_tools": ['periodic_table'],
         "is_ap_only": True,
         "key_equations": [],
         "key_rules": [
@@ -1292,6 +1420,8 @@ MASTER_LESSONS: dict[str, dict] = {
 
     "L-gas-van-der-waals": {
         "title": "Real Gases & van der Waals Equation",
+        "blueprint": "lawyer",
+        "required_tools": ['calculator'],
         "is_ap_only": True,
         "key_equations": [
             "(P + a(n/V)²)(V − nb) = nRT",
@@ -1309,6 +1439,8 @@ MASTER_LESSONS: dict[str, dict] = {
 
     "L-solutions-beer-lambert": {
         "title": "Beer-Lambert Law",
+        "blueprint": "solver",
+        "required_tools": ['calculator'],
         "is_ap_only": True,
         "key_equations": [
             "A = εbc",
@@ -1337,6 +1469,8 @@ MASTER_LESSONS: dict[str, dict] = {
 
     "L-rxn-net-ionic": {
         "title": "Net Ionic Equations",
+        "blueprint": "architect",
+        "required_tools": ['periodic_table'],
         "is_ap_only": True,
         "key_equations": [],
         "key_rules": [
@@ -1359,6 +1493,8 @@ MASTER_LESSONS: dict[str, dict] = {
 
     "L-rxn-redox-titration": {
         "title": "Redox Reactions & Titration",
+        "blueprint": "recipe",
+        "required_tools": ['calculator', 'periodic_table'],
         "is_ap_only": True,
         "key_equations": [],
         "key_rules": [],
@@ -1377,6 +1513,8 @@ MASTER_LESSONS: dict[str, dict] = {
 
     "L-ap-kinetics-rate-laws": {
         "title": "Reaction Rates & Rate Laws",
+        "blueprint": "detective",
+        "required_tools": ['calculator'],
         "is_ap_only": True,
         "key_equations": [
             "rate = k[A]^m[B]^n",
@@ -1393,6 +1531,8 @@ MASTER_LESSONS: dict[str, dict] = {
 
     "L-kinetics-zero-order": {
         "title": "Zero-Order Reactions",
+        "blueprint": "solver",
+        "required_tools": ['calculator'],
         "is_ap_only": True,
         "key_equations": [
             "[A]t = −kt + [A]₀",
@@ -1410,6 +1550,8 @@ MASTER_LESSONS: dict[str, dict] = {
 
     "L-kinetics-first-order": {
         "title": "First-Order Reactions",
+        "blueprint": "solver",
+        "required_tools": ['calculator'],
         "is_ap_only": True,
         "key_equations": [
             "ln[A]t = −kt + ln[A]₀",
@@ -1437,6 +1579,8 @@ MASTER_LESSONS: dict[str, dict] = {
 
     "L-kinetics-second-order": {
         "title": "Second-Order Reactions",
+        "blueprint": "solver",
+        "required_tools": ['calculator'],
         "is_ap_only": True,
         "key_equations": [
             "1/[A]t = kt + 1/[A]₀",
@@ -1454,6 +1598,8 @@ MASTER_LESSONS: dict[str, dict] = {
 
     "L-kinetics-comparison": {
         "title": "Comparing Reaction Orders",
+        "blueprint": "detective",
+        "required_tools": ['calculator'],
         "is_ap_only": True,
         "key_equations": [],
         "key_rules": [],
@@ -1468,6 +1614,8 @@ MASTER_LESSONS: dict[str, dict] = {
 
     "L-ap-kinetics-mechanisms": {
         "title": "Reaction Mechanisms",
+        "blueprint": "architect",
+        "required_tools": [],
         "is_ap_only": True,
         "key_equations": [],
         "key_rules": [],
@@ -1482,6 +1630,8 @@ MASTER_LESSONS: dict[str, dict] = {
 
     "L-ap-kinetics-arrhenius": {
         "title": "Arrhenius Equation & Activation Energy",
+        "blueprint": "solver",
+        "required_tools": ['calculator'],
         "is_ap_only": True,
         "key_equations": [
             "k = A × e^(−Ea / RT)",
@@ -1499,6 +1649,8 @@ MASTER_LESSONS: dict[str, dict] = {
 
     "L-ap-kinetics-catalysis": {
         "title": "Catalysis",
+        "blueprint": "lawyer",
+        "required_tools": [],
         "is_ap_only": True,
         "key_equations": [],
         "key_rules": [],
@@ -1517,6 +1669,8 @@ MASTER_LESSONS: dict[str, dict] = {
 
     "L-thermo-bond-enthalpies": {
         "title": "Bond Enthalpies",
+        "blueprint": "solver",
+        "required_tools": ['calculator', 'periodic_table'],
         "is_ap_only": True,
         "key_equations": [
             "ΔH ≈ Σ(bonds broken) − Σ(bonds formed)",
@@ -1537,6 +1691,8 @@ MASTER_LESSONS: dict[str, dict] = {
 
     "L-ap-eq-intro-kc": {
         "title": "Introduction to Equilibrium & Kc",
+        "blueprint": "architect",
+        "required_tools": [],
         "is_ap_only": True,
         "key_equations": [
             "Kc = [products]^coeff / [reactants]^coeff",
@@ -1553,6 +1709,8 @@ MASTER_LESSONS: dict[str, dict] = {
 
     "L-ap-eq-kp": {
         "title": "Kp and the Relationship Between Kp and Kc",
+        "blueprint": "solver",
+        "required_tools": ['calculator'],
         "is_ap_only": True,
         "key_equations": [
             "Kp = Kc(RT)^Δn",
@@ -1569,6 +1727,8 @@ MASTER_LESSONS: dict[str, dict] = {
 
     "L-ap-eq-q": {
         "title": "Reaction Quotient Q",
+        "blueprint": "solver",
+        "required_tools": ['calculator'],
         "is_ap_only": True,
         "key_equations": [],
         "key_rules": [],
@@ -1583,6 +1743,8 @@ MASTER_LESSONS: dict[str, dict] = {
 
     "L-ap-eq-le-chatelier": {
         "title": "Le Châtelier's Principle",
+        "blueprint": "lawyer",
+        "required_tools": [],
         "is_ap_only": True,
         "key_equations": [],
         "key_rules": [
@@ -1606,6 +1768,8 @@ MASTER_LESSONS: dict[str, dict] = {
 
     "L-ap-eq-ice": {
         "title": "ICE Tables",
+        "blueprint": "recipe",
+        "required_tools": ['calculator'],
         "is_ap_only": True,
         "key_equations": [],
         "key_rules": [],
@@ -1620,6 +1784,8 @@ MASTER_LESSONS: dict[str, dict] = {
 
     "L-ap-eq-ksp": {
         "title": "Solubility Equilibria & Ksp",
+        "blueprint": "solver",
+        "required_tools": ['calculator'],
         "is_ap_only": True,
         "key_equations": [
             "Ksp = [cation]^a [anion]^b",
@@ -1640,6 +1806,8 @@ MASTER_LESSONS: dict[str, dict] = {
 
     "L-solutions-weak-acids": {
         "title": "Weak Acids & Percent Ionization",
+        "blueprint": "recipe",
+        "required_tools": ['calculator'],
         "is_ap_only": True,
         "key_equations": [
             "Ka = [H⁺][A⁻] / [HA]",
@@ -1657,6 +1825,8 @@ MASTER_LESSONS: dict[str, dict] = {
 
     "L-ap-acid-kakb": {
         "title": "Ka, Kb, and Conjugate Pairs",
+        "blueprint": "solver",
+        "required_tools": ['calculator'],
         "is_ap_only": True,
         "key_equations": [
             "Ka × Kb = Kw = 1.0 × 10⁻¹⁴",
@@ -1673,6 +1843,8 @@ MASTER_LESSONS: dict[str, dict] = {
 
     "L-ap-acid-salt-hydrolysis": {
         "title": "Salt Hydrolysis",
+        "blueprint": "lawyer",
+        "required_tools": ['periodic_table'],
         "is_ap_only": True,
         "key_equations": [],
         "key_rules": [],
@@ -1687,6 +1859,8 @@ MASTER_LESSONS: dict[str, dict] = {
 
     "L-ap-acid-buffers": {
         "title": "Buffers: Design & Simulation",
+        "blueprint": "solver",
+        "required_tools": ['calculator'],
         "is_ap_only": True,
         "key_equations": [
             "pH = pKa + log([A⁻]/[HA])",
@@ -1713,6 +1887,8 @@ MASTER_LESSONS: dict[str, dict] = {
 
     "L-ap-acid-titration-curves": {
         "title": "Acid-Base Titration Curves",
+        "blueprint": "detective",
+        "required_tools": ['calculator'],
         "is_ap_only": True,
         "key_equations": [],
         "key_rules": [],
@@ -1727,6 +1903,8 @@ MASTER_LESSONS: dict[str, dict] = {
 
     "L-ap-acid-polyprotic": {
         "title": "Polyprotic Acids",
+        "blueprint": "detective",
+        "required_tools": ['calculator'],
         "is_ap_only": True,
         "key_equations": [],
         "key_rules": [],
@@ -1745,6 +1923,8 @@ MASTER_LESSONS: dict[str, dict] = {
 
     "L-ap-thermo-entropy": {
         "title": "Entropy & the Second Law",
+        "blueprint": "solver",
+        "required_tools": ['calculator'],
         "is_ap_only": True,
         "key_equations": [
             "ΔS°rxn = Σ S°(products) − Σ S°(reactants)",
@@ -1761,6 +1941,8 @@ MASTER_LESSONS: dict[str, dict] = {
 
     "L-ap-thermo-gibbs": {
         "title": "Gibbs Free Energy",
+        "blueprint": "solver",
+        "required_tools": ['calculator'],
         "is_ap_only": True,
         "key_equations": [
             "ΔG = ΔH − TΔS",
@@ -1786,6 +1968,8 @@ MASTER_LESSONS: dict[str, dict] = {
 
     "L-ap-thermo-dg-k-e": {
         "title": "Relationships Between ΔG°, K, and E°",
+        "blueprint": "solver",
+        "required_tools": ['calculator'],
         "is_ap_only": True,
         "key_equations": [
             "ΔG° = −RT ln K",
@@ -1802,6 +1986,8 @@ MASTER_LESSONS: dict[str, dict] = {
 
     "L-ap-electro-galvanic": {
         "title": "Galvanic Cells & Cell Notation",
+        "blueprint": "architect",
+        "required_tools": ['calculator', 'periodic_table'],
         "is_ap_only": True,
         "key_equations": [
             "E°cell = E°red(cathode) − E°red(anode)",
@@ -1826,6 +2012,8 @@ MASTER_LESSONS: dict[str, dict] = {
 
     "L-ap-electro-nernst": {
         "title": "Nernst Equation",
+        "blueprint": "solver",
+        "required_tools": ['calculator'],
         "is_ap_only": True,
         "key_equations": [
             "E = E° − (RT/nF) ln Q",
@@ -1843,6 +2031,8 @@ MASTER_LESSONS: dict[str, dict] = {
 
     "L-ap-electro-electrolysis": {
         "title": "Electrolysis",
+        "blueprint": "lawyer",
+        "required_tools": [],
         "is_ap_only": True,
         "key_equations": [],
         "key_rules": [],
@@ -1857,6 +2047,8 @@ MASTER_LESSONS: dict[str, dict] = {
 
     "L-ap-electro-faraday": {
         "title": "Faraday's Law",
+        "blueprint": "recipe",
+        "required_tools": ['calculator', 'periodic_table'],
         "is_ap_only": True,
         "key_equations": [
             "m = (M × I × t) / (n × F)",

@@ -12,4 +12,6 @@ RULES:
 - Difficulty "{difficulty}": easy=basic recall, medium=application, hard=multi-step
 
 Topic: {topic_name}
-Chapter: {chapter_id}"""
+Chapter: {chapter_id}
+{grade_block}
+{lesson_guidance_block}"""

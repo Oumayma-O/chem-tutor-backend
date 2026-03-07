@@ -39,6 +39,36 @@ async def _patch_schema() -> None:
             logger.info("schema_patched", change="execution_time_ms→execution_time_s")
 
 
+async def _patch_prompt_version_column() -> None:
+    """
+    Widen prompt_versions.version from VARCHAR(20) to VARCHAR(50) if needed.
+    Safe to run every startup — no-op if already 50.
+    """
+    from sqlalchemy import text
+    async with engine.begin() as conn:
+        result = await conn.execute(text(
+            "SELECT character_maximum_length FROM information_schema.columns "
+            "WHERE table_schema = 'public' AND table_name = 'prompt_versions' AND column_name = 'version'"
+        ))
+        row = result.fetchone()
+        if row and row[0] is not None and row[0] < 50:
+            await conn.execute(text(
+                "ALTER TABLE prompt_versions ALTER COLUMN version TYPE VARCHAR(50)"
+            ))
+            logger.info("schema_patched", change="prompt_versions.version→VARCHAR(50)")
+        # Also widen generation_logs.prompt_version if still 20
+        result2 = await conn.execute(text(
+            "SELECT character_maximum_length FROM information_schema.columns "
+            "WHERE table_schema = 'public' AND table_name = 'generation_logs' AND column_name = 'prompt_version'"
+        ))
+        row2 = result2.fetchone()
+        if row2 and row2[0] is not None and row2[0] < 50:
+            await conn.execute(text(
+                "ALTER TABLE generation_logs ALTER COLUMN prompt_version TYPE VARCHAR(50)"
+            ))
+            logger.info("schema_patched", change="generation_logs.prompt_version→VARCHAR(50)")
+
+
 async def _seed_prompt_version() -> None:
     """
     Upsert the current PROMPT_VERSION into prompt_versions.
@@ -63,6 +93,7 @@ async def lifespan(app: FastAPI):
     logger.info("startup", environment=settings.environment, provider=settings.default_ai_provider)
     await run_migrations()
     await _patch_schema()
+    await _patch_prompt_version_column()
     await _seed_prompt_version()
     yield
     logger.info("shutdown")

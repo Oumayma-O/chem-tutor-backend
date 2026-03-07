@@ -1,22 +1,16 @@
 """
-Reference card generation prompts — strategy-aware, mirrors problem generation templates.
+Reference card generation prompts — blueprint-aware.
 
-Each strategy maps to a different set of step labels and logic:
-  quantitative → Knowns | Equation | Substitute | Answer  (4 steps)
-  conceptual   → Governing Principle | Concept Application | Final Justification  (3 steps)
-  analytical   → Data Observation | Feature Correlation | Scientific Inference  (3 steps)
+Each blueprint maps to a different set of step labels and logic,
+mirroring the problem generation templates.
 """
 
-from app.services.ai.problem_generation.prompts import (
-    STRATEGY_CONFIG,
-    get_strategy_for_unit,  # re-exported for callers
-)
-from app.services.ai.reference_card.few_shots import get_few_shots_for_strategy  # noqa: F401
+from app.services.ai.problem_generation.prompts import BLUEPRINT_CONFIG
+from app.services.ai.reference_card.few_shots import get_few_shots_for_blueprint  # noqa: F401
 
 __all__ = [
     "build_reference_card_system",
-    "get_few_shots_for_strategy",
-    "get_strategy_for_unit",
+    "get_few_shots_for_blueprint",
 ]
 
 # ---------------------------------------------------------------------------
@@ -27,10 +21,10 @@ _SYSTEM_TEMPLATE = """\
 You are a chemistry teacher writing a concise "fiche de cours" (study reference card) \
 for a single chemistry topic.
 
-BLUEPRINT for {strategy} topics:
+BLUEPRINT for {blueprint} topics:
 - Step Labels (use EXACTLY these, in order): {labels_block}
 - Total Steps: {step_count}
-- Logic: {strategy_logic}
+- Logic: {blueprint_logic}
 
 RULES (strictly follow all of them):
 1. Show the GENERAL METHOD only — NO numerical examples, NO specific values.
@@ -45,24 +39,23 @@ RULES (strictly follow all of them):
 
 
 def build_reference_card_system(
-    strategy: str,
+    blueprint: str,
     key_equations: list[str] | None = None,
 ) -> str:
-    """Return a strategy-specific system prompt for reference card generation."""
-    config = STRATEGY_CONFIG.get(strategy, STRATEGY_CONFIG["quantitative"])
+    """Return a blueprint-specific system prompt for reference card generation."""
+    config = BLUEPRINT_CONFIG.get(blueprint, BLUEPRINT_CONFIG["solver"])
     labels_block = " | ".join(config["labels"])
     equations_rule = ""
     if key_equations:
         formatted = " | ".join(key_equations)
         equations_rule = (
             f"\n7. Use these exact equation(s) verbatim in the Equation"
-            f" or Governing Principle step: {formatted}"
+            f" or relevant step: {formatted}"
         )
     return _SYSTEM_TEMPLATE.format(
-        strategy=strategy,
+        blueprint=blueprint,
         labels_block=labels_block,
         step_count=config["step_count"],
-        strategy_logic=config["logic"],
+        blueprint_logic=config["logic"],
         equations_rule=equations_rule,
     )
-

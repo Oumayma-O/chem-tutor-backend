@@ -117,8 +117,21 @@ _FEW_SHOT_MAP: dict[str, list[dict]] = {
 
 
 def get_few_shots_for_strategy(strategy: str) -> list[dict]:
-    """Return few-shot (human/assistant) pairs for the given strategy.
+    """Return few-shot pairs for the given legacy strategy name. Kept for compatibility."""
+    return _FEW_SHOT_MAP.get(strategy, _QUANTITATIVE)
 
-    Falls back to quantitative examples for unknown strategies.
-    """
+
+# Blueprint → legacy strategy group mapping
+_BLUEPRINT_TO_STRATEGY: dict[str, str] = {
+    "solver":    "quantitative",
+    "recipe":    "quantitative",
+    "architect": "conceptual",
+    "detective": "analytical",
+    "lawyer":    "conceptual",
+}
+
+
+def get_few_shots_for_blueprint(blueprint: str) -> list[dict]:
+    """Return few-shot (human/assistant) pairs for the given blueprint name."""
+    strategy = _BLUEPRINT_TO_STRATEGY.get(blueprint, "quantitative")
     return _FEW_SHOT_MAP.get(strategy, _QUANTITATIVE)

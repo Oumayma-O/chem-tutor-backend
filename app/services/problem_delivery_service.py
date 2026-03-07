@@ -71,6 +71,7 @@ class ProblemDeliveryService:
         grade_level: str | None = None,
         focus_areas: list[str] | None = None,
         problem_style: str | None = None,
+        blueprint: str | None = None,
     ) -> ProblemOutput:
         """Shared wrapper around AI generation call."""
         return await self._gen.generate(
@@ -85,6 +86,7 @@ class ProblemDeliveryService:
             problem_style=problem_style,
             lesson_context=lesson_context,
             db=self._db,
+            blueprint=blueprint,
         )
 
     async def deliver_worked_example(
@@ -107,6 +109,7 @@ class ProblemDeliveryService:
 
         lesson, lesson_context = await self._load_lesson_and_context(unit_id, lesson_index)
         topic_name = lesson.title if lesson else ""
+        lesson_blueprint = getattr(lesson, "blueprint", None) or "solver"
 
         problem = await self._generate_problem(
             unit_id=unit_id,
@@ -115,6 +118,7 @@ class ProblemDeliveryService:
             level=1,
             difficulty="medium",
             lesson_context=lesson_context,
+            blueprint=lesson_blueprint,
         )
         enforce_step_types(problem, 1)
 
@@ -190,8 +194,11 @@ class ProblemDeliveryService:
         elapsed_s = 0.0
         if problem is None:
             lesson_context = req.lesson_context.model_dump() if req.lesson_context else None
+            lesson_obj = None
             if lesson_context is None:
-                _, lesson_context = await self._load_lesson_and_context(req.unit_id, req.lesson_index)
+                lesson_obj, lesson_context = await self._load_lesson_and_context(req.unit_id, req.lesson_index)
+
+            blueprint = getattr(lesson_obj, "blueprint", None) or "solver"
 
             t0 = time.perf_counter()
             problem = await self._generate_problem(
@@ -205,6 +212,7 @@ class ProblemDeliveryService:
                 focus_areas=req.focus_areas or None,
                 problem_style=req.problem_style,
                 lesson_context=lesson_context,
+                blueprint=blueprint,
             )
             elapsed_s = round(time.perf_counter() - t0, 3)
 

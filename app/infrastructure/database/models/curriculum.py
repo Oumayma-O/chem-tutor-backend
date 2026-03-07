@@ -112,6 +112,11 @@ class Lesson(Base):
     key_rules: Mapped[list[str]] = mapped_column(JSONB, nullable=False, default=list)
     misconceptions: Mapped[list[str]] = mapped_column(JSONB, nullable=False, default=list)
 
+    # Cognitive blueprint for problem generation (solver | recipe | architect | detective | lawyer)
+    blueprint: Mapped[str] = mapped_column(String(20), nullable=False, default="solver")
+    # Tools available to the student for this lesson
+    required_tools: Mapped[list[str]] = mapped_column(JSONB, nullable=False, default=list)
+
     slug: Mapped[str] = mapped_column(String(100), nullable=False, unique=True)
 
     is_ap_only: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)

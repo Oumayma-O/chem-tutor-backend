@@ -11,8 +11,7 @@ from app.domain.schemas.tutor.problems import ReferenceCardOutput
 from app.services.ai.llm import get_llm
 from app.services.ai.reference_card.prompts import (
     build_reference_card_system,
-    get_few_shots_for_strategy,
-    get_strategy_for_unit,
+    get_few_shots_for_blueprint,
 )
 
 
@@ -21,6 +20,7 @@ async def generate_reference_card(
     unit_id: str,
     lesson_index: int,
     key_equations: list[str] | None = None,
+    blueprint: str = "solver",
 ) -> ReferenceCardOutput:
     """
     Call the LLM chain to generate a conceptual reference card for a lesson.
@@ -29,14 +29,10 @@ async def generate_reference_card(
         topic_name:    Human-readable lesson name, e.g. "Boyle's Law".
         unit_id:       Unit slug, e.g. "unit-gas-laws".
         lesson_index:  0-based lesson index within the unit.
-        key_equations: Optional list of canonical equations stored on the Lesson
-                       row — injected into the prompt so the LLM uses them verbatim.
-
-    Returns:
-        A validated ReferenceCardOutput instance.
+        key_equations: Optional list of canonical equations stored on the Lesson row.
+        blueprint:     Lesson's cognitive blueprint (from Lesson.blueprint in DB).
     """
-    strategy = get_strategy_for_unit(unit_id)
-    system_prompt = build_reference_card_system(strategy, key_equations)
+    system_prompt = build_reference_card_system(blueprint, key_equations)
 
     llm = get_llm(fast=True, temperature=0.1)
     structured_llm = llm.with_structured_output(ReferenceCardOutput)
@@ -46,9 +42,9 @@ async def generate_reference_card(
         f"(unit_id='{unit_id}', lesson_index={lesson_index})."
     )
 
-    # Build strategy-specific few-shot message sequence
+    # Build blueprint-specific few-shot message sequence
     messages: list = [SystemMessage(content=system_prompt)]
-    for ex in get_few_shots_for_strategy(strategy):
+    for ex in get_few_shots_for_blueprint(blueprint):
         messages.append(HumanMessage(content=ex["human"]))
         messages.append(AIMessage(content=ex["assistant"]))
     messages.append(HumanMessage(content=user_prompt))

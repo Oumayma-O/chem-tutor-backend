@@ -45,7 +45,6 @@ class Settings(BaseSettings):
     fast_gemini_model: str = ""
 
     # ── Mastery ──────────────────────────────────────────────
-    mastery_threshold: float = 0.75
     mastery_window: int = 5
     # Minimum attempt score to count toward band-filling (below this = ignored)
     mastery_passing_score: float = 0.6

@@ -28,7 +28,7 @@ async def generate_hint(
             problem_context=req.problem_context,
             interests=req.interests or None,
             grade_level=req.grade_level,
-            rag_context=req.rag_context,
+            lesson_context=req.lesson_context,
             error_category=req.error_category,
             misconception_tag=req.misconception_tag,
         )

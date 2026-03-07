@@ -23,6 +23,7 @@ class LessonOut(BaseModel):
     misconceptions: list[str] = Field(default_factory=list)
     standards: list[StandardOut] = Field(default_factory=list)
     is_active: bool
+    required_tools: list[str] = Field(default_factory=list)
 
 
 class UnitOut(BaseModel):
@@ -68,6 +69,7 @@ class LessonCreate(BaseModel):
     misconceptions: list[str] = Field(default_factory=list)
     standard_codes: list[str] = Field(default_factory=list)  # ["NGSS HS-PS1-5", …]
     is_active: bool = True
+    required_tools: list[str] = Field(default_factory=list)  # e.g. ["periodic_table", "calculator"]
 
 
 class UnitCreate(BaseModel):

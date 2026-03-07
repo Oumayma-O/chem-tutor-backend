@@ -51,10 +51,10 @@ class MasteryState(BaseModel):
     updated_at: datetime
 
     # Derived fields
-    has_mastered: bool           # True if mastery_score >= threshold
+    has_mastered: bool           # True when mastery_score >= l3_mastery_ceiling (lesson complete)
     level3_unlocked: bool        # Permanently True once unlocked — never reverts
     level3_unlocked_at: datetime | None
-    should_advance: bool         # True if ready to move to next lesson
+    should_advance: bool         # True when ready to move to next lesson (mastery >= l3_ceiling)
     recommended_difficulty: str
 
 
@@ -63,7 +63,7 @@ class ProgressionDecision(BaseModel):
     mastery: MasteryState
     attempt_score: float
     should_advance: bool
-    level3_just_unlocked: bool   # True only on the attempt that first crossed the threshold
+    level3_just_unlocked: bool   # True only on the attempt that first unlocked L3 (perfect L2)
     recommended_next_difficulty: str
     feedback_message: str
 

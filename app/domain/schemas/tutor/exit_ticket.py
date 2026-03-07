@@ -24,6 +24,7 @@ class GenerateExitTicketRequest(BaseModel):
     difficulty: Literal["easy", "medium", "hard"] = "medium"
     format: Literal["mcq", "short_answer", "mixed"] = "mcq"
     question_count: int = Field(default=3, ge=1, le=10)
+    lesson_context: dict | None = None  # equations, objectives, key_rules, misconceptions (same as problem generation)
 
 
 class ExitTicketOutput(BaseModel):

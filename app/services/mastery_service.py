@@ -4,12 +4,11 @@ MasteryService — pure business logic for mastery computation and adaptive prog
 No LLM calls live here. This is deterministic, testable Python.
 
 Design decisions:
-  - Rolling window average (configurable, default 5) rather than EWMA to make
-    the threshold transparent to teachers.
-  - Difficulty adapts one level at a time to avoid oscillation.
-  - At-risk threshold is set at mastery < 0.4 after at least 3 attempts.
-  - Level 3 unlock: permanent once a student scores 1.0 (all steps correct) on
-    a single Level 2 attempt.  Stored as a one-way latch in SkillMastery.level3_unlocked.
+  - Band-filling mastery (L2 band 0→l2_ceiling, L3 band→l3_ceiling); lesson complete at l3_mastery_ceiling.
+  - Difficulty adapts from mastery position within the L2 band.
+  - At-risk: mastery < 0.4 after at least 3 attempts (unit-level struggle).
+  - Level 3 unlock: one perfect L2 attempt (score 1.0) — gate to access L3; score measures practice.
+  - should_advance / has_mastered: true when mastery_score >= l3_mastery_ceiling (lesson done).
 """
 
 import uuid
@@ -147,11 +146,10 @@ class MasteryService:
 
         saved = await self._mastery.upsert(mastery_record)
 
-        # should_advance: student is ready to move to the next topic
-        # (rolling mastery >= threshold, independent of level)
-        should_advance = new_mastery >= settings.mastery_threshold
+        # should_advance: student has filled the L3 band (lesson complete)
+        should_advance = new_mastery >= settings.l3_mastery_ceiling
 
-        state = _to_mastery_state(saved, settings.mastery_threshold)
+        state = _to_mastery_state(saved, settings.l3_mastery_ceiling)
 
         logger.info(
             "mastery_updated",
@@ -172,7 +170,7 @@ class MasteryService:
             level3_just_unlocked=level3_just_unlocked,
             recommended_next_difficulty=new_difficulty,
             feedback_message=_feedback_message(
-                new_mastery, score, settings.mastery_threshold, level3_just_unlocked
+                new_mastery, score, settings.l3_mastery_ceiling, level3_just_unlocked
             ),
         )
 
@@ -244,7 +242,7 @@ class MasteryService:
             recent_scores=list(l2_scores + l3_scores),
             updated_at=datetime.utcnow(),
         )
-        state = _to_mastery_state(transient, settings.mastery_threshold)
+        state = _to_mastery_state(transient, settings.l3_mastery_ceiling)
         return state, attempt_score, attempted_steps
 
     # ── Read Mastery ──────────────────────────────────────────
@@ -258,7 +256,7 @@ class MasteryService:
         record = await self._mastery.get_for_topic(user_id, unit_id, lesson_index)
         if record is None:
             return None
-        return _to_mastery_state(record, settings.mastery_threshold)
+        return _to_mastery_state(record, settings.l3_mastery_ceiling)
 
     async def get_mastery_or_default(
         self,

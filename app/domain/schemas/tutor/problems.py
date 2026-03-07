@@ -5,8 +5,12 @@ from typing import Literal
 from pydantic import BaseModel, Field, model_validator
 
 
-class KnownVariable(BaseModel):
-    """For Level 3 Step 2 — student identifies variables with values and units."""
+class LabeledValue(BaseModel):
+    """
+    A labeled sub-part of a multi-value step answer.
+    Used by type="variable_id" steps whenever a step's answer has multiple
+    distinct labeled pieces (not limited to identifying 'known' variables).
+    """
     variable: str
     value: str
     unit: str
@@ -18,21 +22,24 @@ class ProblemStep(BaseModel):
     """
     One step in a chemistry problem.
 
-    Step types by level:
-      Level 1 (Worked Example):  all steps are "given"
-      Level 2 (Faded):           steps 1-2 "given", steps 3-5 "interactive"
-      Level 3 (Unresolved):      step 1 "drag_drop", step 2 "variable_id",
-                                  steps 3-5 "interactive"
+    Widget types (chosen based on what the student is doing, not just the level):
+      "given"       — read-only teaching step (always shown)
+      "interactive" — single micro-input text box
+      "drag_drop"   — assemble an equation/formula by arranging parts
+      "variable_id" — student identifies/inputs multiple labeled sub-values
+      "comparison"  — student compares two things with <, >, or =
     """
     id: str = ""  # LLM often omits; service fills with problem_id + step_number if empty
     step_number: int = Field(validation_alias="stepNumber")
-    type: Literal["given", "interactive", "drag_drop", "variable_id"]
+    type: Literal["given", "interactive", "drag_drop", "variable_id", "comparison"]
     label: str
     instruction: str
+    hint: str | None = None
     skill_used: str | None = Field(default=None, validation_alias="skillUsed")
     correct_answer: str | None = Field(default=None, validation_alias="correctAnswer")
     equation_parts: list[str] | None = Field(default=None, validation_alias="equationParts")
-    known_variables: list[KnownVariable] | None = Field(default=None, validation_alias="knownVariables")
+    labeled_values: list[LabeledValue] | None = Field(default=None, validation_alias="labeledValues")
+    comparison_parts: list[str] | None = Field(default=None, validation_alias="comparisonParts")
 
     model_config = {"populate_by_name": True}
 
@@ -42,13 +49,20 @@ class ProblemStep(BaseModel):
         if self.type == "drag_drop":
             if not self.equation_parts:
                 raise ValueError('type="drag_drop" requires non-empty "equationParts".')
-            if self.known_variables:
-                raise ValueError('type="drag_drop" must not include "knownVariables".')
+            if self.labeled_values or self.comparison_parts:
+                raise ValueError('type="drag_drop" must not include "labeledValues" or "comparisonParts".')
         elif self.type == "variable_id":
-            if not self.known_variables:
-                raise ValueError('type="variable_id" requires non-empty "knownVariables".')
-            if self.equation_parts:
-                raise ValueError('type="variable_id" must not include "equationParts".')
+            if not self.labeled_values:
+                raise ValueError('type="variable_id" requires non-empty "labeledValues".')
+            if self.equation_parts or self.comparison_parts:
+                raise ValueError('type="variable_id" must not include "equationParts" or "comparisonParts".')
+        elif self.type == "comparison":
+            if not self.comparison_parts or len(self.comparison_parts) != 2:
+                raise ValueError('type="comparison" requires exactly 2 items in "comparisonParts".')
+            if self.correct_answer not in ("<", ">", "="):
+                raise ValueError('type="comparison" requires "correctAnswer" to be "<", ">", or "=".')
+            if self.equation_parts or self.labeled_values:
+                raise ValueError('type="comparison" must not include "equationParts" or "labeledValues".')
         return self
 
 
@@ -61,7 +75,7 @@ class ProblemOutput(BaseModel):
     difficulty: Literal["easy", "medium", "hard"]
     level: int = Field(default=2, ge=1, le=3)
     # Set server-side after generation; not expected from the LLM.
-    strategy: Literal["quantitative", "conceptual", "analytical"] | None = None
+    blueprint: Literal["solver", "recipe", "architect", "detective", "lawyer"] | None = None
 
     context_tag: str | None = Field(default=None, validation_alias="contextTag")
     steps: list[ProblemStep] = Field(min_length=3, max_length=6)

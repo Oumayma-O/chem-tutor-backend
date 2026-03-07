@@ -6,6 +6,7 @@ from app.core.logging import get_logger
 from app.domain.schemas.tutor import HintOutput
 from app.services.ai.llm import generate_structured
 from app.services.ai.hint_generation import prompts
+from app.services.ai.lesson_guidance import build_lesson_guidance_block
 
 logger = get_logger(__name__)
 
@@ -29,7 +30,7 @@ class HintGenerationService:
         problem_context: str = "",
         interests: list[str] | None = None,
         grade_level: str | None = None,
-        rag_context: dict | None = None,
+        lesson_context: dict | None = None,
         error_category: str | None = None,
         misconception_tag: str | None = None,
     ) -> HintOutput:
@@ -46,7 +47,7 @@ class HintGenerationService:
                 if interests else ""
             ),
             grade_block=f"Student level: {grade_level}." if grade_level else "",
-            rag_block=_format_rag(rag_context),
+            lesson_guidance_block=build_lesson_guidance_block(lesson_context),
         )
         messages = [
             {"role": "system", "content": system},
@@ -65,19 +66,6 @@ class HintGenerationService:
         hint: HintOutput = await generate_structured(messages, HintOutput, temperature=0.5, fast=True)
         logger.debug("hint_generated", step=step_label, level=hint_level)
         return hint
-
-
-def _format_rag(rag_context: dict | None) -> str:
-    if not rag_context:
-        return ""
-    lines = []
-    if s := rag_context.get("standards"):
-        lines.append(f"STANDARDS: {'; '.join(s)}")
-    if e := rag_context.get("equations"):
-        lines.append(f"KEY EQUATIONS: {'; '.join(e)}")
-    if sk := rag_context.get("skills"):
-        lines.append(f"SKILLS: {'; '.join(sk)}")
-    return "\n".join(lines)
 
 
 def get_hint_generation_service() -> HintGenerationService:
