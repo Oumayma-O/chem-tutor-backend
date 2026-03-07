@@ -62,7 +62,7 @@ class MasteryRepository(BaseRepository[SkillMastery]):
         stmt = (
             insert(SkillMastery)
             .values(
-                id=mastery.id,
+                id=mastery.id or uuid.uuid4(),
                 user_id=mastery.user_id,
                 unit_id=mastery.unit_id,
                 lesson_index=mastery.lesson_index,

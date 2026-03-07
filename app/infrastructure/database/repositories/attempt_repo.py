@@ -38,8 +38,13 @@ class AttemptRepository(BaseRepository[ProblemAttempt]):
         unit_id: str,
         lesson_index: int,
         window: int = 5,
+        min_level: int = 2,
     ) -> list[float]:
-        """Returns up to `window` most recent scores for mastery computation."""
+        """Returns up to `window` most recent scores for mastery computation.
+
+        Level 1 (worked examples) is excluded by default — the student is
+        observing, not demonstrating competence, so it should not count toward mastery.
+        """
         result = await self._session.execute(
             select(ProblemAttempt.score)
             .where(
@@ -48,12 +53,32 @@ class AttemptRepository(BaseRepository[ProblemAttempt]):
                 ProblemAttempt.lesson_index == lesson_index,
                 ProblemAttempt.is_complete == True,
                 ProblemAttempt.score.is_not(None),
+                ProblemAttempt.level >= min_level,
             )
             .order_by(ProblemAttempt.completed_at.desc())
             .limit(window)
         )
         rows = result.scalars().all()
         return [float(s) for s in rows]
+
+    async def get_max_level_attempted(
+        self,
+        user_id: uuid.UUID,
+        unit_id: str,
+        lesson_index: int,
+    ) -> int:
+        """Return the highest level the student has a completed attempt for (1–3). 0 if none."""
+        from sqlalchemy import func
+        result = await self._session.execute(
+            select(func.max(ProblemAttempt.level))
+            .where(
+                ProblemAttempt.user_id == user_id,
+                ProblemAttempt.unit_id == unit_id,
+                ProblemAttempt.lesson_index == lesson_index,
+                ProblemAttempt.is_complete == True,
+            )
+        )
+        return int(result.scalar() or 0)
 
     async def mark_complete(
         self,

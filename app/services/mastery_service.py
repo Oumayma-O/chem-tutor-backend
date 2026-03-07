@@ -90,15 +90,17 @@ class MasteryService:
         """
         await self._attempts.mark_complete(attempt_id, score, step_log)
 
-        # Pull recent scores from DB (includes this attempt)
+        # Pull recent scores from DB (Level 2+ only; Level 1 excluded)
         recent = await self._attempts.get_recent_scores(
-            user_id, unit_id, lesson_index, window=settings.mastery_window
+            user_id, unit_id, lesson_index, window=settings.mastery_window, min_level=2
         )
+        max_level = await self._attempts.get_max_level_attempted(user_id, unit_id, lesson_index)
 
         # Load or create mastery record
         mastery_record = await self._mastery.get_for_topic(user_id, unit_id, lesson_index)
         if mastery_record is None:
             mastery_record = SkillMastery(
+                id=uuid.uuid4(),
                 user_id=user_id,
                 unit_id=unit_id,
                 lesson_index=lesson_index,
@@ -120,8 +122,8 @@ class MasteryService:
         # Compute per-category scores from step_log
         category_scores = _compute_category_scores(step_log, mastery_record.category_scores)
 
-        # Compute new mastery
-        new_mastery = _compute_mastery(recent)
+        # Compute new mastery, capped by the highest level the student has attempted
+        new_mastery = min(_compute_mastery(recent), _level_ceiling(max_level))
         consecutive = _update_consecutive(mastery_record.consecutive_correct, score)
         new_difficulty = _adapt_difficulty(
             current=mastery_record.current_difficulty,
@@ -222,12 +224,16 @@ class MasteryService:
 
         attempt_score, attempted_steps = _compute_attempt_score_from_step_log(step_log)
 
-        # Blend rolling completed-attempt history with current in-progress score.
+        # Mastery preview uses only committed (completed) attempts.
+        # Blending the in-progress score inflates mastery on partial step data.
         recent_completed = await self._attempts.get_recent_scores(
-            attempt.user_id, attempt.unit_id, attempt.lesson_index, window=settings.mastery_window
+            attempt.user_id, attempt.unit_id, attempt.lesson_index,
+            window=settings.mastery_window, min_level=2,
         )
-        preview_recent = [attempt_score, *recent_completed][: settings.mastery_window]
-        preview_mastery = _compute_mastery(preview_recent)
+        max_level = await self._attempts.get_max_level_attempted(
+            attempt.user_id, attempt.unit_id, attempt.lesson_index
+        )
+        preview_mastery = min(_compute_mastery(list(recent_completed)), _level_ceiling(max_level))
 
         preview_error_counts = _aggregate_errors(step_log, mastery_record.error_counts)
         preview_category_scores = _compute_category_scores(step_log, mastery_record.category_scores)
@@ -253,7 +259,7 @@ class MasteryService:
             level3_unlocked_at=mastery_record.level3_unlocked_at,
             category_scores=preview_category_scores,
             error_counts=preview_error_counts,
-            recent_scores=preview_recent,
+            recent_scores=list(recent_completed),
             updated_at=datetime.utcnow(),
         )
         state = _to_mastery_state(transient, settings.mastery_threshold)
@@ -311,6 +317,7 @@ class MasteryService:
         existing = await self._mastery.get_for_topic(user_id, unit_id, lesson_index)
         if existing is None:
             await self._mastery.upsert(SkillMastery(
+                id=uuid.uuid4(),
                 user_id=user_id,
                 unit_id=unit_id,
                 lesson_index=lesson_index,
@@ -347,6 +354,24 @@ class MasteryService:
 
 
 # ── Pure functions (easy to unit-test) ───────────────────────
+
+# ── Level-based mastery ceiling ──────────────────────────────
+# Mastery is gated by the highest level the student has independently attempted.
+# Level 1 (worked examples) is excluded from scoring entirely — students observe,
+# not perform. Exit ticket (handled outside this service) is needed for 1.0.
+_LEVEL_MASTERY_CEILING: dict[int, float] = {
+    0: 0.0,   # no qualifying attempts yet
+    2: 0.60,  # faded practice only
+    3: 0.85,  # independent practice (exit ticket needed for 1.0)
+}
+
+
+def _level_ceiling(max_level: int) -> float:
+    """Return the mastery ceiling for the highest level attempted."""
+    if max_level >= 3:
+        return _LEVEL_MASTERY_CEILING[3]
+    return _LEVEL_MASTERY_CEILING.get(max_level, 0.0)
+
 
 def _compute_mastery(recent_scores: list[float]) -> float:
     """Rolling window average. Returns 0.0 if no data — progress bars start empty."""
