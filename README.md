@@ -1,123 +1,170 @@
 # Chem Guide — Backend
 
-FastAPI backend for the AI-powered mastery-based chemistry tutor.
+FastAPI + PostgreSQL + LangChain. AI-powered mastery-based chemistry tutor.
+
+---
+
+## Dev Setup
+
+### Prerequisites
+- Docker + Docker Compose
+- Python 3.12 (for local seed scripts)
+- `.env` with `DATABASE_URL` (Neon) + at least one AI provider key
+
+### Start the backend
+```bash
+docker compose build   # required after any code change in app/
+docker compose up -d
+# API → http://localhost:8000   Docs → http://localhost:8000/docs
+```
+
+> `develop.watch` in docker-compose is NOT a volume mount — always rebuild after editing `app/`.
+
+### Seed the database
+```bash
+python -m scripts.seed          # idempotent upsert (safe to re-run)
+python -m scripts.seed --clean  # truncate all tables then reseed
+```
+
+### Full schema reset (dev only)
+```bash
+py - <<'EOF'
+import asyncio, sys; sys.path.insert(0, ".")
+async def r():
+    from app.infrastructure.database.connection import engine, Base
+    import app.infrastructure.database.models
+    async with engine.begin() as c:
+        await c.run_sync(Base.metadata.drop_all)
+        await c.run_sync(Base.metadata.create_all)
+asyncio.run(r())
+EOF
+python -m scripts.seed
+```
+
+### Logs & reload
+```bash
+docker logs chem-backend -f          # live logs
+docker restart chem-backend          # restart (after env change)
+docker compose build && docker compose up -d   # rebuild image
+```
+
+---
 
 ## Architecture
 
-Single FastAPI application with internal module separation:
-
 ```
-Request → Router → Service → Repository → PostgreSQL
-                ↘ TutorService → AIProvider (OpenAI | Anthropic | Gemini)
+Request → Router → Service → Repository → PostgreSQL (Neon)
+                ↘ AI Services → LangChain → OpenAI / Anthropic / Gemini
 ```
 
-**Module boundaries:**
-- `api/` — routers only (zero business logic)
-- `services/` — all business and AI logic
-- `infrastructure/` — database models, repositories, external I/O
-- `domain/schemas/` — shared Pydantic models (request/response + LLM output schemas)
-- `core/` — config, logging
-
-## Local Development
-
-**Prerequisites:** Docker, Docker Compose
-
-```bash
-cd backend
-cp .env.example .env
-# Fill in at least one AI provider key in .env
-
-docker compose up
+```
+app/
+  api/v1/routers/       thin routers, no business logic
+  core/                 config, structured logging (structlog)
+  domain/schemas/       Pydantic models (API + LLM output schemas)
+  infrastructure/
+    database/
+      models/           SQLAlchemy ORM (one file per concern)
+      repositories/     typed async repos
+  services/
+    ai/
+      problem_generation/   ProblemGenerationService + prompts v10
+      thinking_analysis/    ThinkingAnalysisService (error classification)
+      reference_card/       ReferenceCardService
+    mastery_service.py      deterministic mastery + band logic
+    problem_delivery_service.py   cache-aware delivery, blueprint lookup
+scripts/
+  seed.py               idempotent seeder (units, lessons, few-shots)
+  seed_data/
+    lessons.py          96 lessons, each with blueprint + required_tools
+    few_shots.py        3 curated examples (detective/lawyer/solver)
 ```
 
-The API will be available at http://localhost:8000
-Interactive docs: http://localhost:8000/docs
+---
 
-## Running Without Docker
+## AI Provider Config
 
-```bash
-cd backend
-python -m venv .venv
-source .venv/bin/activate   # Windows: .venv\Scripts\activate
-pip install -e .
+`DEFAULT_AI_PROVIDER` in `.env` → `openai` | `anthropic` | `gemini`
 
-# Start local Postgres (or point DATABASE_URL at an existing one)
-uvicorn app.main:app --reload
-```
-
-## Database Migrations
-
-```bash
-# Create a new migration after changing models.py
-alembic revision --autogenerate -m "describe your change"
-
-# Apply migrations
-alembic upgrade head
-
-# Roll back one step
-alembic downgrade -1
-```
-
-## AI Provider Configuration
-
-Set `DEFAULT_AI_PROVIDER` in `.env` to `openai`, `anthropic`, or `gemini`.
-Each provider requires its corresponding API key.
-
-To benchmark providers:
-
-```bash
-pip install -e '.[notebooks]'
-jupyter notebook notebooks/benchmark_providers.ipynb
-```
-
-## Adding a New AI Provider
-
-1. Create `app/services/ai/providers/my_provider.py`
-2. Implement `AIProvider` and decorate with `@ProviderFactory.register("my_name")`
-3. Add the model name + API key to `app/core/config.py`
-4. Import the module in `app/services/ai/providers/__init__.py`
-
-## Key Endpoints
-
-| Method | Path | Description |
-|--------|------|-------------|
-| POST | `/api/v1/tutor/generate-problem` | Generate a structured 5-step problem |
-| POST | `/api/v1/tutor/validate-answer` | Validate a student answer (local + AI fallback) |
-| POST | `/api/v1/tutor/generate-hint` | 3-level scaffolded hint |
-| POST | `/api/v1/tutor/classify-errors` | Classify error type + misconception tag |
-| POST | `/api/v1/tutor/generate-exit-ticket` | Generate exit ticket questions |
-| POST | `/api/v1/tutor/generate-class-insights` | AI teaching insights from class data |
-| POST | `/api/v1/mastery/attempts/start` | Begin a problem attempt |
-| POST | `/api/v1/mastery/attempts/complete` | Complete attempt + recompute mastery |
-| GET  | `/api/v1/mastery/users/{id}/chapters/{id}/topics/{n}` | Get mastery state |
-| POST | `/api/v1/analytics/classes` | Teacher analytics + at-risk detection |
-| GET  | `/health` | Health check |
-
-## Project Structure
-
-```
-backend/
-├── app/
-│   ├── api/v1/routers/     # FastAPI routers (thin layer)
-│   ├── core/               # Config + structured logging
-│   ├── domain/schemas/     # Pydantic request/response models
-│   ├── services/
-│   │   ├── ai/             # Provider abstraction + TutorService
-│   │   └── mastery_service.py
-│   └── infrastructure/
-│       └── database/       # SQLAlchemy models + repositories
-├── alembic/                # Migration scripts
-├── notebooks/              # Provider benchmark notebook
-├── docker-compose.yml
-├── Dockerfile
-├── pyproject.toml
-└── .env.example
-```
+---
 
 ## Mastery Logic
 
-- **Band-filling**: L2 band (0 → 60%), L3 band (60% → 85%). Lesson complete when mastery ≥ `l3_mastery_ceiling` (default 0.85).
-- **Level 3 unlock**: one perfect L2 attempt unlocks L3; further attempts fill the L3 band.
-- **should_advance / has_mastered**: true when `mastery_score >= l3_mastery_ceiling` (no separate threshold).
-- **Difficulty adaptation**: from position within the L2 band (`MASTERY_WINDOW` for rolling context).
-- **At-risk detection**: mastery < 40% after at least 3 attempts.
+- **Bands**: L2 fills 0→60%, L3 fills 60→85%. Complete at ≥ 85%.
+- **L3 unlock**: one-way latch — set when mastery ≥ 75% at hard difficulty.
+- **Difficulty adaptation**: position within band drives easy/medium/hard.
+- **At-risk**: mastery < 40% after ≥ 3 attempts.
+
+---
+
+## Roadmap
+
+### ✅ Milestone 1 — AI Tutor Core (done)
+
+| Status | Item |
+|--------|------|
+| ✅ | Core DB schema — `problem_attempts`, `skill_mastery`, `exit_tickets`, user linkage |
+| ✅ | Problem generation — L1 worked example → L2 faded → L3 full practice |
+| ✅ | Blueprint system v10 — 5 blueprints (solver/recipe/architect/detective/lawyer) per lesson |
+| ✅ | Widget types — `given`, `interactive`, `drag_drop`, `variable_id`, `comparison` |
+| ✅ | Step validation — numeric tolerance, string match, drag-drop, comparison (`<`/`>`/`=`) |
+| ✅ | Hint generation — 3-level scaffolded, no answer leaking |
+| ✅ | Error classification — conceptual/procedural/computational/representation |
+| ✅ | Structured output + retry logic (LangChain + Tenacity) |
+| ✅ | Persist attempts in DB — `MasteryRepository.record_attempt()` |
+| ✅ | Playlist navigation — prev/next within user/unit/lesson/level/difficulty |
+| ✅ | Reference card (fiche de cours) — generated once, cached in DB |
+| ✅ | Mastery computation — rolling score, band-fill, L3 unlock latch |
+| ✅ | Thinking tracker — per-step logs in `thinking_tracker_logs` |
+| ✅ | Adaptive difficulty — `getDifficultyForMastery()` + backend `focus_areas` |
+| ✅ | 96 lessons seeded across Standard + AP Chemistry with blueprints |
+| ✅ | 3 curated few-shot examples (new widget types) |
+| ⚠️ | Step timing — `step_log` JSONB exists but time-per-step not sent from frontend |
+| ⚠️ | `comparison` step validation — needs explicit branch in `StepValidationService` |
+
+---
+
+### 🔧 Milestone 2 — Simulations + Problem Quality (next)
+
+| Status | Item |
+|--------|------|
+| ❌ | **Simulation integration** — embed PhET / custom canvas sims per lesson; pass sim output as problem context |
+| ❌ | **Curated problem bank** — hand-authored worked examples per lesson stored in `problem_cache` for L1 |
+| ❌ | **Few-shot library expansion** — 3–5 curated examples per blueprint type (currently 3 total) |
+| ❌ | **Prompt QA pass** — test generation across all 96 lessons, fix blueprint mismatches |
+| ❌ | **Problem deduplication** — `exclude_ids` already wired but no frontend tracking across sessions |
+| ❌ | **Problem style variety** — context tags (sports/food/etc.) tested across all blueprints |
+
+---
+
+### 🔧 Milestone 3 — Teacher Dashboard + Analytics (next)
+
+| Status | Item |
+|--------|------|
+| ✅ | Class mastery aggregation endpoint (`POST /analytics/classes`) |
+| ✅ | Per-student skill breakdown (`GET /mastery/users/{id}/...`) |
+| ✅ | Exit ticket generation (`POST /problems/exit-ticket`) |
+| ✅ | Error pattern data in `misconception_logs` |
+| ❌ | **Exit ticket readiness trigger** — rule for when to prompt student (e.g. after N correct L3 attempts) |
+| ❌ | **Exit ticket response save endpoint** — `exit_ticket_responses` table exists, no write API |
+| ❌ | **Exit ticket performance report** — aggregation by class/topic |
+| ❌ | **At-risk detection alerts** — threshold logic (mastery < 40% after 3 attempts) wired to teacher view |
+| ❌ | **Curriculum customization** — teacher uploads curriculum doc → scoped to classroom |
+| ❌ | **Custom lesson mapping** — teacher maps their syllabus order to canonical lessons |
+| ❌ | **Teacher dashboard frontend** — all backend APIs exist; no UI pages built yet |
+| ❌ | **Classroom join flow** — `POST /classrooms/join` exists; no frontend page |
+
+---
+
+### 🔧 Milestone 4 — Admin Dashboard
+
+| Status | Item |
+|--------|------|
+| ❌ | **Admin auth** — role-based access (admin vs teacher vs student) |
+| ❌ | **Lesson content editor** — view/edit lesson `key_rules`, `key_equations`, `blueprint` from UI |
+| ❌ | **Few-shot manager** — view/add/delete few-shot examples per blueprint via UI |
+| ❌ | **Generation log viewer** — browse `generation_logs` to QA prompt output |
+| ❌ | **Prompt version audit** — compare prompt versions, A/B output |
+| ❌ | **Platform-wide mastery heatmap** — which lessons are hardest across all users |
+| ❌ | **User management** — list students, view profiles, manual mastery overrides |
+| ❌ | **DB health + seed runner** — trigger reseed or schema reset from UI |
