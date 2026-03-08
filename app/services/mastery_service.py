@@ -458,11 +458,13 @@ def _compute_category_scores(
     }
 
     for step in step_log:
-        pattern = step.get("reasoningPattern")
+        # Accept camelCase (frontend) or snake_case
+        pattern = step.get("reasoningPattern") or step.get("reasoning_pattern")
         cat = _PATTERN_TO_CATEGORY.get(pattern) if pattern else None
         if cat is None:
-            continue
-        is_correct = step.get("isCorrect", False)
+            # Fallback: ensure completed steps still contribute to category scores
+            cat = "procedural"
+        is_correct = step.get("isCorrect", step.get("is_correct", False))
         step_score = 1.0 if is_correct else 0.0
         # Exponential moving average: 80% history + 20% new
         scores[cat] = round(0.8 * scores[cat] + 0.2 * step_score, 4)

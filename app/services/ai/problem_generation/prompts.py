@@ -170,13 +170,16 @@ You are an expert Chemistry tutor generating a {difficulty} problem.
 Generate a {difficulty} problem for {topic_name}.
 
 BLUEPRINT for {blueprint}:
-- Step Labels: {labels_block}
+- Step Labels (use EXACTLY one per step, in order): {labels_block}
 - Total Steps: {step_count}
 - Logic: {blueprint_logic}
 
 {level_block}
 
-### CRITICAL UI CONSTRAINTS: INSTRUCTIONS, HINTS, AND MICRO-INPUTS ###
+### LABEL RULE ###
+For each step, set "label" to exactly ONE of the blueprint labels above, in order: step 1 = first label, step 2 = second, etc. Do NOT combine labels, add alternatives, or extra text. Example: "Concept ID" not "Concept ID | Claim | ...".
+
+### CRITICAL UI CONSTRAINTS: INSTRUCTIONS AND MICRO-INPUTS ###
 You are generating interactive steps for a compact student UI. Strictly separate:
 
 1. "instruction" (MAX 15 WORDS): Direct, punchy, actionable command only.
@@ -190,6 +193,8 @@ You are generating interactive steps for a compact student UI. Strictly separate
    - NEVER output paragraphs.
    - If type="variable_id" or "drag_drop" → "correctAnswer" MUST be null.
    - If type="comparison" → "correctAnswer" MUST be exactly "<", ">", or "=".
+
+3. Do NOT include a "hint" field in any step. Hints are generated later on demand using the student's answer.
 
 CONSTRAINTS:
 - Statement: embed all numeric values with symbols and units in the narrative.

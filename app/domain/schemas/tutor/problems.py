@@ -34,14 +34,14 @@ class ProblemStep(BaseModel):
     type: Literal["given", "interactive", "drag_drop", "variable_id", "comparison"]
     label: str
     instruction: str
-    hint: str | None = None
     skill_used: str | None = Field(default=None, validation_alias="skillUsed")
     correct_answer: str | None = Field(default=None, validation_alias="correctAnswer")
     equation_parts: list[str] | None = Field(default=None, validation_alias="equationParts")
     labeled_values: list[LabeledValue] | None = Field(default=None, validation_alias="labeledValues")
     comparison_parts: list[str] | None = Field(default=None, validation_alias="comparisonParts")
 
-    model_config = {"populate_by_name": True}
+    # No "hint" field: hints are generated on demand via POST /problems/hint.
+    model_config = {"populate_by_name": True, "extra": "ignore"}
 
     @model_validator(mode="after")
     def validate_type_specific_fields(self) -> "ProblemStep":
