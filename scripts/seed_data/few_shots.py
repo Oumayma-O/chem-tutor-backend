@@ -291,7 +291,121 @@ FEW_SHOT_DATA: list[tuple[str, int, str, str, dict]] = [
             ],
         },
     ),
-    # ── 6. Lawyer: periodic trend — atomic radius ────────────────────────────
+    # ── 6. Recipe: moles → grams via MgCl₂ molar mass (Level 1 all given) ───
+    (
+        "unit-mole",
+        1,
+        "medium",
+        "recipe",
+        {
+            "title": "Molar Mass of Magnesium Chloride",
+            "statement": (
+                "A sample contains $2.50 \\text{ mol}$ of $\\text{MgCl}_2$.\n\n"
+                "Using atomic masses $\\text{Mg} = 24.31 \\text{ g/mol}$ and $\\text{Cl} = 35.45 \\text{ g/mol}$, "
+                "what mass in grams does the sample have?"
+            ),
+            "steps": [
+                {
+                    "label": "Goal / Setup",
+                    "type": "given",
+                    "instruction": "Identify the starting value and target unit.",
+                    "explanation": "We need to convert the given $2.50 \\text{ mol}$ into grams (g).",
+                    "correctAnswer": "2.50 mol to g",
+                    "skillUsed": "Convert between moles and grams (1-step)",
+                },
+                {
+                    "label": "Conversion Factors",
+                    "type": "given",
+                    "instruction": "Find the molar mass of MgCl2.",
+                    "explanation": "$\\text{Mg} + 2(\\text{Cl}) = 24.31 + 2(35.45) = 95.21 \\text{ g/mol}$.",
+                    "correctAnswer": "95.21 g/mol",
+                    "skillUsed": "Calculate molar mass of elements",
+                },
+                {
+                    "label": "Dimensional Setup",
+                    "type": "given",
+                    "instruction": "Set up the math to convert moles to grams.",
+                    "explanation": "Multiply the given moles by the molar mass so the units cancel.",
+                    "correctAnswer": "2.50 * 95.21",
+                    "skillUsed": "Convert between moles and grams (1-step)",
+                },
+                {
+                    "label": "Calculate",
+                    "type": "given",
+                    "instruction": "Calculate the unrounded mass.",
+                    "explanation": None,
+                    "correctAnswer": "238.025",
+                    "skillUsed": "Convert between moles and grams (1-step)",
+                },
+                {
+                    "label": "Answer",
+                    "type": "given",
+                    "instruction": "Report the final mass with correct significant figures and unit.",
+                    "explanation": "Round to 3 significant figures because the given $2.50 \\text{ mol}$ has 3 sig figs.",
+                    "correctAnswer": "238 g",
+                    "skillUsed": "Convert between moles and grams (1-step)",
+                },
+            ],
+        },
+    ),
+    # ── 7. Recipe: moles → grams (single known molar mass, Level 2 faded) ───
+    (
+        "unit-mole",
+        2,
+        "medium",
+        "recipe",
+        {
+            "title": "Finding the Mass of Copper Needed",
+            "statement": (
+                "In a general chemistry lab, you need to measure out copper metal for a reaction.\n\n"
+                "You need $2.35 \\text{ mol}$ of $\\text{Cu}$. The molar mass of copper is $63.55 \\text{ g/mol}$.\n\n"
+                "What mass of copper, in grams, is needed?"
+            ),
+            "steps": [
+                {
+                    "label": "Goal / Setup",
+                    "type": "given",
+                    "instruction": "Identify the starting value and target unit.",
+                    "explanation": "We need to convert the given $2.35 \\text{ mol}$ into grams (g).",
+                    "correctAnswer": "2.35 mol to g",
+                    "skillUsed": "Convert between moles and grams (1-step)",
+                },
+                {
+                    "label": "Conversion Factors",
+                    "type": "given",
+                    "instruction": "Identify the molar mass of copper.",
+                    "explanation": "The molar mass is given directly in the problem text.",
+                    "correctAnswer": "63.55 g/mol",
+                    "skillUsed": "Calculate molar mass of elements",
+                },
+                {
+                    "label": "Dimensional Setup",
+                    "type": "interactive",
+                    "instruction": "Set up the multiplication to convert to grams.",
+                    "explanation": "Multiply the moles by the molar mass: $2.35 \\times 63.55$.",
+                    "correctAnswer": "2.35 * 63.55",
+                    "skillUsed": "Convert between moles and grams (1-step)",
+                },
+                {
+                    "label": "Calculate",
+                    "type": "interactive",
+                    "instruction": "Calculate the unrounded mass.",
+                    "explanation": None,
+                    "correctAnswer": "149.3425",
+                    "skillUsed": "Convert between moles and grams (1-step)",
+                },
+                {
+                    "label": "Answer",
+                    "type": "interactive",
+                    "instruction": "Report the final mass with correct significant figures and unit.",
+                    "explanation": "Round to 3 significant figures based on the $2.35 \\text{ mol}$ input.",
+                    "correctAnswer": "149 g",
+                    "skillUsed": "Convert between moles and grams (1-step)",
+                },
+            ],
+        },
+    ),
+    # ── 8. Lawyer: periodic trend — atomic radius ────────────────────────────
     (
         "unit-periodic-table",
         2,

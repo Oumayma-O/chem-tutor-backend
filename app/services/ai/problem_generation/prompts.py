@@ -9,7 +9,7 @@ Single source of truth for lesson metadata: scripts/seed_data/lessons.py
 from typing import Literal
 
 # ── Version ────────────────────────────────────────────────────────────────
-PROMPT_VERSION = "v11-latex-explanation"
+PROMPT_VERSION = "v12-strict-inputs"
 
 BlueprintName = Literal["solver", "recipe", "architect", "detective", "lawyer"]
 Tool = Literal["calculator", "periodic_table"]
@@ -187,8 +187,10 @@ For each step, set "label" to exactly ONE of the blueprint labels above, in orde
 You MUST use proper LaTeX formatting for ALL math and chemistry in "statement" and "explanation" fields.
 1. Isotopes: NEVER write plain text like "32-16-S-2-". Use LaTeX: $^{{32}}_{{16}}\\text{{S}}^{{2-}}$
 2. Scientific notation: NEVER write "6.02 x 10^22". Use LaTeX: $6.02 \\times 10^{{22}}$
-3. Chemical formulas: Use subscripts: $\\text{{CaCl}}_2$, $\\text{{H}}_2\\text{{O}}$
-4. Units: Wrap in \\text{{}}: $110.98 \\text{{ g/mol}}$, $0.80 \\text{{ M}}$
+3. Chemical formulas: Use subscripts: $\\text{{CaCl}}_2$, $\\text{{H}}_2\\text{{O}}$. NEVER write formulas as plain text (e.g. NH4NO3 is WRONG; $\\text{{NH}}_4\\text{{NO}}_3$ is correct).
+4. Units: Wrap in \\text{{}} with a leading space: $110.98 \\text{{ g/mol}}$, $0.80 \\text{{ M}}$.
+   NEVER drop the space: $\\text{{amu}}$ is WRONG; $\\text{{ amu}}$ is correct.
+   NEVER insert a stray comma before \\text: "$84 , \\text{{ MJ/mol}}$" is WRONG; "$84 \\text{{ MJ/mol}}$" is correct.
 5. Multiplication: Always use \\times, never "x". Example: $4.95 \\times 2.02$
 6. Reactions: Use \\rightarrow for arrows: $\\text{{Al}} + \\text{{O}}_2 \\rightarrow \\text{{Al}}_2\\text{{O}}_3$
 7. Statement paragraphs: Separate sentences with \\n\\n for readability.
@@ -206,6 +208,10 @@ You are generating interactive steps for a compact student UI. Each step has THR
    - NEVER put explanations or sentences here.
    - If type="variable_id" or "drag_drop" → "correctAnswer" MUST be null.
    - If type="comparison" → "correctAnswer" MUST be exactly "<", ">", or "=".
+   - Calculation setup steps (e.g. "Dimensional Setup"): correctAnswer MUST use plain keyboard math
+     only — no LaTeX, no fractions, no \\text{{}} inside the answer box.
+     CORRECT: "2.50 * 95.21"   WRONG: "$2.50 \\times \\frac{{95.21 \\text{{ g}}}}{{1 \\text{{ mol}}}}$"
+   - Quantitative final answers MUST include the unit: "238 g", "63.62 amu", "72.1 g" (not bare "238").
 
 3. "explanation" (MAX 20 WORDS, or null): One action-oriented sentence showing the math/logic trace.
    Use LaTeX where applicable. This is the "show your work" trace shown to students.
@@ -224,6 +230,8 @@ CONSTRAINTS:
 - Statement: embed all numeric values with symbols and units in the narrative.
 - Statement paragraphs: ALWAYS use \\n\\n to separate logical sections. NEVER write the statement as one block.
   Structure → ¶1: scenario/context. ¶2: given data/constants. ¶3: the question.
+- NO IMAGES/GRAPHS: Do NOT reference visual graphs, charts, spectral diagrams, or mass spectra images.
+  All data must be provided as text/numbers within the statement. The UI cannot render images.
 - Sig figs must be handled correctly in the final step answer.
 - If student interests are provided, frame the narrative around {interest_slug}.
 {focus_areas_block}
