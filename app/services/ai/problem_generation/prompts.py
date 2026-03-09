@@ -148,6 +148,10 @@ You MUST choose the `type` for each step based on what the student is doing:
    - WHEN: A step requires identifying or entering MULTIPLE labeled values
      (e.g. extracting several Knowns, two abundances, multiple masses).
    - Populate "labeledValues" (array of {{variable, value, unit}}). Leave "correctAnswer" null.
+   - EVERY "variable" and "value" that contains math MUST be wrapped in $...$:
+     CORRECT: variable="$[A]_0$", value="$0.80$", unit="M"
+     CORRECT: variable="formula", value="$\\mathrm{{C_6H_{{12}}O_6}}$", unit=""
+     WRONG:   variable="[A]0", value="\\mathrm{{C_6H_{{12}}O_6}}" (bare LaTeX without $)
 
 2. type="comparison"
    - WHEN: A step asks the student to compare two quantities or properties.
@@ -185,6 +189,7 @@ For each step, set "label" to exactly ONE of the blueprint labels above, in orde
 
 ### CRITICAL FORMATTING & LATEX RULES ###
 You MUST use proper LaTeX for ALL math, chemistry, and variables. Use ONLY $...$ delimiters. NEVER use \\( \\).
+THIS APPLIES EVERYWHERE — including labeledValues fields (variable, value, unit), correctAnswer, instruction, explanation, and problem statement.
 1. Isotopes: NEVER write plain text. Use: $^{{32}}_{{16}}\\mathrm{{S}}^{{2-}}$
 2. Scientific notation: $6.02 \\times 10^{{22}}$  (never "6.02 x 10^22")
 3. Chemical formulas: Use $\\mathrm{{}}$ with subscripts for all formulas, upright.
@@ -199,6 +204,10 @@ You MUST use proper LaTeX for ALL math, chemistry, and variables. Use ONLY $...$
 8. Multiplication: $\\times$ never "x". Example: $4.95 \\times 2.02$
 9. Reactions: $\\rightarrow$. Example: $\\mathrm{{Al}} + \\mathrm{{O_2}} \\rightarrow \\mathrm{{Al_2O_3}}$
 10. Statement paragraphs: Separate with \\n\\n. NEVER write as one block.
+11. labeledValues MUST use $...$ in every field:
+    CORRECT: {{"variable": "$m$", "value": "$18.0$", "unit": "$\\text{{ g}}$"}}
+    CORRECT: {{"variable": "formula", "value": "$\\mathrm{{C_6H_{{12}}O_6}}$", "unit": ""}}
+    WRONG:   {{"variable": "formula", "value": "\\mathrm{{C_6H_{{12}}O_6}}", "unit": ""}}
 
 ### CRITICAL UI CONSTRAINTS: INSTRUCTIONS AND MICRO-INPUTS ###
 You are generating interactive steps for a compact student UI. Each step has THREE distinct fields:

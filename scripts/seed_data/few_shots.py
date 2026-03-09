@@ -6,6 +6,8 @@ Field names in step dicts use camelCase (API/JSON convention) to match LLM outpu
 
 Rules enforced here:
 - All math/chemistry uses LaTeX ($...$) with \\text{} for units.
+- Exponents MUST use braces: 10^{22}, NOT 10^22.
+- Chemical formulas in correct_answer MUST use $\\mathrm{}$ formatting.
 - Every step has an "explanation" field (<=20 words, one action-oriented sentence).
 - "correctAnswer" is always a micro-input (never a sentence).
 - No "hint" field (hints are generated on demand).
@@ -23,22 +25,22 @@ FEW_SHOT_DATA: list[tuple[str, int, str, str, dict]] = [
             "statement": (
                 "In a general chemistry lab, aluminum metal reacts with oxygen gas to form aluminum oxide.\n\n"
                 "Determine the smallest whole-number coefficients to balance: "
-                "$\\text{Al} + \\text{O}_2 \\rightarrow \\text{Al}_2\\text{O}_3$."
+                "$\\mathrm{Al} + \\mathrm{O_2} \\rightarrow \\mathrm{Al_2O_3}$."
             ),
             "steps": [
                 {
                     "label": "Inventory / Rules",
                     "type": "given",
                     "instruction": "Write the unbalanced skeleton equation.",
-                    "explanation": "Al is aluminum; $\\text{O}_2$ is diatomic oxygen; product is $\\text{Al}_2\\text{O}_3$.",
-                    "correctAnswer": "Al + O2 -> Al2O3",
+                    "explanation": "Al is aluminum; $\\mathrm{O_2}$ is diatomic oxygen; product is $\\mathrm{Al_2O_3}$.",
+                    "correctAnswer": "$\\mathrm{Al} + \\mathrm{O_2} \\rightarrow \\mathrm{Al_2O_3}$",
                     "skillUsed": "Identify chemical rules/inventory",
                 },
                 {
                     "label": "Draft",
                     "type": "given",
                     "instruction": "Find the LCM for oxygen atoms on both sides.",
-                    "explanation": "LCM of 2 ($\\text{O}_2$) and 3 ($\\text{Al}_2\\text{O}_3$) is $2 \\times 3 = 6$.",
+                    "explanation": "LCM of $2$ ($\\mathrm{O_2}$) and $3$ ($\\mathrm{Al_2O_3}$) is $2 \\times 3 = 6$.",
                     "correctAnswer": "6",
                     "skillUsed": "Draft initial symbolic representation",
                 },
@@ -46,16 +48,16 @@ FEW_SHOT_DATA: list[tuple[str, int, str, str, dict]] = [
                     "label": "Refine",
                     "type": "given",
                     "instruction": "Place coefficients to reach 6 oxygen atoms.",
-                    "explanation": "Put 3 in front of $\\text{O}_2$ and 2 in front of $\\text{Al}_2\\text{O}_3$.",
-                    "correctAnswer": "Al + 3O2 -> 2Al2O3",
+                    "explanation": "Put $3$ in front of $\\mathrm{O_2}$ and $2$ in front of $\\mathrm{Al_2O_3}$.",
+                    "correctAnswer": "$\\mathrm{Al} + 3\\mathrm{O_2} \\rightarrow 2\\mathrm{Al_2O_3}$",
                     "skillUsed": "Refine structure/coefficients",
                 },
                 {
                     "label": "Final Answer",
                     "type": "given",
                     "instruction": "Balance aluminum and write the complete equation.",
-                    "explanation": "2 × $\\text{Al}_2\\text{O}_3$ requires 4 Al atoms, so place 4 in front of Al.",
-                    "correctAnswer": "4Al + 3O2 -> 2Al2O3",
+                    "explanation": "Two $\\mathrm{Al_2O_3}$ molecules require $4$ Al atoms, so place $4$ in front of Al.",
+                    "correctAnswer": "$4\\mathrm{Al} + 3\\mathrm{O_2} \\rightarrow 2\\mathrm{Al_2O_3}$",
                     "skillUsed": "Finalize symbolic answer",
                 },
             ],
@@ -87,10 +89,10 @@ FEW_SHOT_DATA: list[tuple[str, int, str, str, dict]] = [
                     "label": "Feature ID",
                     "type": "variable_id",
                     "instruction": "Convert the percentage abundances to decimals.",
-                    "explanation": "Divide each percentage by 100: $69.0 \\div 100 = 0.690$ and $31.0 \\div 100 = 0.310$.",
+                    "explanation": "Divide each percentage by $100$: $69.0 \\div 100 = 0.690$ and $31.0 \\div 100 = 0.310$.",
                     "labeledValues": [
-                        {"variable": "Abundance 1", "value": "0.690", "unit": ""},
-                        {"variable": "Abundance 2", "value": "0.310", "unit": ""},
+                        {"variable": "Abundance 1", "value": "$0.690$", "unit": ""},
+                        {"variable": "Abundance 2", "value": "$0.310$", "unit": ""},
                     ],
                     "skillUsed": "Identify key feature or pattern",
                 },
@@ -107,7 +109,7 @@ FEW_SHOT_DATA: list[tuple[str, int, str, str, dict]] = [
                     "type": "interactive",
                     "instruction": "Identify the element's chemical symbol.",
                     "explanation": "Atomic mass $63.62 \\text{ amu}$ matches Copper on the periodic table.",
-                    "correctAnswer": "Cu",
+                    "correctAnswer": "$\\mathrm{Cu}$",
                     "skillUsed": "Draw scientific conclusion",
                 },
             ],
@@ -122,17 +124,17 @@ FEW_SHOT_DATA: list[tuple[str, int, str, str, dict]] = [
         {
             "title": "Theoretical Yield from a Limiting Reactant",
             "statement": (
-                "$10.0 \\text{ g}$ of $\\text{H}_2$ reacts with $64.0 \\text{ g}$ of $\\text{O}_2$ "
-                "according to: $2\\text{H}_2 + \\text{O}_2 \\rightarrow 2\\text{H}_2\\text{O}$.\n\n"
-                "Calculate the theoretical yield of $\\text{H}_2\\text{O}$ in grams. "
-                "(Molar masses: $\\text{H}_2 = 2.02 \\text{ g/mol}$, "
-                "$\\text{O}_2 = 32.00 \\text{ g/mol}$, $\\text{H}_2\\text{O} = 18.02 \\text{ g/mol}$)"
+                "$10.0 \\text{ g}$ of $\\mathrm{H_2}$ reacts with $64.0 \\text{ g}$ of $\\mathrm{O_2}$ "
+                "according to: $2\\mathrm{H_2} + \\mathrm{O_2} \\rightarrow 2\\mathrm{H_2O}$.\n\n"
+                "Calculate the theoretical yield of $\\mathrm{H_2O}$ in grams. "
+                "(Molar masses: $\\mathrm{H_2} = 2.02 \\text{ g/mol}$, "
+                "$\\mathrm{O_2} = 32.00 \\text{ g/mol}$, $\\mathrm{H_2O} = 18.02 \\text{ g/mol}$)"
             ),
             "steps": [
                 {
                     "label": "Goal / Setup",
                     "type": "given",
-                    "instruction": "Calculate moles of $\\text{H}_2$ available.",
+                    "instruction": "Calculate moles of $\\mathrm{H_2}$ available.",
                     "explanation": "$10.0 \\text{ g} \\div 2.02 \\text{ g/mol} = 4.95 \\text{ mol}$.",
                     "correctAnswer": "4.95",
                     "skillUsed": "Identify conversion goal",
@@ -140,7 +142,7 @@ FEW_SHOT_DATA: list[tuple[str, int, str, str, dict]] = [
                 {
                     "label": "Conversion Factors",
                     "type": "given",
-                    "instruction": "Calculate moles of $\\text{O}_2$ available.",
+                    "instruction": "Calculate moles of $\\mathrm{O_2}$ available.",
                     "explanation": "$64.0 \\text{ g} \\div 32.00 \\text{ g/mol} = 2.00 \\text{ mol}$.",
                     "correctAnswer": "2.00",
                     "skillUsed": "Select conversion factors",
@@ -149,23 +151,23 @@ FEW_SHOT_DATA: list[tuple[str, int, str, str, dict]] = [
                     "label": "Dimensional Setup",
                     "type": "interactive",
                     "instruction": "Identify the limiting reactant.",
-                    "explanation": "$2.00 \\text{ mol O}_2$ needs $4.00 \\text{ mol H}_2$; we have $4.95$, so $\\text{O}_2$ limits.",
-                    "correctAnswer": "O2",
+                    "explanation": "$2.00 \\text{ mol } \\mathrm{O_2}$ needs $4.00 \\text{ mol } \\mathrm{H_2}$; we have $4.95 \\text{ mol}$, so $\\mathrm{O_2}$ limits.",
+                    "correctAnswer": "$\\mathrm{O_2}$",
                     "skillUsed": "Set up dimensional analysis",
                 },
                 {
                     "label": "Calculate",
                     "type": "interactive",
-                    "instruction": "Find moles of $\\text{H}_2\\text{O}$ produced.",
-                    "explanation": "$2.00 \\text{ mol O}_2 \\times (2 \\text{ mol H}_2\\text{O} / 1 \\text{ mol O}_2) = 4.00 \\text{ mol}$.",
+                    "instruction": "Find moles of $\\mathrm{H_2O}$ produced.",
+                    "explanation": "$2.00 \\text{ mol } \\mathrm{O_2} \\times (2 \\text{ mol } \\mathrm{H_2O} / 1 \\text{ mol } \\mathrm{O_2}) = 4.00 \\text{ mol}$.",
                     "correctAnswer": "4.00",
                     "skillUsed": "Set up dimensional analysis",
                 },
                 {
                     "label": "Answer",
                     "type": "interactive",
-                    "instruction": "Convert moles of $\\text{H}_2\\text{O}$ to grams.",
-                    "explanation": "$4.00 \\text{ mol} \\times 18.02 \\text{ g/mol} = 72.1 \\text{ g}$ (3 sig figs).",
+                    "instruction": "Convert moles of $\\mathrm{H_2O}$ to grams.",
+                    "explanation": "$4.00 \\text{ mol} \\times 18.02 \\text{ g/mol} = 72.1 \\text{ g}$ ($3$ sig figs).",
                     "correctAnswer": "72.1",
                     "skillUsed": "Compute final answer with sig figs",
                 },
@@ -192,7 +194,7 @@ FEW_SHOT_DATA: list[tuple[str, int, str, str, dict]] = [
                     "type": "drag_drop",
                     "instruction": "Form the zero-order integrated rate law.",
                     "explanation": "Zero-order decay is linear: final concentration equals initial minus rate times time.",
-                    "equationParts": ["[A]t", "=", "[A]0", "-", "k", "*", "t"],
+                    "equationParts": ["[A]_t", "=", "[A]_0", "-", "k", "*", "t"],
                     "skillUsed": "Select correct equation",
                 },
                 {
@@ -201,9 +203,9 @@ FEW_SHOT_DATA: list[tuple[str, int, str, str, dict]] = [
                     "instruction": "Extract the given values with units.",
                     "explanation": None,
                     "labeledValues": [
-                        {"variable": "[A]0", "value": "0.80", "unit": "M"},
-                        {"variable": "k", "value": "0.020", "unit": "M/s"},
-                        {"variable": "t", "value": "20", "unit": "s"},
+                        {"variable": "$[A]_0$", "value": "$0.80$", "unit": "M"},
+                        {"variable": "$k$", "value": "$0.020$", "unit": "M/s"},
+                        {"variable": "$t$", "value": "$20$", "unit": "s"},
                     ],
                     "skillUsed": "Extract known values with units",
                 },
@@ -228,7 +230,7 @@ FEW_SHOT_DATA: list[tuple[str, int, str, str, dict]] = [
                     "type": "interactive",
                     "instruction": "Calculate the final concentration.",
                     "explanation": "$0.80 \\text{ M} - 0.40 \\text{ M} = 0.40 \\text{ M}$.",
-                    "correctAnswer": "0.40",
+                    "correctAnswer": "$0.40 \\text{ M}$",
                     "skillUsed": "Compute final answer with sig figs",
                 },
             ],
@@ -243,9 +245,9 @@ FEW_SHOT_DATA: list[tuple[str, int, str, str, dict]] = [
         {
             "title": "Mass of Calcium Chloride from Moles",
             "statement": (
-                "A sample contains $0.375 \\text{ mol}$ of $\\text{CaCl}_2$. "
-                "Calculate the mass of $\\text{CaCl}_2$ in grams.\n\n"
-                "Use atomic masses: $\\text{Ca} = 40.08 \\text{ g/mol}$ and $\\text{Cl} = 35.45 \\text{ g/mol}$."
+                "A sample contains $0.375 \\text{ mol}$ of $\\mathrm{CaCl_2}$. "
+                "Calculate the mass of $\\mathrm{CaCl_2}$ in grams.\n\n"
+                "Use atomic masses: $\\mathrm{Ca} = 40.08 \\text{ g/mol}$ and $\\mathrm{Cl} = 35.45 \\text{ g/mol}$."
             ),
             "steps": [
                 {
@@ -260,15 +262,15 @@ FEW_SHOT_DATA: list[tuple[str, int, str, str, dict]] = [
                     "label": "Conversion Factors",
                     "type": "given",
                     "instruction": "Calculate the molar mass of calcium chloride.",
-                    "explanation": "$\\text{Ca} + 2(\\text{Cl}) = 40.08 + 2(35.45) = 110.98 \\text{ g/mol}$.",
-                    "correctAnswer": "110.98 g/mol",
+                    "explanation": "$\\mathrm{Ca} + 2(\\mathrm{Cl}) = 40.08 + 2(35.45) = 110.98 \\text{ g/mol}$.",
+                    "correctAnswer": "$110.98 \\text{ g/mol}$",
                     "skillUsed": "Select conversion factors",
                 },
                 {
                     "label": "Dimensional Setup",
                     "type": "given",
                     "instruction": "Set up the conversion to cancel moles.",
-                    "explanation": "Multiply starting moles by molar mass so the mol units cancel out.",
+                    "explanation": "Multiply starting moles by molar mass so the $\\text{mol}$ units cancel out.",
                     "correctAnswer": "0.375 * 110.98",
                     "skillUsed": "Set up dimensional analysis",
                 },
@@ -284,8 +286,8 @@ FEW_SHOT_DATA: list[tuple[str, int, str, str, dict]] = [
                     "label": "Answer",
                     "type": "given",
                     "instruction": "Report the final mass with correct significant figures.",
-                    "explanation": "Round to 3 sig figs because $0.375 \\text{ mol}$ has 3 sig figs.",
-                    "correctAnswer": "41.6 g",
+                    "explanation": "Round to $3$ sig figs because $0.375 \\text{ mol}$ has $3$ sig figs.",
+                    "correctAnswer": "$41.6 \\text{ g}$",
                     "skillUsed": "Compute final answer with sig figs",
                 },
             ],
@@ -300,8 +302,8 @@ FEW_SHOT_DATA: list[tuple[str, int, str, str, dict]] = [
         {
             "title": "Molar Mass of Magnesium Chloride",
             "statement": (
-                "A sample contains $2.50 \\text{ mol}$ of $\\text{MgCl}_2$.\n\n"
-                "Using atomic masses $\\text{Mg} = 24.31 \\text{ g/mol}$ and $\\text{Cl} = 35.45 \\text{ g/mol}$, "
+                "A sample contains $2.50 \\text{ mol}$ of $\\mathrm{MgCl_2}$.\n\n"
+                "Using atomic masses $\\mathrm{Mg} = 24.31 \\text{ g/mol}$ and $\\mathrm{Cl} = 35.45 \\text{ g/mol}$, "
                 "what mass in grams does the sample have?"
             ),
             "steps": [
@@ -309,16 +311,16 @@ FEW_SHOT_DATA: list[tuple[str, int, str, str, dict]] = [
                     "label": "Goal / Setup",
                     "type": "given",
                     "instruction": "Identify the starting value and target unit.",
-                    "explanation": "We need to convert the given $2.50 \\text{ mol}$ into grams (g).",
+                    "explanation": "We need to convert the given $2.50 \\text{ mol}$ into grams ($\\text{g}$).",
                     "correctAnswer": "2.50 mol to g",
                     "skillUsed": "Convert between moles and grams (1-step)",
                 },
                 {
                     "label": "Conversion Factors",
                     "type": "given",
-                    "instruction": "Find the molar mass of MgCl2.",
-                    "explanation": "$\\text{Mg} + 2(\\text{Cl}) = 24.31 + 2(35.45) = 95.21 \\text{ g/mol}$.",
-                    "correctAnswer": "95.21 g/mol",
+                    "instruction": "Find the molar mass of $\\mathrm{MgCl_2}$.",
+                    "explanation": "$\\mathrm{Mg} + 2(\\mathrm{Cl}) = 24.31 + 2(35.45) = 95.21 \\text{ g/mol}$.",
+                    "correctAnswer": "$95.21 \\text{ g/mol}$",
                     "skillUsed": "Calculate molar mass of elements",
                 },
                 {
@@ -333,7 +335,7 @@ FEW_SHOT_DATA: list[tuple[str, int, str, str, dict]] = [
                     "label": "Calculate",
                     "type": "given",
                     "instruction": "Calculate the unrounded mass.",
-                    "explanation": None,
+                    "explanation": "Compute the product: $2.50 \\times 95.21 = 238.025$.",
                     "correctAnswer": "238.025",
                     "skillUsed": "Convert between moles and grams (1-step)",
                 },
@@ -341,8 +343,8 @@ FEW_SHOT_DATA: list[tuple[str, int, str, str, dict]] = [
                     "label": "Answer",
                     "type": "given",
                     "instruction": "Report the final mass with correct significant figures and unit.",
-                    "explanation": "Round to 3 significant figures because the given $2.50 \\text{ mol}$ has 3 sig figs.",
-                    "correctAnswer": "238 g",
+                    "explanation": "Round to $3$ significant figures because the given $2.50 \\text{ mol}$ has $3$ sig figs.",
+                    "correctAnswer": "$238 \\text{ g}$",
                     "skillUsed": "Convert between moles and grams (1-step)",
                 },
             ],
@@ -358,7 +360,7 @@ FEW_SHOT_DATA: list[tuple[str, int, str, str, dict]] = [
             "title": "Finding the Mass of Copper Needed",
             "statement": (
                 "In a general chemistry lab, you need to measure out copper metal for a reaction.\n\n"
-                "You need $2.35 \\text{ mol}$ of $\\text{Cu}$. The molar mass of copper is $63.55 \\text{ g/mol}$.\n\n"
+                "You need $2.35 \\text{ mol}$ of $\\mathrm{Cu}$. The molar mass of copper is $63.55 \\text{ g/mol}$.\n\n"
                 "What mass of copper, in grams, is needed?"
             ),
             "steps": [
@@ -366,7 +368,7 @@ FEW_SHOT_DATA: list[tuple[str, int, str, str, dict]] = [
                     "label": "Goal / Setup",
                     "type": "given",
                     "instruction": "Identify the starting value and target unit.",
-                    "explanation": "We need to convert the given $2.35 \\text{ mol}$ into grams (g).",
+                    "explanation": "We need to convert the given $2.35 \\text{ mol}$ into grams ($\\text{g}$).",
                     "correctAnswer": "2.35 mol to g",
                     "skillUsed": "Convert between moles and grams (1-step)",
                 },
@@ -374,8 +376,8 @@ FEW_SHOT_DATA: list[tuple[str, int, str, str, dict]] = [
                     "label": "Conversion Factors",
                     "type": "given",
                     "instruction": "Identify the molar mass of copper.",
-                    "explanation": "The molar mass is given directly in the problem text.",
-                    "correctAnswer": "63.55 g/mol",
+                    "explanation": "The molar mass is given directly in the problem text as $63.55 \\text{ g/mol}$.",
+                    "correctAnswer": "$63.55 \\text{ g/mol}$",
                     "skillUsed": "Calculate molar mass of elements",
                 },
                 {
@@ -390,7 +392,7 @@ FEW_SHOT_DATA: list[tuple[str, int, str, str, dict]] = [
                     "label": "Calculate",
                     "type": "interactive",
                     "instruction": "Calculate the unrounded mass.",
-                    "explanation": None,
+                    "explanation": "Compute the product: $2.35 \\times 63.55 = 149.3425$.",
                     "correctAnswer": "149.3425",
                     "skillUsed": "Convert between moles and grams (1-step)",
                 },
@@ -398,8 +400,8 @@ FEW_SHOT_DATA: list[tuple[str, int, str, str, dict]] = [
                     "label": "Answer",
                     "type": "interactive",
                     "instruction": "Report the final mass with correct significant figures and unit.",
-                    "explanation": "Round to 3 significant figures based on the $2.35 \\text{ mol}$ input.",
-                    "correctAnswer": "149 g",
+                    "explanation": "Round to $3$ significant figures based on the $2.35 \\text{ mol}$ input.",
+                    "correctAnswer": "$149 \\text{ g}$",
                     "skillUsed": "Convert between moles and grams (1-step)",
                 },
             ],
@@ -426,7 +428,7 @@ FEW_SHOT_DATA: list[tuple[str, int, str, str, dict]] = [
                     "type": "given",
                     "instruction": "Identify the system and the surroundings.",
                     "explanation": "The chemical process of the salt dissolving is the system; the solvent (water) is the surroundings.",
-                    "correctAnswer": "System: NH4NO3, Surr: Water",
+                    "correctAnswer": "System: $\\mathrm{NH_4NO_3}$, Surr: Water",
                     "skillUsed": "Identify governing concept",
                 },
                 {
@@ -434,7 +436,7 @@ FEW_SHOT_DATA: list[tuple[str, int, str, str, dict]] = [
                     "type": "given",
                     "instruction": "Determine the direction of heat flow.",
                     "explanation": "Water temperature decreases, so thermal energy leaves the water and enters the dissolving salt.",
-                    "correctAnswer": "From water to NH4NO3",
+                    "correctAnswer": "From water to $\\mathrm{NH_4NO_3}$",
                     "skillUsed": "State chemical relationship",
                 },
                 {
@@ -450,7 +452,7 @@ FEW_SHOT_DATA: list[tuple[str, int, str, str, dict]] = [
                     "type": "given",
                     "instruction": "Compare $q_{\\text{system}}$ and $q_{\\text{surr}}$.",
                     "explanation": "Conservation of energy: heat gained by the system equals heat lost by the surroundings.",
-                    "correctAnswer": "q_system = -q_surr",
+                    "correctAnswer": "$q_{\\text{system}} = -q_{\\text{surr}}$",
                     "skillUsed": "State final conclusion",
                 },
             ],
@@ -465,7 +467,7 @@ FEW_SHOT_DATA: list[tuple[str, int, str, str, dict]] = [
         {
             "title": "Comparing Atomic Radius: Na vs Cl",
             "statement": (
-                "Compare the atomic radii of Sodium ($\\text{Na}$) and Chlorine ($\\text{Cl}$).\n\n"
+                "Compare the atomic radii of Sodium ($\\mathrm{Na}$) and Chlorine ($\\mathrm{Cl}$).\n\n"
                 "Which element has a larger atomic radius and why?"
             ),
             "steps": [
@@ -481,8 +483,8 @@ FEW_SHOT_DATA: list[tuple[str, int, str, str, dict]] = [
                     "label": "Relation",
                     "type": "comparison",
                     "instruction": "Compare the effective nuclear charge of Na and Cl.",
-                    "explanation": "Na has 11 protons; Cl has 17 — Cl exerts a stronger pull on its valence electrons.",
-                    "comparisonParts": ["Zeff of Na", "Zeff of Cl"],
+                    "explanation": "$\\mathrm{Na}$ has $11$ protons; $\\mathrm{Cl}$ has $17$ — $\\mathrm{Cl}$ exerts a stronger pull on its valence electrons.",
+                    "comparisonParts": ["Zeff of $\\mathrm{Na}$", "Zeff of $\\mathrm{Cl}$"],
                     "correctAnswer": "<",
                     "skillUsed": "State chemical relationship",
                 },
@@ -498,8 +500,8 @@ FEW_SHOT_DATA: list[tuple[str, int, str, str, dict]] = [
                     "label": "Conclusion",
                     "type": "interactive",
                     "instruction": "Which element has the larger atomic radius?",
-                    "explanation": "Na has weaker nuclear pull, so its electron cloud extends farther from the nucleus.",
-                    "correctAnswer": "Na",
+                    "explanation": "$\\mathrm{Na}$ has weaker nuclear pull, so its electron cloud extends farther from the nucleus.",
+                    "correctAnswer": "$\\mathrm{Na}$",
                     "skillUsed": "State final conclusion",
                 },
             ],
