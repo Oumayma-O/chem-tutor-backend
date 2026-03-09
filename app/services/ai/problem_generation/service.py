@@ -191,6 +191,8 @@ def sanitize_problem(problem: ProblemOutput) -> ProblemOutput:
         if " | " in step.label:
             step.label = step.label.split(" | ")[0].strip()
         step.instruction = step.instruction.replace("\x00", "")
+        if step.explanation:
+            step.explanation = step.explanation.replace("\x00", "")
         if step.correct_answer:
             step.correct_answer = step.correct_answer.replace("\x00", "")
         if step.skill_used:

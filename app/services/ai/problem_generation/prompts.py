@@ -9,7 +9,7 @@ Single source of truth for lesson metadata: scripts/seed_data/lessons.py
 from typing import Literal
 
 # ── Version ────────────────────────────────────────────────────────────────
-PROMPT_VERSION = "v10-advanced-widgets"
+PROMPT_VERSION = "v11-latex-explanation"
 
 BlueprintName = Literal["solver", "recipe", "architect", "detective", "lawyer"]
 Tool = Literal["calculator", "periodic_table"]
@@ -108,6 +108,7 @@ def get_few_shot_block(db_example: dict | None) -> str:
     for s in db_example["steps"]:
         label = s.get("label", "Step")
         instruction = s.get("instruction", "")
+        explanation = s.get("explanation", "")
         if s.get("equationParts"):
             answer = " | ".join(s["equationParts"])
         elif s.get("labeledValues"):
@@ -118,7 +119,10 @@ def get_few_shot_block(db_example: dict | None) -> str:
             answer = f'{s["comparisonParts"][0]} {s.get("correctAnswer", "?")} {s["comparisonParts"][1]}'
         else:
             answer = s.get("correctAnswer", "")
-        step_lines.append(f"  {label}: {instruction} → {answer}")
+        line = f"  {label}: {instruction} → {answer}"
+        if explanation:
+            line += f"\n    explanation: {explanation}"
+        step_lines.append(line)
     steps_text = "\n".join(step_lines)
     return (
         "\n\n--- FEW-SHOT REFERENCE (follow this structure exactly) ---\n"
@@ -179,25 +183,47 @@ BLUEPRINT for {blueprint}:
 ### LABEL RULE ###
 For each step, set "label" to exactly ONE of the blueprint labels above, in order: step 1 = first label, step 2 = second, etc. Do NOT combine labels, add alternatives, or extra text. Example: "Concept ID" not "Concept ID | Claim | ...".
 
+### CRITICAL FORMATTING & LATEX RULES ###
+You MUST use proper LaTeX formatting for ALL math and chemistry in "statement" and "explanation" fields.
+1. Isotopes: NEVER write plain text like "32-16-S-2-". Use LaTeX: $^{{32}}_{{16}}\\text{{S}}^{{2-}}$
+2. Scientific notation: NEVER write "6.02 x 10^22". Use LaTeX: $6.02 \\times 10^{{22}}$
+3. Chemical formulas: Use subscripts: $\\text{{CaCl}}_2$, $\\text{{H}}_2\\text{{O}}$
+4. Units: Wrap in \\text{{}}: $110.98 \\text{{ g/mol}}$, $0.80 \\text{{ M}}$
+5. Multiplication: Always use \\times, never "x". Example: $4.95 \\times 2.02$
+6. Reactions: Use \\rightarrow for arrows: $\\text{{Al}} + \\text{{O}}_2 \\rightarrow \\text{{Al}}_2\\text{{O}}_3$
+7. Statement paragraphs: Separate sentences with \\n\\n for readability.
+
 ### CRITICAL UI CONSTRAINTS: INSTRUCTIONS AND MICRO-INPUTS ###
-You are generating interactive steps for a compact student UI. Strictly separate:
+You are generating interactive steps for a compact student UI. Each step has THREE distinct fields:
 
 1. "instruction" (MAX 15 WORDS): Direct, punchy, actionable command only.
    DO NOT include explanations, formulas, or verbose reasoning here.
    - Good: "Find the target number of O atoms to balance."
    - Bad:  "Look at the equation. Oxygen appears as O2 and O3. What is the LCM?"
 
-
 2. "correctAnswer" (MICRO-INPUT ONLY): Brief single-value student input.
-   - Valid: "63.62", "Cu", "4Al + 3O2 -> 2Al2O3", "<", "Limiting reactant"
-   - NEVER output paragraphs.
+   - Valid: "63.62", "Cu", "4Al + 3O2 -> 2Al2O3", "<", "O2"
+   - NEVER put explanations or sentences here.
    - If type="variable_id" or "drag_drop" → "correctAnswer" MUST be null.
    - If type="comparison" → "correctAnswer" MUST be exactly "<", ">", or "=".
 
-3. Do NOT include a "hint" field in any step. Hints are generated later on demand using the student's answer.
+3. "explanation" (MAX 20 WORDS, or null): One action-oriented sentence showing the math/logic trace.
+   Use LaTeX where applicable. This is the "show your work" trace shown to students.
+   - Populate when the step involves calculation, applying a rule, or non-obvious reasoning.
+     Good: "The atomic number Z = 16 directly equals the number of protons."
+     Good: "$(63.0 \\times 0.690) + (65.0 \\times 0.310) = 43.47 + 20.15 = 63.62 \\text{{ amu}}$."
+   - Set to null when the step is trivial data extraction (e.g. student just reads a value off a label).
+   - Set to null when the explanation would just restate the correctAnswer with no added value.
+     Bad (no value): correctAnswer="238.025", explanation="2.50 × 95.21 = 238.025." ← echoes the answer.
+     Good: correctAnswer="238.025", explanation="Multiply moles by molar mass: $2.50 \\times 95.21$." ← shows the setup.
+   - Bad (too long): "In order to find the neutrons you need to look at the periodic table and..."
+
+4. Do NOT include a "hint" field in any step. Hints are generated later on demand.
 
 CONSTRAINTS:
 - Statement: embed all numeric values with symbols and units in the narrative.
+- Statement paragraphs: ALWAYS use \\n\\n to separate logical sections. NEVER write the statement as one block.
+  Structure → ¶1: scenario/context. ¶2: given data/constants. ¶3: the question.
 - Sig figs must be handled correctly in the final step answer.
 - If student interests are provided, frame the narrative around {interest_slug}.
 {focus_areas_block}

@@ -34,6 +34,13 @@ class ProblemStep(BaseModel):
     type: Literal["given", "interactive", "drag_drop", "variable_id", "comparison"]
     label: str
     instruction: str
+    explanation: str | None = Field(
+        default=None,
+        description=(
+            "Max 20 words. One-sentence show-your-work trace explaining how correctAnswer was found. "
+            "Displayed in Level 1 (worked example) and on wrong answers in L2/L3."
+        ),
+    )
     skill_used: str | None = Field(default=None, validation_alias="skillUsed")
     correct_answer: str | None = Field(default=None, validation_alias="correctAnswer")
     equation_parts: list[str] | None = Field(default=None, validation_alias="equationParts")

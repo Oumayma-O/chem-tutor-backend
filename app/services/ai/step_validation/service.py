@@ -43,10 +43,15 @@ class StepValidationService:
         if step_type == "variable_id":
             return _check_variable_id(student_answer, correct_answer)
 
-        numeric_result = numeric_equivalent(student_answer, correct_answer)
+        # Final "Answer" / "Final Answer" steps: strict 1% tolerance + unit check.
+        # All intermediate steps: looser 5% tolerance, no unit penalty
+        # (students often omit units mid-calculation and that's fine).
+        is_final_step = "answer" in step_label.strip().lower()
+        rtol = 0.01 if is_final_step else 0.05
+        numeric_result = numeric_equivalent(student_answer, correct_answer, rtol=rtol)
 
         if numeric_result is True:
-            if unit_equivalent(student_answer, correct_answer):
+            if not is_final_step or unit_equivalent(student_answer, correct_answer):
                 return ValidationOutput(
                     is_correct=True,
                     student_value=_try_float(student_answer),
