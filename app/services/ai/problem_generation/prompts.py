@@ -9,7 +9,7 @@ Single source of truth for lesson metadata: scripts/seed_data/lessons.py
 from typing import Literal
 
 # ── Version ────────────────────────────────────────────────────────────────
-PROMPT_VERSION = "v12-strict-inputs"
+PROMPT_VERSION = "v13-katex"
 
 BlueprintName = Literal["solver", "recipe", "architect", "detective", "lawyer"]
 Tool = Literal["calculator", "periodic_table"]
@@ -184,16 +184,18 @@ BLUEPRINT for {blueprint}:
 For each step, set "label" to exactly ONE of the blueprint labels above, in order: step 1 = first label, step 2 = second, etc. Do NOT combine labels, add alternatives, or extra text. Example: "Concept ID" not "Concept ID | Claim | ...".
 
 ### CRITICAL FORMATTING & LATEX RULES ###
-You MUST use proper LaTeX formatting for ALL math and chemistry in "statement" and "explanation" fields.
-1. Isotopes: NEVER write plain text like "32-16-S-2-". Use LaTeX: $^{{32}}_{{16}}\\text{{S}}^{{2-}}$
-2. Scientific notation: NEVER write "6.02 x 10^22". Use LaTeX: $6.02 \\times 10^{{22}}$
-3. Chemical formulas: Use subscripts: $\\text{{CaCl}}_2$, $\\text{{H}}_2\\text{{O}}$. NEVER write formulas as plain text (e.g. NH4NO3 is WRONG; $\\text{{NH}}_4\\text{{NO}}_3$ is correct).
-4. Units: Wrap in \\text{{}} with a leading space: $110.98 \\text{{ g/mol}}$, $0.80 \\text{{ M}}$.
-   NEVER drop the space: $\\text{{amu}}$ is WRONG; $\\text{{ amu}}$ is correct.
-   NEVER insert a stray comma before \\text: "$84 , \\text{{ MJ/mol}}$" is WRONG; "$84 \\text{{ MJ/mol}}$" is correct.
-5. Multiplication: Always use \\times, never "x". Example: $4.95 \\times 2.02$
-6. Reactions: Use \\rightarrow for arrows: $\\text{{Al}} + \\text{{O}}_2 \\rightarrow \\text{{Al}}_2\\text{{O}}_3$
-7. Statement paragraphs: Separate sentences with \\n\\n for readability.
+Use \\(...\\) for ALL inline math in "statement" and "explanation". Do NOT use $...$ delimiters.
+1. Isotopes: NEVER write "32-16-S-2-". Use: \\(^{{32}}_{{16}}\\mathrm{{S}}^{{2-}}\\)
+2. Scientific notation: NEVER write "6.02 x 10^22". Use: \\(6.02 \\times 10^{{22}}\\)
+3. Chemical formulas: Use \\mathrm{{}} with subscripts: \\(\\mathrm{{CaCl_2}}\\), \\(\\mathrm{{H_2O}}\\), \\(\\mathrm{{NH_4NO_3}}\\).
+   NEVER write formulas as plain text (NH4NO3 is WRONG).
+4. Units: \\text{{}} with a leading space: \\(110.98 \\text{{ g/mol}}\\), \\(0.80 \\text{{ M}}\\).
+   NEVER drop the space or add a stray comma: \\(84, \\text{{ MJ/mol}}\\) is WRONG; \\(84 \\text{{ MJ/mol}}\\) is correct.
+5. Multiplication: \\times only — never "x": \\(4.95 \\times 2.02\\)
+6. Reactions: \\rightarrow: \\(\\mathrm{{Al}} + \\mathrm{{O_2}} \\rightarrow \\mathrm{{Al_2O_3}}\\)
+7. Temperatures: \\(25.0^\\circ\\text{{C}}\\) — never plain "25°C".
+8. Text subscript variables: \\(q_{{\\text{{system}}}}\\), \\(q_{{\\text{{surr}}}}\\) — never plain qsystem.
+9. Statement paragraphs: Separate sections with \\n\\n. NEVER write the statement as one block.
 
 ### CRITICAL UI CONSTRAINTS: INSTRUCTIONS AND MICRO-INPUTS ###
 You are generating interactive steps for a compact student UI. Each step has THREE distinct fields:
@@ -217,11 +219,11 @@ You are generating interactive steps for a compact student UI. Each step has THR
    Use LaTeX where applicable. This is the "show your work" trace shown to students.
    - Populate when the step involves calculation, applying a rule, or non-obvious reasoning.
      Good: "The atomic number Z = 16 directly equals the number of protons."
-     Good: "$(63.0 \\times 0.690) + (65.0 \\times 0.310) = 43.47 + 20.15 = 63.62 \\text{{ amu}}$."
+     Good: "\\((63.0 \\times 0.690) + (65.0 \\times 0.310) = 43.47 + 20.15 = 63.62 \\text{{ amu}}\\)."
    - Set to null when the step is trivial data extraction (e.g. student just reads a value off a label).
    - Set to null when the explanation would just restate the correctAnswer with no added value.
      Bad (no value): correctAnswer="238.025", explanation="2.50 × 95.21 = 238.025." ← echoes the answer.
-     Good: correctAnswer="238.025", explanation="Multiply moles by molar mass: $2.50 \\times 95.21$." ← shows the setup.
+     Good: correctAnswer="238.025", explanation="Multiply moles by molar mass: \\(2.50 \\times 95.21\\)." ← shows the setup.
    - Bad (too long): "In order to find the neutrons you need to look at the periodic table and..."
 
 4. Do NOT include a "hint" field in any step. Hints are generated later on demand.
