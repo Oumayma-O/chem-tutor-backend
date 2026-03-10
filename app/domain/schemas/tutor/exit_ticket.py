@@ -20,7 +20,7 @@ class ExitTicketQuestion(BaseModel):
 
 class GenerateExitTicketRequest(BaseModel):
     unit_id: str
-    topic_name: str
+    lesson_name: str
     difficulty: Literal["easy", "medium", "hard"] = "medium"
     format: Literal["mcq", "short_answer", "mixed"] = "mcq"
     question_count: int = Field(default=3, ge=1, le=10)

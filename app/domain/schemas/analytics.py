@@ -18,10 +18,6 @@ class LessonBreakdown(BaseModel):
     completion_rate: float
 
 
-# Backward-compat alias
-TopicBreakdown = LessonBreakdown
-
-
 class ClassAnalyticsResponse(BaseModel):
     class_id: uuid.UUID
     unit_id: str
@@ -30,7 +26,7 @@ class ClassAnalyticsResponse(BaseModel):
     at_risk_count: int
     error_frequency: dict[str, int]      # {category: total_count}
     top_misconceptions: list[str]        # Top 5 misconception_tags
-    topic_breakdown: list[LessonBreakdown]
+    lesson_breakdown: list[LessonBreakdown] = Field(validation_alias="topic_breakdown")
     students: list[StudentMasterySummary]
     ai_insights: list[str]               # From generate-class-insights
 

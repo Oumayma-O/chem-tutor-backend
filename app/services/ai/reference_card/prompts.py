@@ -19,9 +19,9 @@ __all__ = [
 
 _SYSTEM_TEMPLATE = """\
 You are a chemistry teacher writing a concise "fiche de cours" (study reference card) \
-for a single chemistry topic.
+for a single lesson.
 
-BLUEPRINT for {blueprint} topics:
+BLUEPRINT for {blueprint} lessons:
 - Step Labels (use EXACTLY these, in order): {labels_block}
 - Total Steps: {step_count}
 - Logic: {blueprint_logic}

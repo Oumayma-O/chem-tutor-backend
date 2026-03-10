@@ -14,7 +14,7 @@ class MasteryRepository(BaseRepository[SkillMastery]):
     def __init__(self, session: AsyncSession) -> None:
         super().__init__(SkillMastery, session)
 
-    async def get_for_topic(
+    async def get_for_lesson(
         self,
         user_id: uuid.UUID,
         unit_id: str,

@@ -2,7 +2,7 @@
 
 import uuid
 from typing import Literal
-from pydantic import BaseModel, Field, model_validator
+from pydantic import AliasChoices, BaseModel, Field, model_validator
 
 
 class LabeledValue(BaseModel):
@@ -78,7 +78,7 @@ class ProblemOutput(BaseModel):
     id: str
     title: str
     statement: str
-    topic: str
+    lesson: str = Field(validation_alias="topic")  # lesson name; alias for LLM/cache backward compat
     difficulty: Literal["easy", "medium", "hard"]
     level: int = Field(default=2, ge=1, le=3)
     # Set server-side after generation; not expected from the LLM.
@@ -101,7 +101,7 @@ class GenerateProblemRequest(BaseModel):
     user_id: uuid.UUID | None = None   # enables playlist tracking when provided
     unit_id: str
     lesson_index: int
-    topic_name: str
+    lesson_name: str  # human-readable lesson name
     difficulty: Literal["easy", "medium", "hard"] = "medium"
     level: int = Field(default=2, ge=1, le=3)
     interests: list[str] = Field(default_factory=list)
@@ -142,12 +142,12 @@ class ReferenceStepCard(BaseModel):
 
 class ReferenceCardOutput(BaseModel):
     """
-    Topic-level study reference card generated once by an LLM chain and
+    Lesson-level study reference card generated once by an LLM chain and
     persisted in the DB.  Returned as-is on subsequent requests.
 
     Design rule: no numbers, no worked examples — just the general method.
     """
-    topic: str
+    lesson: str = Field(validation_alias=AliasChoices("lesson", "topic"))  # lesson name; "topic" for DB/LLM compat
     unit_id: str
     lesson_index: int
     steps: list[ReferenceStepCard] = Field(min_length=3, max_length=5)

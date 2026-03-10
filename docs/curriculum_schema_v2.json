@@ -77,7 +77,8 @@
     "L-solutions-acids-bases-props": { "title": "Acids & Bases Properties",            "is_ap_only": false, "key_equations": ["pH + pOH = 14"] },
     "L-solutions-acid-base-calc":    { "title": "Acid-Base Calculations",              "is_ap_only": false, "key_equations": ["pH = -log[H⁺]"] },
     "L-solutions-beer-lambert":      { "title": "Beer-Lambert Law",                    "is_ap_only": true,  "key_equations": ["A = εlc"] },
-    "L-solutions-weak-acids":        { "title": "Weak Acids & Ka",                     "is_ap_only": true,  "key_equations": ["Ka = [H⁺][A⁻] / [HA]"] },
+    "L-solutions-weak-acids-pt1":    { "title": "Weak Acids (Part 1): Concepts & Ka",   "is_ap_only": true,  "key_equations": ["Ka = [H⁺][A⁻] / [HA]"] },
+    "L-solutions-weak-acids-pt2":    { "title": "Weak Acids (Part 2): ICE Table Calculations", "is_ap_only": true,  "key_equations": ["% ionization = ([H⁺]eq / [HA]₀) × 100"] },
     "L-solutions-buffers":           { "title": "Buffers & Henderson-Hasselbalch",     "is_ap_only": true,  "key_equations": ["pH = pKa + log([A⁻]/[HA])"] },
 
     "L-thermo-intro":                { "title": "Intro to Thermochemistry",            "is_ap_only": false, "key_equations": [] },
@@ -327,7 +328,8 @@
         "lesson_ids": [
           "L-solutions-acids-bases-props",
           "L-solutions-acid-base-calc",
-          "L-solutions-weak-acids",
+          "L-solutions-weak-acids-pt1",
+          "L-solutions-weak-acids-pt2",
           "L-ap-acid-kakb",
           "L-ap-acid-salt-hydrolysis",
           "L-ap-acid-buffers",

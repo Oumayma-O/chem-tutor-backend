@@ -800,4 +800,65 @@ FEW_SHOT_DATA: list[tuple[str, int, str, str, dict]] = [
             ],
         },
     ),
+
+    # ── 15. Recipe: molar mass (Level 3 — interactive for numeric steps, no drag_drop) ──
+    (
+        "unit-mole",
+        1,
+        "easy",
+        "recipe",
+        {
+            "title": "Finding the Molar Mass of Oxygen Gas",
+            "statement": (
+                "A sample of oxygen gas is written as $\\mathrm{O_2}$.\n\n"
+                "Use the atomic mass of oxygen as $16.00 \\text{ g/mol}$. "
+                "What is the molar mass of $\\mathrm{O_2}$?"
+            ),
+            "steps": [
+                {
+                    "label": "Goal / Setup",
+                    "type": "variable_id",
+                    "instruction": "Identify the formula and atomic mass values.",
+                    "explanation": "Extract the chemical formula and the mass from the text.",
+                    "labeledValues": [
+                        {"variable": "formula", "value": "$\\mathrm{O_2}$", "unit": ""},
+                        {"variable": "O atomic mass", "value": "$16.00$", "unit": "g/mol"},
+                    ],
+                    "skillUsed": "Identify conversion goal",
+                },
+                {
+                    "label": "Conversion Factors",
+                    "type": "interactive",
+                    "instruction": "State the number of oxygen atoms present.",
+                    "explanation": "The subscript 2 means two oxygen atoms are in $\\mathrm{O_2}$.",
+                    "correctAnswer": "2",
+                    "skillUsed": "Select conversion factors",
+                },
+                {
+                    "label": "Dimensional Setup",
+                    "type": "interactive",
+                    "instruction": "Write the arithmetic expression for the molar mass.",
+                    "explanation": "Multiply the number of atoms by the atomic mass.",
+                    "correctAnswer": "2 * 16.00",
+                    "skillUsed": "Set up dimensional analysis",
+                },
+                {
+                    "label": "Calculate",
+                    "type": "interactive",
+                    "instruction": "Compute the molar mass.",
+                    "explanation": "Multiply atoms by atomic mass to get total molar mass.",
+                    "correctAnswer": "32.00",
+                    "skillUsed": "Compute final answer with sig figs",
+                },
+                {
+                    "label": "Answer",
+                    "type": "interactive",
+                    "instruction": "Report the final molar mass with units.",
+                    "explanation": "Keep two decimal places from the given atomic mass.",
+                    "correctAnswer": "32.00 g/mol",
+                    "skillUsed": "Compute final answer with sig figs",
+                },
+            ],
+        },
+    ),
 ]

@@ -107,7 +107,7 @@ async def get_class_analytics(
     for r in mastery_records:
         lesson_groups.setdefault(r.lesson_index, []).append(r.mastery_score)
 
-    topic_breakdowns = [
+    lesson_breakdowns = [
         LessonBreakdown(
             lesson_index=li,
             avg_mastery=sum(scores) / len(scores),
@@ -147,7 +147,7 @@ async def get_class_analytics(
         at_risk_count=at_risk_count,
         error_frequency=dict(error_freq),
         top_misconceptions=top_misconceptions,
-        topic_breakdown=topic_breakdowns,
+        lesson_breakdown=lesson_breakdowns,
         students=student_summaries,
         ai_insights=ai_insights,
     )

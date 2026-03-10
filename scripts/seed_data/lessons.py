@@ -1421,16 +1421,25 @@ MASTER_LESSONS: dict[str, dict] = {
     "L-gas-van-der-waals": {
         "title": "Real Gases & van der Waals Equation",
         "blueprint": "lawyer",
-        "required_tools": ['calculator'],
+        "required_tools": ['periodic_table'], # Removed calculator, added PT to compare gas sizes/IMFs
         "is_ap_only": True,
         "key_equations": [
             "(P + a(n/V)²)(V − nb) = nRT",
         ],
-        "key_rules": [],
-        "misconceptions": [],
+        "key_rules": [
+            "Gases deviate from ideal behavior at HIGH pressures and LOW temperatures",
+            "The 'a' parameter corrects for intermolecular forces (attraction between particles)",
+            "The 'b' parameter corrects for the actual physical volume of the gas particles",
+            "Larger molecules and molecules with stronger IMFs deviate the most from ideal behavior"
+        ],
+        "misconceptions": [
+            "Gases are most ideal at high pressure (they are most ideal at LOW pressure)",
+            "The van der Waals equation is used to calculate exact pressures on the AP exam (it is only used conceptually)",
+            "All gases deviate equally from ideal behavior"
+        ],
         "objectives": [
             "Explain deviations of real gases from ideal behavior",
-            "Apply the van der Waals equation",
+            "Relate the 'a' and 'b' parameters to molecular size and IMFs",
         ],
         "extension_of": "L-gas-ideal",
         "canonical_unit": "ap-unit-3",
@@ -1804,23 +1813,61 @@ MASTER_LESSONS: dict[str, dict] = {
     # AP — Acids & Bases (ap-unit-8)
     # ══════════════════════════════════════════════════════
 
-    "L-solutions-weak-acids": {
-        "title": "Weak Acids & Percent Ionization",
-        "blueprint": "recipe",
-        "required_tools": ['calculator'],
+    "L-solutions-weak-acids-pt1": {
+        "title": "Weak Acids (Part 1): Concepts & Ka",
+        "blueprint": "solver",
+        "required_tools": ["calculator"],
         "is_ap_only": True,
-        "key_equations": [
+        "key_equations":[
             "Ka = [H⁺][A⁻] / [HA]",
-            "% ionization = ([H⁺]eq / [HA]₀) × 100",
         ],
-        "key_rules": [],
-        "misconceptions": [],
-        "objectives": [
+        "key_rules":[
+            "Weak acids only partially dissociate in water, establishing a dynamic equilibrium",
+            "Water (H₂O) is a pure liquid and is always omitted from the Ka expression",
+            "A larger Ka value indicates a stronger weak acid (greater extent of dissociation)",
+            "Acid strength refers to the degree of dissociation, while concentration refers to moles of solute per volume",
+        ],
+        "misconceptions":[
+            "A 'weak' acid is the same thing as a 'dilute' acid (e.g., concentrated acetic acid is still a weak acid)",
+            "Weak acids have a pH above 7 (they are still acidic, so pH is < 7)",
+            "The reaction of a weak acid in water goes to completion (it actually stops at equilibrium)",
+        ],
+        "objectives":[
+            "Define weak acids and contrast with strong acids",
             "Write Ka expressions for weak acids",
-            "Calculate pH of weak acid solutions using ICE",
+            "Interpret Ka magnitude (small Ka = weaker acid)",
         ],
         "canonical_unit": "ap-unit-8",
         "canonical_index": 2,
+    },
+
+    "L-solutions-weak-acids-pt2": {
+        "title": "Weak Acids (Part 2): ICE Table Calculations",
+        "blueprint": "recipe",
+        "required_tools": ["calculator"],
+        "is_ap_only": True,
+        "key_equations": [
+            "% ionization = ([H⁺]eq / [HA]₀) × 100",
+        ],
+        "key_rules":[
+            "ICE stands for Initial, Change, and Equilibrium concentrations",
+            "For a simple weak monoprotic acid in water, [H⁺] equals [A⁻] at equilibrium (represented as 'x')",
+            "The 'small x approximation' can be used if Ka is very small, allowing you to assume [HA]₀ − x ≈ [HA]₀",
+            "As a weak acid solution is diluted, its percent ionization increases (Le Châtelier's Principle)",
+        ],
+        "misconceptions":[
+            "Initial concentrations can be plugged directly into the Ka expression (only equilibrium values go into Ka)",
+            "Percent ionization is a constant value for a given acid (it actually changes based on the initial concentration)",
+            "Water's concentration should be tracked in the ICE table (it is a solvent and is ignored)",
+            "If you double the concentration of the weak acid, the [H⁺] doubles (it doesn't, because of the square root relationship in the Ka math)",
+        ],
+        "objectives":[
+            "Set up ICE tables for weak acid equilibria",
+            "Calculate pH of weak acid solutions using ICE",
+            "Calculate percent ionization",
+        ],
+        "canonical_unit": "ap-unit-8",
+        "canonical_index": 3,
     },
 
     "L-ap-acid-kakb": {
@@ -1838,7 +1885,7 @@ MASTER_LESSONS: dict[str, dict] = {
             "Calculate Kb from Ka and vice versa",
         ],
         "canonical_unit": "ap-unit-8",
-        "canonical_index": 3,
+        "canonical_index": 4,
     },
 
     "L-ap-acid-salt-hydrolysis": {
@@ -1854,7 +1901,7 @@ MASTER_LESSONS: dict[str, dict] = {
             "Calculate pH of a salt solution",
         ],
         "canonical_unit": "ap-unit-8",
-        "canonical_index": 4,
+        "canonical_index": 5,
     },
 
     "L-ap-acid-buffers": {
@@ -1882,7 +1929,7 @@ MASTER_LESSONS: dict[str, dict] = {
             "Calculate buffer pH using Henderson-Hasselbalch",
         ],
         "canonical_unit": "ap-unit-8",
-        "canonical_index": 5,
+        "canonical_index": 6,
     },
 
     "L-ap-acid-titration-curves": {
@@ -1898,7 +1945,7 @@ MASTER_LESSONS: dict[str, dict] = {
             "Identify the equivalence point and half-equivalence point",
         ],
         "canonical_unit": "ap-unit-8",
-        "canonical_index": 6,
+        "canonical_index": 7,
     },
 
     "L-ap-acid-polyprotic": {
@@ -1914,7 +1961,7 @@ MASTER_LESSONS: dict[str, dict] = {
             "Explain why Ka1 >> Ka2 >> Ka3",
         ],
         "canonical_unit": "ap-unit-8",
-        "canonical_index": 7,
+        "canonical_index": 8,
     },
 
     # ══════════════════════════════════════════════════════

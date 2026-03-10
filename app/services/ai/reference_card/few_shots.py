@@ -11,12 +11,12 @@ Keys in assistant JSON always use snake_case to match the Pydantic schema.
 _QUANTITATIVE: list[dict] = [
     {
         "human": (
-            "Generate a reference card for topic 'Zero-Order Kinetics' "
+            "Generate a reference card for lesson 'Zero-Order Kinetics' "
             "(unit_id='unit-solutions', lesson_index=0)."
         ),
         "assistant": """\
 {
-  "topic": "Zero-Order Kinetics",
+  "lesson": "Zero-Order Kinetics",
   "unit_id": "unit-solutions",
   "lesson_index": 0,
   "steps": [
@@ -30,12 +30,12 @@ _QUANTITATIVE: list[dict] = [
     },
     {
         "human": (
-            "Generate a reference card for topic 'Mole-to-Mole Stoichiometry' "
+            "Generate a reference card for lesson 'Mole-to-Mole Stoichiometry' "
             "(unit_id='unit-stoichiometry', lesson_index=0)."
         ),
         "assistant": """\
 {
-  "topic": "Mole-to-Mole Stoichiometry",
+  "lesson": "Mole-to-Mole Stoichiometry",
   "unit_id": "unit-stoichiometry",
   "lesson_index": 0,
   "steps": [
@@ -52,12 +52,12 @@ _QUANTITATIVE: list[dict] = [
 _CONCEPTUAL: list[dict] = [
     {
         "human": (
-            "Generate a reference card for topic 'Periodic Trends: Atomic Radius' "
+            "Generate a reference card for lesson 'Periodic Trends: Atomic Radius' "
             "(unit_id='unit-periodic-table', lesson_index=2)."
         ),
         "assistant": """\
 {
-  "topic": "Periodic Trends: Atomic Radius",
+  "lesson": "Periodic Trends: Atomic Radius",
   "unit_id": "unit-periodic-table",
   "lesson_index": 2,
   "steps": [
@@ -70,12 +70,12 @@ _CONCEPTUAL: list[dict] = [
     },
     {
         "human": (
-            "Generate a reference card for topic 'Types of Chemical Reactions' "
+            "Generate a reference card for lesson 'Types of Chemical Reactions' "
             "(unit_id='unit-chemical-reactions', lesson_index=0)."
         ),
         "assistant": """\
 {
-  "topic": "Types of Chemical Reactions",
+  "lesson": "Types of Chemical Reactions",
   "unit_id": "unit-chemical-reactions",
   "lesson_index": 0,
   "steps": [
@@ -91,12 +91,12 @@ _CONCEPTUAL: list[dict] = [
 _ANALYTICAL: list[dict] = [
     {
         "human": (
-            "Generate a reference card for topic 'Reading Reaction Rate Graphs' "
+            "Generate a reference card for lesson 'Reading Reaction Rate Graphs' "
             "(unit_id='ap-unit-5', lesson_index=1)."
         ),
         "assistant": """\
 {
-  "topic": "Reading Reaction Rate Graphs",
+  "lesson": "Reading Reaction Rate Graphs",
   "unit_id": "ap-unit-5",
   "lesson_index": 1,
   "steps": [

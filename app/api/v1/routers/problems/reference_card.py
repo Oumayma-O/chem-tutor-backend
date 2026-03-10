@@ -1,16 +1,19 @@
 """
 GET /problems/reference-card
 
-Returns a conceptual "fiche de cours" for a topic.
+Returns a conceptual "fiche de cours" for a lesson.
 
-Cache strategy:
-  1. Look up the topic row — if reference_card_json is populated, return it immediately.
-  2. Otherwise call the LLM chain, persist the result, and return it.
+Cache strategy (fetch-or-generate):
+  1. 404 immediately if (unit_id, lesson_index) has no corresponding Lesson row.
+     Reference cards must not be generated for ghost/non-existent lessons.
+  2. If Lesson.reference_card_json is populated, return it instantly (< 5 ms).
+  3. Otherwise call the LLM, persist the card on the Lesson row, and return it.
 
-The card is generated ONCE per topic and never regenerated automatically.
+The card lives directly on the Lesson row (1-to-1 relationship). Cascade delete
+is handled automatically — deleting a Lesson removes its reference card too.
 """
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.domain.schemas.tutor.problems import ReferenceCardOutput
@@ -23,43 +26,50 @@ router = APIRouter()
 
 @router.get("/reference-card", response_model=ReferenceCardOutput)
 async def get_reference_card(
-    unit_id: str,
-    lesson_index: int,
-    topic_name: str,
+    unit_id: str = Query(..., description="Unit slug, e.g. ap-unit-1"),
+    lesson_index: int = Query(..., description="0-based lesson index within the unit"),
+    lesson_name: str = Query(..., description="Human-readable lesson name for first-time generation"),
     db: AsyncSession = Depends(get_db),
 ) -> ReferenceCardOutput:
     """
     Return the study reference card for a lesson.
 
-    - If the card is already cached in the DB it is returned instantly (< 5 ms).
-    - On first call for a lesson the LLM generates it (~2 s) and it is persisted.
+    - 404 if lesson does not exist (no ghost generation).
+    - Cache hit  → returned instantly from Lesson.reference_card_json (< 5 ms).
+    - Cache miss → LLM generates it (~2 s), persisted on the Lesson row, then returned.
 
     Query params:
       unit_id      — unit slug, e.g. `unit-gas-laws`
       lesson_index — 0-based lesson index within the unit
-      topic_name   — human-readable name used only when generating (e.g. `Boyle's Law`)
+      lesson_name  — human-readable name used only on first generation (e.g. `Boyle's Law`)
     """
     repo = LessonRepository(db)
     lesson = await repo.get_by_index(unit_id, lesson_index)
 
-    # ── Cache hit ──────────────────────────────────────────────
-    if lesson is not None and lesson.reference_card_json:
+    # ── 1. Guard: no lesson → no card ─────────────────────────
+    if lesson is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Lesson not found for unit '{unit_id}', index {lesson_index}.",
+        )
+
+    # ── 2. Cache hit: card already stored on the lesson row ───
+    if lesson.reference_card_json:
         return ReferenceCardOutput.model_validate(lesson.reference_card_json)
 
-    # ── LLM generation ────────────────────────────────────────
-    key_equations: list[str] = (lesson.key_equations or []) if lesson else []
+    # ── 3. LLM generation ─────────────────────────────────────
+    key_equations: list[str] = lesson.key_equations or []
     lesson_blueprint: str = getattr(lesson, "blueprint", None) or "solver"
 
     card = await generate_reference_card(
-        topic_name=topic_name,
+        lesson_name=lesson_name,
         unit_id=unit_id,
         lesson_index=lesson_index,
         key_equations=key_equations if key_equations else None,
         blueprint=lesson_blueprint,
     )
 
-    # Persist if the lesson row exists in the DB
-    if lesson is not None:
-        await repo.save_reference_card(unit_id, lesson_index, card.model_dump())
+    # ── 4. Persist on the lesson row (cascade delete is free) ─
+    await repo.save_reference_card(unit_id, lesson_index, card.model_dump())
 
     return card

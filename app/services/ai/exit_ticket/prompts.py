@@ -11,7 +11,7 @@ RULES:
 - Use simple numbers (max 3 sig figs)
 - Difficulty "{difficulty}": easy=basic recall, medium=application, hard=multi-step
 
-Topic: {topic_name}
+Lesson: {lesson_name}
 Chapter: {chapter_id}
 {grade_block}
 {lesson_guidance_block}"""

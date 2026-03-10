@@ -63,7 +63,7 @@ class ProblemDeliveryService:
         *,
         unit_id: str,
         lesson_index: int,
-        topic_name: str,
+        lesson_name: str,
         level: int,
         difficulty: str,
         lesson_context: dict | None,
@@ -77,7 +77,7 @@ class ProblemDeliveryService:
         return await self._gen.generate(
             unit_id=unit_id,
             lesson_index=lesson_index,
-            topic_name=topic_name,
+            lesson_name=lesson_name,
             level=level,  # type: ignore[arg-type]
             difficulty=difficulty,  # type: ignore[arg-type]
             interests=interests,
@@ -108,13 +108,13 @@ class ProblemDeliveryService:
             return enforce_step_types(problem, 1)
 
         lesson, lesson_context = await self._load_lesson_and_context(unit_id, lesson_index)
-        topic_name = lesson.title if lesson else ""
+        lesson_name = lesson.title if lesson else ""
         lesson_blueprint = getattr(lesson, "blueprint", None) or "solver"
 
         problem = await self._generate_problem(
             unit_id=unit_id,
             lesson_index=lesson_index,
-            topic_name=topic_name,
+            lesson_name=lesson_name,
             level=1,
             difficulty="medium",
             lesson_context=lesson_context,
@@ -125,7 +125,7 @@ class ProblemDeliveryService:
         stub_req = GenerateProblemRequest(
             unit_id=unit_id,
             lesson_index=lesson_index,
-            topic_name=topic_name,
+            lesson_name=lesson_name,
             difficulty="medium",
             level=1,
         )
@@ -148,7 +148,7 @@ class ProblemDeliveryService:
         # L1 (worked examples) always uses "medium"; no mastery tracking there.
         effective_difficulty = req.difficulty
         if req.user_id and req.level >= 2:
-            mastery_record = await MasteryRepository(self._db).get_for_topic(
+            mastery_record = await MasteryRepository(self._db).get_for_lesson(
                 req.user_id, req.unit_id, req.lesson_index
             )
             if mastery_record:
@@ -204,7 +204,7 @@ class ProblemDeliveryService:
             problem = await self._generate_problem(
                 unit_id=req.unit_id,
                 lesson_index=req.lesson_index,
-                topic_name=req.topic_name,
+                lesson_name=req.lesson_name,
                 level=req.level,
                 difficulty=effective_difficulty,
                 interests=req.interests or None,
@@ -306,7 +306,7 @@ async def _backfill_cache(
         problem = await gen_service.generate(
             unit_id=req.unit_id,
             lesson_index=req.lesson_index,
-            topic_name=req.topic_name,
+            lesson_name=req.lesson_name,
             level=1,
             difficulty=req.difficulty,
             interests=[context_tag] if context_tag else None,

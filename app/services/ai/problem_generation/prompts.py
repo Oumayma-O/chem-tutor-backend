@@ -158,7 +158,11 @@ You MUST choose the `type` for each step based on what the student is doing:
    - Populate "comparisonParts" with EXACTLY 2 strings. Set "correctAnswer" to "<", ">", or "=".
 
 3. type="drag_drop"
-   - WHEN: A step requires assembling a full equation or formula (primarily Level 3).
+   - WHEN: A step requires assembling a full SYMBOLIC equation or formula using variable/operator
+     tokens (e.g. ["P_1", "V_1", "=", "P_2", "V_2"] or ["[A]_t", "=", "[A]_0", "-", "k", "*", "t"]).
+   - NEVER use drag_drop when any token is a plain NUMBER (e.g. ["2", "*", "16.00"] is WRONG).
+     If the step involves numeric substitution or arithmetic, force type to "interactive" so the
+     student types the expression directly.
    - Populate "equationParts". Leave "correctAnswer" null.
 
 4. type="given" or type="interactive"
@@ -175,7 +179,7 @@ You MUST choose the `type` for each step based on what the student is doing:
 GENERATE_PROBLEM_SYSTEM = """\
 You are an expert Chemistry tutor generating a {difficulty} problem.
 
-Generate a {difficulty} problem for {topic_name}.
+Generate a {difficulty} problem for {lesson_name}.
 
 BLUEPRINT for {blueprint}:
 - Step Labels (use EXACTLY one per step, in order): {labels_block}

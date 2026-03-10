@@ -92,7 +92,7 @@ class MasteryService:
         l2_scores, l3_scores = await self._fetch_band_scores(user_id, unit_id, lesson_index)
 
         # Load or create mastery record
-        mastery_record = await self._mastery.get_for_topic(user_id, unit_id, lesson_index)
+        mastery_record = await self._mastery.get_for_lesson(user_id, unit_id, lesson_index)
         if mastery_record is None:
             mastery_record = SkillMastery(
                 id=uuid.uuid4(),
@@ -194,7 +194,7 @@ class MasteryService:
 
         await self._attempts.update_step_log(attempt_id, step_log)
 
-        mastery_record = await self._mastery.get_for_topic(
+        mastery_record = await self._mastery.get_for_lesson(
             attempt.user_id, attempt.unit_id, attempt.lesson_index
         )
         if mastery_record is None:
@@ -253,7 +253,7 @@ class MasteryService:
         unit_id: str,
         lesson_index: int,
     ) -> MasteryState | None:
-        record = await self._mastery.get_for_topic(user_id, unit_id, lesson_index)
+        record = await self._mastery.get_for_lesson(user_id, unit_id, lesson_index)
         if record is None:
             return None
         return _to_mastery_state(record, settings.l3_mastery_ceiling)
@@ -294,7 +294,7 @@ class MasteryService:
     ) -> None:
         """Permanently latch Level 3 unlocked for a student/lesson. One-way — cannot be reversed."""
         now = datetime.utcnow()
-        existing = await self._mastery.get_for_topic(user_id, unit_id, lesson_index)
+        existing = await self._mastery.get_for_lesson(user_id, unit_id, lesson_index)
         if existing is None:
             await self._mastery.upsert(SkillMastery(
                 id=uuid.uuid4(),
@@ -490,13 +490,36 @@ def _feedback_message(
     return f"Keep going — you need {remaining:.0%} more to advance."
 
 
+def _category_average(category_scores: dict) -> float:
+    """Average of the four category scores (0–1). Used when band-based mastery is 0."""
+    keys = ("conceptual", "procedural", "computational", "representation")
+    values = [float(category_scores.get(k, 0.0)) for k in keys]
+    return round(sum(values) / len(values), 4) if values else 0.0
+
+
+def _effective_mastery_score(mastery_score: float, category_scores: dict | None) -> float:
+    """
+    Overall mastery score for API responses.
+
+    When the band-based mastery_score is 0 but category_scores are present (e.g. after
+    unlocking Level 3 with in-progress category updates), derive overall from the
+    category average so the UI shows a consistent Mastery Score.
+    """
+    if mastery_score > 0:
+        return mastery_score
+    cat = category_scores or {}
+    avg = _category_average(cat)
+    return avg if avg > 0 else mastery_score
+
+
 def _to_mastery_state(record: SkillMastery, threshold: float) -> MasteryState:
     cat = record.category_scores or {}
+    effective = _effective_mastery_score(record.mastery_score, record.category_scores)
     return MasteryState(
         user_id=record.user_id,
         unit_id=record.unit_id,
         lesson_index=record.lesson_index,
-        mastery_score=record.mastery_score,
+        mastery_score=effective,
         attempts_count=record.attempts_count,
         consecutive_correct=record.consecutive_correct,
         current_difficulty=record.current_difficulty,
@@ -509,9 +532,9 @@ def _to_mastery_state(record: SkillMastery, threshold: float) -> MasteryState:
             representation=cat.get("representation", 0.0),
         ),
         updated_at=record.updated_at,
-        has_mastered=record.mastery_score >= threshold,
+        has_mastered=effective >= threshold,
         level3_unlocked=record.level3_unlocked,
         level3_unlocked_at=record.level3_unlocked_at,
-        should_advance=record.mastery_score >= threshold,
+        should_advance=effective >= threshold,
         recommended_difficulty=record.current_difficulty,
     )

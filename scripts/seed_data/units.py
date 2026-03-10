@@ -146,7 +146,7 @@ AP_UNITS: list[dict] = [
         "id": "ap-unit-8", "sort_order": 8,
         "title": "Acids & Bases", "icon": "🧪",
         "description": "Acid-base properties, pH, weak acids, Ka/Kb, buffers, titration curves, and polyprotic acids.",
-        "lesson_ids": ["L-solutions-acids-bases-props", "L-solutions-acid-base-calc", "L-solutions-weak-acids", "L-ap-acid-kakb", "L-ap-acid-salt-hydrolysis", "L-ap-acid-buffers", "L-ap-acid-titration-curves", "L-ap-acid-polyprotic"],
+        "lesson_ids": ["L-solutions-acids-bases-props", "L-solutions-acid-base-calc", "L-solutions-weak-acids-pt1", "L-solutions-weak-acids-pt2", "L-ap-acid-kakb", "L-ap-acid-salt-hydrolysis", "L-ap-acid-buffers", "L-ap-acid-titration-curves", "L-ap-acid-polyprotic"],
     },
     {
         "id": "ap-unit-9", "sort_order": 9,

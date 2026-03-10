@@ -22,7 +22,7 @@ class ExitTicketService:
     @_retry
     async def generate(
         self,
-        topic_name: str,
+        lesson_name: str,
         unit_id: str,
         errors_summary: list[dict] | None = None,
         grade_level: str | None = None,
@@ -33,10 +33,10 @@ class ExitTicketService:
             lesson_guidance_block=build_lesson_guidance_block(lesson_context),
             question_count=3,
             difficulty="medium",
-            topic_name=topic_name,
+            lesson_name=lesson_name,
             chapter_id=unit_id,
         )
-        user_msg = f"Topic: {topic_name} (Unit: {unit_id})"
+        user_msg = f"Lesson: {lesson_name} (Unit: {unit_id})"
         if errors_summary:
             user_msg += f"\nCommon errors to address: {errors_summary}"
         user_msg += "\n\nGenerate 3 exit-ticket questions."
@@ -46,7 +46,7 @@ class ExitTicketService:
             {"role": "user", "content": user_msg},
         ]
         result: ExitTicketOutput = await generate_structured(messages, ExitTicketOutput, temperature=0.4)
-        logger.info("exit_ticket_generated", topic=topic_name, unit=unit_id)
+        logger.info("exit_ticket_generated", lesson=lesson_name, unit=unit_id)
         return result
 
 

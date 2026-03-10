@@ -3,8 +3,8 @@ Problems sub-package — all /problems/* endpoints.
 
   POST /problems/generate          — cache-aware problem delivery (L1/L2/L3)
   POST /problems/navigate          — prev/next through a student's playlist
-  GET  /problems/reference         — Level 1 worked example for the topic (reference panel)
-  GET  /problems/reference-card    — conceptual fiche de cours for a topic
+  GET  /problems/reference         — Level 1 worked example for the lesson (reference panel)
+  GET  /problems/reference-card    — conceptual fiche de cours for a lesson
   POST /problems/validate-step     — check one step answer
   POST /problems/hint              — get a scaffolded hint for a step
   POST /problems/classify-thinking — error classification / Thinking Tracker

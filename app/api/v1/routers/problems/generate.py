@@ -81,3 +81,4 @@ async def generate_problem(
         if get_settings().environment == "development":
             detail += f" Backend: {type(exc).__name__}: {str(exc)[:200]}"
         raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail=detail)
+

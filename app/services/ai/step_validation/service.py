@@ -77,7 +77,11 @@ class StepValidationService:
                 validation_method="local_numeric",
             )
 
-        return await self._llm_validate(student_answer, correct_answer, step_label, problem_context or "")
+        try:
+            return await self._llm_validate(student_answer, correct_answer, step_label, problem_context or "")
+        except Exception as exc:
+            logger.warning("llm_validate_failed_fallback", error=str(exc))
+            return _check_string(student_answer, correct_answer, "string_fallback")
 
     @_retry
     async def _llm_validate(
@@ -89,7 +93,9 @@ class StepValidationService:
             )},
             {"role": "user", "content": f'Student: "{student_answer}"\nCorrect: "{correct_answer}"\nAre these equivalent?'},
         ]
-        out: ValidationOutput = await generate_structured(messages, ValidationOutput, temperature=0.0, fast=True)
+        out: ValidationOutput | None = await generate_structured(messages, ValidationOutput, temperature=0.0, fast=True)
+        if out is None:
+            raise ValueError("LLM returned no structured output for validation")
         out.validation_method = "llm"
         return out
 
@@ -122,9 +128,10 @@ def _check_variable_id(student: str, correct: str) -> ValidationOutput:
     return ValidationOutput(is_correct=True, validation_method="variable_id")
 
 
-def _try_float(s: str) -> float | None:
+def _try_float(s: str) -> str | None:
+    """Parse numeric string; return as str (matches ValidationOutput.student_value type)."""
     try:
-        return float(s.strip())
+        return str(float(s.strip()))
     except ValueError:
         return None
 

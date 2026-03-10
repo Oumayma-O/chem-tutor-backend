@@ -1,0 +1,192 @@
+"""
+Deterministic Markdown/LaTeX sanitizer for LLM-generated problem JSON.
+
+Pipeline: LLM → structured JSON → normalize_and_validate_problem() → safe for React/KaTeX.
+
+Fixes applied to every string:
+- Unbracketed exponents: 10^23 → 10^{23}
+- Orphaned \\text: \\textamu → \\text{amu}
+- Orphaned \\mathrm: \\mathrmMg → \\mathrm{Mg}, \\mathrmH2O → \\mathrm{H2O}
+- Illegal chars: raw tabs, ANSI escape codes, null bytes
+- Math wrappers: \\( and \\) → $
+- KaTeX dry-run: balanced braces in math blocks, no forbidden commands (e.g. \\align)
+"""
+
+import re
+from typing import Any
+
+
+# ── String-level fixes ─────────────────────────────────────────────────────
+
+# Unbracketed exponent: 10^23 → 10^{23}, 10^n → 10^{n} (skip if already 10^{...})
+_RE_EXP_DIGITS = re.compile(r"(\d+)\^(\d+)(?!\s*\{)")
+_RE_EXP_LETTER = re.compile(r"(\d+)\^([a-zA-Z])(?!\s*\{)")
+def _fix_unbracketed_exponents(s: str) -> str:
+    s = _RE_EXP_DIGITS.sub(r"\1^{\2}", s)
+    s = _RE_EXP_LETTER.sub(r"\1^{\2}", s)
+    return s
+
+
+# Orphaned \text: \textamu → \text{amu} (when not already \text{...})
+_RE_ORPHAN_TEXT = re.compile(r"\\text([a-zA-Z][a-zA-Z0-9_]*)")
+def _fix_orphan_text(s: str) -> str:
+    return _RE_ORPHAN_TEXT.sub(r"\\text{\1}", s)
+
+
+# Orphaned \mathrm: \mathrmMg → \mathrm{Mg} (when not already \mathrm{...})
+_RE_ORPHAN_MATHRM = re.compile(r"\\mathrm([a-zA-Z][a-zA-Z0-9_]*)")
+def _fix_orphan_mathrm(s: str) -> str:
+    return _RE_ORPHAN_MATHRM.sub(r"\\mathrm{\1}", s)
+
+
+# Unclosed \mathrm{: $\mathrm{Mg}$ (missing }) → $\mathrm{Mg}$
+_RE_UNCLOSED_MATHRM = re.compile(r"\\mathrm\{([a-zA-Z0-9_]+)(?=\$|\Z)")
+def _fix_unclosed_mathrm(s: str) -> str:
+    return _RE_UNCLOSED_MATHRM.sub(r"\\mathrm{\1}", s)
+
+
+# ANSI escape and control chars
+_RE_ANSI = re.compile(r"\x1b\[[0-9;]*[a-zA-Z]?")
+_RE_CONTROL = re.compile(r"[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]")
+def _strip_illegal_chars(s: str) -> str:
+    s = s.replace("\t", " ")
+    s = _RE_ANSI.sub("", s)
+    s = _RE_CONTROL.sub("", s)
+    return s
+
+
+# Normalize \( and \) to $ (inline math)
+def _normalize_math_wrappers(s: str) -> str:
+    s = s.replace("\\(", "$").replace("\\)", "$")
+    return s
+
+
+def _normalize_string(s: str) -> str:
+    """Apply all deterministic string fixes. Idempotent-friendly."""
+    if not isinstance(s, str) or not s:
+        return s
+    s = _strip_illegal_chars(s)
+    s = _fix_unbracketed_exponents(s)
+    s = _fix_orphan_text(s)
+    s = _fix_orphan_mathrm(s)
+    s = _fix_unclosed_mathrm(s)
+    s = _normalize_math_wrappers(s)
+    return s
+
+
+# ── Recursive walk ─────────────────────────────────────────────────────────
+
+def _recursive_normalize(obj: Any) -> Any:
+    """Recursively process dict/list and normalize every string value."""
+    if isinstance(obj, str):
+        return _normalize_string(obj)
+    if isinstance(obj, dict):
+        return {k: _recursive_normalize(v) for k, v in obj.items()}
+    if isinstance(obj, list):
+        return [_recursive_normalize(item) for item in obj]
+    return obj
+
+
+# ── KaTeX dry-run validator ────────────────────────────────────────────────
+
+# Forbidden commands that often break KaTeX or are display-only
+_KATEX_FORBIDDEN = re.compile(
+    r"\\(?:align|aligned|begin|end|label|ref|cite|tag)\b",
+    re.IGNORECASE,
+)
+
+def _balanced_braces(s: str) -> bool:
+    """Return True if curly braces are balanced (ignoring escaped and inside $...$ content)."""
+    depth = 0
+    i = 0
+    while i < len(s):
+        if s[i] == "\\" and i + 1 < len(s):
+            i += 2
+            continue
+        if s[i] == "{":
+            depth += 1
+        elif s[i] == "}":
+            depth -= 1
+            if depth < 0:
+                return False
+        i += 1
+    return depth == 0
+
+
+def _extract_math_blocks(s: str) -> list[str]:
+    """Extract content of $...$ and $$...$$ blocks (non-greedy)."""
+    blocks: list[str] = []
+    # $$...$$ first (block)
+    for m in re.finditer(r"\$\$([^$]*)\$\$", s):
+        blocks.append(m.group(1))
+    # $...$ (inline)
+    for m in re.finditer(r"\$([^$]*)\$", s):
+        blocks.append(m.group(1))
+    return blocks
+
+
+def validate_math_blocks(s: str) -> tuple[bool, str]:
+    """
+    Lightweight KaTeX dry-run: balanced braces and no forbidden commands.
+    Returns (ok, message). If ok is False, message describes the issue.
+    """
+    if not s:
+        return True, ""
+    for block in _extract_math_blocks(s):
+        if not _balanced_braces(block):
+            return False, f"Unbalanced braces in math block: ...{block[:50]}..."
+        if _KATEX_FORBIDDEN.search(block):
+            return False, f"Forbidden LaTeX command in math block: ...{block[:50]}..."
+    return True, ""
+
+
+def _recursive_validate_math(obj: Any, path: str = "") -> tuple[bool, str]:
+    """Recursively validate all string values for math blocks."""
+    if isinstance(obj, str):
+        ok, msg = validate_math_blocks(obj)
+        if not ok:
+            return False, f"{path}: {msg}"
+        return True, ""
+    if isinstance(obj, dict):
+        for k, v in obj.items():
+            ok, msg = _recursive_validate_math(v, f"{path}.{k}" if path else k)
+            if not ok:
+                return False, msg
+        return True, ""
+    if isinstance(obj, list):
+        for i, item in enumerate(obj):
+            ok, msg = _recursive_validate_math(item, f"{path}[{i}]")
+            if not ok:
+                return False, msg
+        return True, ""
+    return True, ""
+
+
+# ── Public API ──────────────────────────────────────────────────────────────
+
+def normalize_and_validate_problem(problem_dict: dict) -> dict:
+    """
+    Recursively normalize every string in the problem JSON and run a lightweight
+    KaTeX dry-run validation. Safe for React Markdown/KaTeX frontend.
+
+    - Fixes unbracketed exponents (10^23 → 10^{23}), orphaned \\text, tabs/ANSI,
+      and normalizes \\( \\) to $.
+    - Validates that math blocks have balanced braces and no forbidden commands.
+
+    Raises ValueError if validation fails.
+    Returns the normalized dict (new object; does not mutate input).
+    """
+    normalized = _recursive_normalize(problem_dict)
+
+    # Optional: trim step labels "Label A | Label B" → "Label A"
+    steps = normalized.get("steps") or []
+    for step in steps:
+        if isinstance(step, dict) and "label" in step and isinstance(step["label"], str):
+            if " | " in step["label"]:
+                step["label"] = step["label"].split(" | ")[0].strip()
+
+    ok, msg = _recursive_validate_math(normalized)
+    if not ok:
+        raise ValueError(f"Markdown/LaTeX validation failed: {msg}")
+
+    return normalized

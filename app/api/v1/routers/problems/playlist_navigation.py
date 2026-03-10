@@ -48,7 +48,7 @@ async def navigate_problem(
     if not playlist or not playlist.problems:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail="No problems found for this topic. Call /generate first.",
+            detail="No problems found for this lesson. Call /generate first.",
         )
 
     total = len(playlist.problems)
