@@ -21,7 +21,10 @@ class Settings(BaseSettings):
     environment: Literal["development", "staging", "production"] = "development"
     log_level: str = "info"
     api_v1_prefix: str = "/api/v1"
-    allowed_origins: list[str] = Field(default_factory=lambda: ["https://your-domain.com"])
+    allowed_origins: list[str] = Field(
+        default_factory=lambda: ["https://chem-tutor-frontend.vercel.app"],
+        description="CORS allowed origins (set ALLOWED_ORIGINS as JSON array on Render)",
+    )
 
     # ── Database ─────────────────────────────────────────────
     database_url: str = "postgresql+asyncpg://chem_user:chem_pass@localhost:5433/chem_db"

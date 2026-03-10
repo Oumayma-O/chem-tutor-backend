@@ -507,4 +507,297 @@ FEW_SHOT_DATA: list[tuple[str, int, str, str, dict]] = [
             ],
         },
     ),
+    # ── 10. Lawyer: thermochem — calculating q_surr and q_system ─────────────
+    (
+        "unit-thermochem",
+        1,
+        "medium",
+        "lawyer",
+        {
+            "title": "Heat Flow in Dissolving Ammonium Nitrate",
+            "statement": (
+                "A student dissolves $8.00 \\text{ g}$ of $\\mathrm{NH_4NO_3}$ in water inside a coffee-cup calorimeter. "
+                "The solution temperature drops from $25.0^\\circ\\text{C}$ to $19.5^\\circ\\text{C}$.\n\n"
+                "Assume the solution has a mass of $100.0 \\text{ g}$ and a specific heat capacity of $4.18 \\text{ J/(g }^\\circ\\text{C)}$. "
+                "Determine whether the dissolving is endothermic or exothermic, and calculate $q_{\\text{system}}$ in $\\text{kJ}$."
+            ),
+            "steps": [
+                {
+                    "label": "Concept ID",
+                    "type": "given",
+                    "instruction": "Identify the system and surroundings.",
+                    "explanation": "The dissolving salt is the system; the solution (water) acts as the surroundings.",
+                    "correctAnswer": "System: NH4NO3, Surr: Water",
+                    "skillUsed": "Define system and surroundings",
+                },
+                {
+                    "label": "Relation",
+                    "type": "given",
+                    "instruction": "Compare initial and final temperatures.",
+                    "explanation": "Since $19.5^\\circ\\text{C} < 25.0^\\circ\\text{C}$, the surroundings cooled down.",
+                    "correctAnswer": "19.5 < 25.0",
+                    "skillUsed": "Identify direction of heat flow",
+                },
+                {
+                    "label": "Evidence / Claim",
+                    "type": "interactive",
+                    "instruction": "Calculate $q_{\\text{surr}}$ in joules.",
+                    "explanation": "Using $q = mc\\Delta T$: $(100.0)(4.18)(19.5 - 25.0) = -2299 \\text{ J}$.",
+                    "correctAnswer": "-2299",
+                    "skillUsed": "Perform calorimetry calculations",
+                },
+                {
+                    "label": "Conclusion",
+                    "type": "interactive",
+                    "instruction": "State the process type and find $q_{\\text{system}}$ in kJ.",
+                    "explanation": "$q_{\\text{system}} = -q_{\\text{surr}} = +2299 \\text{ J}$, which is $2.30 \\text{ kJ}$. Positive means endothermic.",
+                    "correctAnswer": "endothermic, 2.30",
+                    "skillUsed": "Distinguish endothermic and exothermic",
+                },
+            ],
+        },
+    ),
+    # ── 11. Lawyer: thermochem — classifying heat flow (NH4NO3) ───────────────
+    (
+        "unit-thermochem",
+        0,
+        "medium",
+        "lawyer",
+        {
+            "title": "Classifying Heat Flow in a Dissolving Process",
+            "statement": (
+                "In an AP Chemistry lab, a student dissolves $\\mathrm{NH_4NO_3}$ in water inside a coffee-cup calorimeter. "
+                "During the process, the temperature of the solution drops from $25.0^\\circ\\text{C}$ to $19.5^\\circ\\text{C}$.\n\n"
+                "Treat the dissolving chemicals as the system and the water plus calorimeter as the surroundings. "
+                "Identify the system and surroundings, compare their heat flow signs, and determine if the process is endothermic or exothermic."
+            ),
+            "steps": [
+                {
+                    "label": "Concept ID",
+                    "type": "variable_id",
+                    "instruction": "List the system and surroundings.",
+                    "explanation": "The chemicals dissolving are the system; water and calorimeter are surroundings.",
+                    "labeledValues": [
+                        {"variable": "System", "value": "$\\mathrm{NH_4NO_3}$ dissolving in water", "unit": ""},
+                        {"variable": "Surroundings", "value": "water and calorimeter", "unit": ""},
+                    ],
+                    "skillUsed": "Define system and surroundings",
+                },
+                {
+                    "label": "Relation",
+                    "type": "comparison",
+                    "instruction": "Compare $q_{\\text{system}}$ and $q_{\\text{surr}}$.",
+                    "explanation": "Heat lost by the surroundings equals heat gained by the system, so their signs are opposite but magnitudes are equal.",
+                    "comparisonParts": [
+                        "$q_{\\text{system}}$",
+                        "$-q_{\\text{surr}}$",
+                    ],
+                    "correctAnswer": "=",
+                    "skillUsed": "Apply conservation of energy",
+                },
+                {
+                    "label": "Evidence / Claim",
+                    "type": "interactive",
+                    "instruction": "Determine the sign of $q_{\\text{system}}$.",
+                    "explanation": "Because the surroundings got colder, heat moved into the system, making $q_{\\text{system}}$ positive.",
+                    "correctAnswer": "positive",
+                    "skillUsed": "Identify direction of heat flow",
+                },
+                {
+                    "label": "Conclusion",
+                    "type": "interactive",
+                    "instruction": "Classify the dissolving process.",
+                    "explanation": "Processes that absorb heat (positive $q$) are endothermic.",
+                    "correctAnswer": "endothermic",
+                    "skillUsed": "Distinguish endothermic from exothermic processes",
+                },
+            ],
+        },
+    ),
+    # ── 12. Lawyer: thermochem — exothermic acid-base (HCl + NaOH) ───────────
+    (
+        "unit-thermochem",
+        0,
+        "medium",
+        "lawyer",
+        {
+            "title": "Exothermic Acid-Base Neutralization",
+            "statement": (
+                "A student mixes hydrochloric acid ($\\mathrm{HCl}$) and sodium hydroxide ($\\mathrm{NaOH}$) in a coffee-cup calorimeter. "
+                "During the reaction, the temperature of the water rises from $22.4^\\circ\\text{C}$ to $28.9^\\circ\\text{C}$.\n\n"
+                "Treat the reacting ions as the system. Is the reaction endothermic or exothermic, and what is the sign of $q_{\\text{system}}$?"
+            ),
+            "steps": [
+                {
+                    "label": "Concept ID",
+                    "type": "variable_id",
+                    "instruction": "Identify the system and surroundings.",
+                    "explanation": "The chemical reaction is the system; the surrounding water in the cup is the surroundings.",
+                    "labeledValues": [
+                        {"variable": "System", "value": "$\\mathrm{HCl}$ and $\\mathrm{NaOH}$ reacting", "unit": ""},
+                        {"variable": "Surroundings", "value": "solution water in the cup", "unit": ""},
+                    ],
+                    "skillUsed": "Define system and surroundings",
+                },
+                {
+                    "label": "Relation",
+                    "type": "comparison",
+                    "instruction": "Compare final and initial surroundings temperatures.",
+                    "explanation": "The final temperature ($28.9^\\circ\\text{C}$) is greater than the initial temperature ($22.4^\\circ\\text{C}$).",
+                    "comparisonParts": [
+                        "Final Temperature",
+                        "Initial Temperature",
+                    ],
+                    "correctAnswer": ">",
+                    "skillUsed": "Identify direction of heat flow",
+                },
+                {
+                    "label": "Evidence / Claim",
+                    "type": "interactive",
+                    "instruction": "Classify the process by heat flow.",
+                    "explanation": "Because the surroundings warmed up, the system must have released heat.",
+                    "correctAnswer": "exothermic",
+                    "skillUsed": "Distinguish endothermic from exothermic processes",
+                },
+                {
+                    "label": "Conclusion",
+                    "type": "interactive",
+                    "instruction": "State the sign of $q_{\\text{system}}$.",
+                    "explanation": "Exothermic reactions lose heat to the surroundings, meaning $q_{\\text{system}}$ is negative.",
+                    "correctAnswer": "negative",
+                    "skillUsed": "Distinguish endothermic from exothermic processes",
+                },
+            ],
+        },
+    ),
+    # ── 13. Recipe: mole — mass to formula units (CaCl2), sci notation ───────
+    (
+        "unit-mole",
+        2,
+        "medium",
+        "recipe",
+        {
+            "title": "Particles from a Sample of Calcium Chloride",
+            "statement": (
+                "In a chemistry lab, a student measures a sample of calcium chloride, $\\mathrm{CaCl_2}$.\n\n"
+                "The sample has a mass of $11.1 \\text{ g}$. Use atomic masses $\\mathrm{Ca} = 40.08 \\text{ g/mol}$ and "
+                "$\\mathrm{Cl} = 35.45 \\text{ g/mol}$. Avogadro's number is $6.022 \\times 10^{23}$.\n\n"
+                "How many formula units (individual particles) of $\\mathrm{CaCl_2}$ are in the sample?"
+            ),
+            "steps": [
+                {
+                    "label": "Goal / Setup",
+                    "type": "given",
+                    "instruction": "Identify the starting value and target unit.",
+                    "explanation": "We need to convert the given mass ($11.1 \\text{ g}$) into particles, called formula units.",
+                    "correctAnswer": "11.1 g to formula units",
+                    "skillUsed": "Identify conversion goal",
+                },
+                {
+                    "label": "Conversion Factors",
+                    "type": "given",
+                    "instruction": "Find the molar mass of calcium chloride.",
+                    "explanation": "$\\mathrm{Ca} + 2(\\mathrm{Cl}) = 40.08 + 2(35.45) = 110.98 \\text{ g/mol}$.",
+                    "correctAnswer": "110.98",
+                    "skillUsed": "Calculate molar mass of compounds",
+                },
+                {
+                    "label": "Dimensional Setup",
+                    "type": "given",
+                    "instruction": "Set up the two-step conversion.",
+                    "explanation": "Divide by molar mass to get moles, then multiply by Avogadro's number ($6.022 \\times 10^{23}$).",
+                    "correctAnswer": "(11.1 / 110.98) × 6.022×10²³",
+                    "skillUsed": "Set up dimensional analysis",
+                },
+                {
+                    "label": "Calculate",
+                    "type": "given",
+                    "instruction": "Calculate the unrounded number of formula units.",
+                    "explanation": None,
+                    "correctAnswer": "6.0238 × 10²²",
+                    "skillUsed": "Set up dimensional analysis",
+                },
+                {
+                    "label": "Answer",
+                    "type": "given",
+                    "instruction": "Report the final answer in scientific notation.",
+                    "explanation": "Round to 3 significant figures because the starting mass ($11.1 \\text{ g}$) has 3 sig figs.",
+                    "correctAnswer": "6.02 × 10²²",
+                    "skillUsed": "Compute final answer with sig figs",
+                },
+            ],
+        },
+    ),
+    # ── 14. Detective: kinetics — initial rates → rate law ────────────────────
+    (
+        "ap-unit-5",
+        0,
+        "medium",
+        "detective",
+        {
+            "title": "Initial Rates: Determining a Rate Law",
+            "statement": (
+                "A reaction between gases $\\mathrm{A}$ and $\\mathrm{B}$ follows the form "
+                "$\\mathrm{A} + \\mathrm{B} \\rightarrow \\text{products}$. A student measures initial rates at the same temperature.\n\n"
+                "Experiment 1: $[\\mathrm{A}] = 0.10 \\text{ M}$, $[\\mathrm{B}] = 0.10 \\text{ M}$, "
+                "rate $= 2.0 \\times 10^{-3} \\text{ M/s}$.\n\n"
+                "Experiment 2: $[\\mathrm{A}] = 0.20 \\text{ M}$, $[\\mathrm{B}] = 0.10 \\text{ M}$, "
+                "rate $= 4.0 \\times 10^{-3} \\text{ M/s}$.\n\n"
+                "Experiment 3: $[\\mathrm{A}] = 0.10 \\text{ M}$, $[\\mathrm{B}] = 0.30 \\text{ M}$, "
+                "rate $= 1.8 \\times 10^{-2} \\text{ M/s}$.\n\n"
+                "Use the data to determine the order in $\\mathrm{A}$, the order in $\\mathrm{B}$, "
+                "and the overall reaction order. What is the rate law?"
+            ),
+            "steps": [
+                {
+                    "label": "Data Extraction",
+                    "type": "variable_id",
+                    "instruction": "Extract the experiment values.",
+                    "explanation": None,
+                    "labeledValues": [
+                        {
+                            "variable": "Experiment 1",
+                            "value": "$[\\mathrm{A}] = 0.10$, $[\\mathrm{B}] = 0.10$, rate $= 2.0 \\times 10^{-3}$",
+                            "unit": "M, M, M/s",
+                        },
+                        {
+                            "variable": "Experiment 2",
+                            "value": "$[\\mathrm{A}] = 0.20$, $[\\mathrm{B}] = 0.10$, rate $= 4.0 \\times 10^{-3}$",
+                            "unit": "M, M, M/s",
+                        },
+                        {
+                            "variable": "Experiment 3",
+                            "value": "$[\\mathrm{A}] = 0.10$, $[\\mathrm{B}] = 0.30$, rate $= 1.8 \\times 10^{-2}$",
+                            "unit": "M, M, M/s",
+                        },
+                    ],
+                    "skillUsed": "Extract data from representation",
+                },
+                {
+                    "label": "Feature ID",
+                    "type": "given",
+                    "instruction": "Identify the order in $\\mathrm{A}$.",
+                    "explanation": "From Experiments 1 and 2, doubling $[\\mathrm{A}]$ doubles the rate, so $m = 1$.",
+                    "correctAnswer": "1",
+                    "skillUsed": "Identify key feature or pattern",
+                },
+                {
+                    "label": "Apply Concept",
+                    "type": "given",
+                    "instruction": "Identify the order in $\\mathrm{B}$.",
+                    "explanation": "From Experiments 1 and 3, tripling $[\\mathrm{B}]$ increases the rate by $9$, so $n = 2$.",
+                    "correctAnswer": "2",
+                    "skillUsed": "Apply chemical concept to data",
+                },
+                {
+                    "label": "Conclusion",
+                    "type": "given",
+                    "instruction": "State the rate law and overall order.",
+                    "explanation": "Add exponents: $1 + 2 = 3$, so rate $= k[\\mathrm{A}][\\mathrm{B}]^2$ (third order).",
+                    "correctAnswer": "rate = k[A][B]^2; 3rd order",
+                    "skillUsed": "Draw scientific conclusion",
+                },
+            ],
+        },
+    ),
 ]

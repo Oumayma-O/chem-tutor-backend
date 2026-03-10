@@ -248,6 +248,8 @@ def _fs_normalize_steps(steps: list[dict]) -> list[dict]:
         }
         if skill_used := s.get("skillUsed"):
             step["skillUsed"] = skill_used
+        if explanation := s.get("explanation"):
+            step["explanation"] = explanation
         # Preserve widget-specific fields
         if eq := s.get("equationParts"):
             step["equationParts"] = eq
