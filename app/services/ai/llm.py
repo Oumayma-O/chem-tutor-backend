@@ -60,7 +60,16 @@ async def generate_structured(
         A validated instance of output_schema.
     """
     llm = get_llm(fast=fast, temperature=temperature)
-    structured = llm.with_structured_output(output_schema)
+    # langchain-openai >= 0.3 defaults to method="json_schema" which uses the
+    # OpenAI beta parse() API and returns a ParsedChatCompletion. LangChain then
+    # calls model_dump() on it; because ParsedChatCompletion.parsed is typed as
+    # Optional[TypeVar] (unresolved generic), Pydantic v2 sees it as None-type
+    # and emits a serialization UserWarning on every call.
+    # method="function_calling" uses the regular create() path (plain ChatCompletion,
+    # no parsed field) and avoids the warning entirely.
+    # Other providers (Anthropic, Gemini) don't accept a `method` kwarg.
+    so_kwargs = {"method": "function_calling"} if "openai" in type(llm).__module__ else {}
+    structured = llm.with_structured_output(output_schema, **so_kwargs)
     lc_messages = [
         SystemMessage(content=m["content"]) if m["role"] == "system" else HumanMessage(content=m["content"])
         for m in messages
