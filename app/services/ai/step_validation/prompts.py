@@ -18,6 +18,7 @@ If NUMERIC:
     - Expressions that evaluate to the same number: 0.025*8 vs 0.20
   Do NOT consider equivalent:
     - Wrong units (M vs M/s)
+    - Missing unit when the correct answer includes one ("0.20" is wrong if correct is "0.20 M")
     - Wrong numeric value (even by 5%+)
 
 If QUALITATIVE:
