@@ -16,6 +16,7 @@ class GenerateHintRequest(BaseModel):
     lesson_context: dict | None = None  # equations, objectives, key_rules, misconceptions (same as problem generation)
     error_category: str | None = None
     misconception_tag: str | None = None
+    validation_feedback: str | None = None  # feedback string from the preceding validate-step call
 
 
 class HintOutput(BaseModel):

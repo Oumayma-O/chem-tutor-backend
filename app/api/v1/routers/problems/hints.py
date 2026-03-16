@@ -31,6 +31,7 @@ async def generate_hint(
             lesson_context=req.lesson_context,
             error_category=req.error_category,
             misconception_tag=req.misconception_tag,
+            validation_feedback=req.validation_feedback,
         )
     except Exception as exc:
         logger.error("hint_generation_failed", error=str(exc))

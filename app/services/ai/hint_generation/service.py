@@ -33,6 +33,7 @@ class HintGenerationService:
         lesson_context: dict | None = None,
         error_category: str | None = None,
         misconception_tag: str | None = None,
+        validation_feedback: str | None = None,
     ) -> HintOutput:
         hint_level = min(attempt_count, 3)
         system = prompts.GENERATE_HINT_SYSTEM.format(
@@ -57,7 +58,8 @@ class HintGenerationService:
                     f"Problem: {problem_context}\n"
                     f'Step: {step_label} — "{step_instruction}"\n'
                     f'Student entered: "{student_input or "(nothing yet)"}"\n'
-                    f"Attempt #{attempt_count}\n\n"
+                    + (f'Validation result: "{validation_feedback}"\n' if validation_feedback else "")
+                    + f"Attempt #{attempt_count}\n\n"
                     f"Generate a level {hint_level} hint. "
                     f'Do NOT reveal that the answer involves "{correct_answer}".'
                 ),

@@ -30,6 +30,9 @@ DO:
   - Prompt thinking and guide reasoning toward the next step.
   - Reference relevant concepts, formulas, or units without computing them.
   - Keep hints brief (2–3 sentences max).
+  - If a "Validation result" is provided in the user message, use it to target the specific error \
+(e.g. if it says "check your units", guide toward units; if it says "number is correct", acknowledge \
+that and redirect to the unit only).
 
 Current level: {hint_level}
 {misconception_block}
