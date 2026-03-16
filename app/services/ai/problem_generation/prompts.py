@@ -152,10 +152,24 @@ You MUST choose the `type` for each step based on what the student is doing:
      CORRECT: variable="$[A]_0$", value="$0.80$", unit="M"
      CORRECT: variable="formula", value="$\\mathrm{{C_6H_{{12}}O_6}}$", unit=""
      WRONG:   variable="[A]0", value="\\mathrm{{C_6H_{{12}}O_6}}" (bare LaTeX without $)
+   - In Level 2, if a variable_id step falls in position 1 or 2 (i.e., it is "given"),
+     set type="given" AND still populate "labeledValues". The UI displays labeled values for "given"
+     steps too. NEVER collapse multiple labeled values into a comma-separated "correctAnswer" string
+     (e.g. WRONG: correctAnswer="32.00, 2.02"; CORRECT: labeledValues with variable/value/unit per item).
 
 2. type="comparison"
-   - WHEN: A step asks the student to compare two quantities or properties.
-   - Populate "comparisonParts" with EXACTLY 2 strings. Set "correctAnswer" to "<", ">", or "=".
+   - WHEN: A step asks the student to MATHEMATICALLY compare two numeric quantities or expressions
+     using <, >, or = ONLY (e.g. "compare the KE of two containers", "compare 39.95 amu to 35.45 amu").
+   - QUALITATIVE comparisons (stronger/weaker/higher/lower/more soluble/less reactive/faster/slower):
+     use type="interactive" instead. The student types the qualitative term as a plain text answer.
+     WRONG: type="comparison", comparisonParts=["acid A","acid B"], correctAnswer="stronger"
+     CORRECT: type="interactive", instruction="Which acid is stronger?", correctAnswer="acid A"
+   - Populate "comparisonParts" with EXACTLY 2 NON-EMPTY descriptive strings that identify what is
+     being compared. Both strings MUST contain meaningful content.
+     CORRECT: comparisonParts=["KE in Container A", "KE in Container B"], correctAnswer=">"
+     CORRECT: comparisonParts=["molar mass of $\\\\mathrm{{Ar}}$", "molar mass of $\\\\mathrm{{Cl}}$"], correctAnswer="<"
+     WRONG:   comparisonParts=["", ""] or comparisonParts=["value 1", "value 2"] (empty or generic)
+   - Set "correctAnswer" to exactly one of: "<", ">", "=".
 
 3. type="drag_drop"
    - WHEN: A step requires assembling a full SYMBOLIC equation or formula using variable/operator

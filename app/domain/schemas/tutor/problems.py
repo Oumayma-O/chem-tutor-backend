@@ -66,6 +66,8 @@ class ProblemStep(BaseModel):
         elif self.type == "comparison":
             if not self.comparison_parts or len(self.comparison_parts) != 2:
                 raise ValueError('type="comparison" requires exactly 2 items in "comparisonParts".')
+            if not self.comparison_parts[0].strip() or not self.comparison_parts[1].strip():
+                raise ValueError('type="comparison": both "comparisonParts" strings must be non-empty.')
             if self.correct_answer not in ("<", ">", "="):
                 raise ValueError('type="comparison" requires "correctAnswer" to be "<", ">", or "=".')
             if self.equation_parts or self.labeled_values:
