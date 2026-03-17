@@ -85,10 +85,23 @@ def _normalize_math_wrappers(s: str) -> str:
 
 # Auto-wrap bare LaTeX: if a string contains \command but no $ delimiters,
 # the LLM forgot to wrap it — enclose the whole string in $...$
+# Also handles the partial case: LLM wrapped only part of the expression
+# (e.g. "Apply formula: $\text{foo}$ = \frac{...}") — strips the partial
+# delimiters and re-wraps the entire string.
 _RE_BARE_LATEX_CMD = re.compile(r"\\[a-zA-Z]+")
+_RE_DOLLAR_SEGMENT = re.compile(r"\$[^$]*\$")
+
 def _wrap_bare_latex(s: str) -> str:
-    if "$" not in s and _RE_BARE_LATEX_CMD.search(s):
-        return f"${s}$"
+    if not _RE_BARE_LATEX_CMD.search(s):
+        return s  # no LaTeX at all
+    if "$" not in s:
+        return f"${s}$"  # simple case: no delimiters at all
+    # Check whether LaTeX commands exist OUTSIDE existing $...$ blocks
+    non_math = _RE_DOLLAR_SEGMENT.sub("", s)
+    if _RE_BARE_LATEX_CMD.search(non_math):
+        # Partial wrapping: strip $...$ delimiters (keep content) and re-wrap all
+        stripped = _RE_DOLLAR_SEGMENT.sub(lambda m: m.group(0)[1:-1], s)
+        return f"${stripped}$"
     return s
 
 
