@@ -83,6 +83,15 @@ def _normalize_math_wrappers(s: str) -> str:
     return s
 
 
+# Auto-wrap bare LaTeX: if a string contains \command but no $ delimiters,
+# the LLM forgot to wrap it — enclose the whole string in $...$
+_RE_BARE_LATEX_CMD = re.compile(r"\\[a-zA-Z]+")
+def _wrap_bare_latex(s: str) -> str:
+    if "$" not in s and _RE_BARE_LATEX_CMD.search(s):
+        return f"${s}$"
+    return s
+
+
 def _normalize_string(s: str) -> str:
     """Apply all deterministic string fixes. Idempotent-friendly."""
     if not isinstance(s, str) or not s:
@@ -94,6 +103,7 @@ def _normalize_string(s: str) -> str:
     s = _fix_orphan_mathrm(s)
     s = _fix_unclosed_mathrm(s)
     s = _normalize_math_wrappers(s)
+    s = _wrap_bare_latex(s)
     return s
 
 
