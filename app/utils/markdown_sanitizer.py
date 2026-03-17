@@ -45,6 +45,25 @@ def _fix_unclosed_mathrm(s: str) -> str:
     return _RE_UNCLOSED_MATHRM.sub(r"\\mathrm{\1}", s)
 
 
+# ── Tab/form-feed LaTeX recovery ───────────────────────────────────────────
+# When the LLM single-escapes a LaTeX command in JSON (e.g. \text instead of \\text),
+# the JSON parser interprets \t → TAB (0x09) and \f → FORM FEED (0x0C), silently
+# destroying the backslash.  These fixers MUST run before _strip_illegal_chars
+# so the raw control chars are still present for matching.
+#
+# \t (TAB) prefixes: \text, \times, \to, \top, \tilde, \theta, \tau
+_RE_TAB_LATEX = re.compile(
+    r"\x09(ext|imes|ilde|heta|au|op|o)(?=[^a-zA-Z]|$)"
+)
+# \f (FORM FEED) prefixes: \frac, \forall
+_RE_FF_LATEX = re.compile(r"\x0c(rac|orall)(?=[^a-zA-Z]|$)")
+
+def _recover_tab_corrupted_latex(s: str) -> str:
+    s = _RE_TAB_LATEX.sub(r"\\\1", s)
+    s = _RE_FF_LATEX.sub(r"\\\1", s)
+    return s
+
+
 # ANSI escape and control chars
 _RE_ANSI = re.compile(r"\x1b\[[0-9;]*[a-zA-Z]?")
 _RE_CONTROL = re.compile(r"[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]")
@@ -68,6 +87,7 @@ def _normalize_string(s: str) -> str:
     """Apply all deterministic string fixes. Idempotent-friendly."""
     if not isinstance(s, str) or not s:
         return s
+    s = _recover_tab_corrupted_latex(s)
     s = _strip_illegal_chars(s)
     s = _fix_unbracketed_exponents(s)
     s = _fix_orphan_text(s)
@@ -166,6 +186,25 @@ def _recursive_validate_math(obj: Any, path: str = "") -> tuple[bool, str]:
 
 
 # ── Public API ──────────────────────────────────────────────────────────────
+
+def normalize_strings(obj: Any) -> Any:
+    """
+    Apply all deterministic string fixes recursively to any JSON-serialisable
+    object (dict, list, or scalar).  Safe to call on any LLM output dict.
+
+    Fixes: unbracketed exponents, orphaned \\text/\\mathrm, tabs/ANSI/nulls,
+    \\( \\) → $, and $$...$$ → $...$.
+    """
+    return _recursive_normalize(obj)
+
+
+def validate_math_strings(obj: Any) -> tuple[bool, str]:
+    """
+    Recursively validate every string value for well-formed math blocks.
+    Returns (True, "") on success or (False, error_message) on the first failure.
+    """
+    return _recursive_validate_math(obj)
+
 
 def normalize_and_validate_problem(problem_dict: dict) -> dict:
     """

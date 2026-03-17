@@ -28,6 +28,10 @@ FORMATTING & LATEX RULES (strictly follow all of them):
 3. Chemical formulas must use $\\mathrm{{}}$: e.g., $\\mathrm{{H_2O}}$.
 4. Units must be inside $\\text{{ }}$: e.g., $\\text{{g/mol}}$.
 5. Exponents must use braces: $10^{{23}}$, not $10^23$.
+6. NEVER use $$...$$ (display math) — use only $...$ (inline math).
+7. JSON ESCAPING (critical): your output is parsed as JSON. You MUST double-escape every LaTeX backslash.
+   CORRECT: \\\\text{{g/mol}}, \\\\frac{{m}}{{M}}, \\\\mathrm{{H_2O}}, \\\\times, \\\\rightarrow
+   WRONG:   \\text{{g/mol}}, \\frac{{m}}{{M}} — a single backslash in JSON eats the command name.
 
 CONTENT RULES:
 1. Produce exactly {step_count} steps labelled: {labels_block}.
