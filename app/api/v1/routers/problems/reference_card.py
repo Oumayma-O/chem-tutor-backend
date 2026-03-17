@@ -16,10 +16,13 @@ is handled automatically — deleting a Lesson removes its reference card too.
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.logging import get_logger
 from app.domain.schemas.tutor.problems import ReferenceCardOutput
 from app.infrastructure.database.connection import get_db
 from app.infrastructure.database.repositories.unit_repo import LessonRepository
 from app.services.ai.reference_card.service import generate_reference_card
+
+logger = get_logger(__name__)
 
 router = APIRouter()
 
@@ -69,7 +72,22 @@ async def get_reference_card(
         blueprint=lesson_blueprint,
     )
 
-    # ── 4. Persist on the lesson row (cascade delete is free) ─
-    await repo.save_reference_card(unit_id, lesson_index, card.model_dump())
+    # ── 4. Persist on the lesson row (explicit commit — don't rely on get_db) ─
+    try:
+        await repo.save_reference_card(lesson, card.model_dump())
+        logger.info(
+            "reference_card_saved",
+            unit_id=unit_id,
+            lesson_index=lesson_index,
+            lesson=lesson_name,
+        )
+    except Exception as exc:
+        logger.error(
+            "reference_card_save_failed",
+            unit_id=unit_id,
+            lesson_index=lesson_index,
+            lesson=lesson_name,
+            error=str(exc),
+        )
 
     return card

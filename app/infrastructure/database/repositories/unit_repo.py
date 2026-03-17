@@ -108,17 +108,13 @@ class LessonRepository(BaseRepository[Lesson]):
 
     async def save_reference_card(
         self,
-        unit_id: str,
-        lesson_index: int,
+        lesson: Lesson,
         card_data: dict,
-    ) -> Lesson | None:
-        """Persist a generated reference card onto the lesson row."""
-        lesson = await self.get_by_index(unit_id, lesson_index)
-        if lesson is None:
-            return None
+    ) -> None:
+        """Persist a generated reference card onto an already-loaded lesson row."""
         lesson.reference_card_json = card_data
         await self._session.flush()
-        return lesson
+        await self._session.commit()
 
 
 
