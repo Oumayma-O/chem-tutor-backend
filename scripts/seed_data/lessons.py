@@ -12,26 +12,30 @@ MASTER_LESSONS: dict[str, dict] = {
     # unit-intro-chem  (Introduction to Chemistry)
     # ══════════════════════════════════════════════════════
 
+# ══════════════════════════════════════════════════════
+    # unit-intro-chem  (Introduction to Chemistry)
+    # ══════════════════════════════════════════════════════
+
     "L-intro-safety": {
         "title": "Safety",
-        "blueprint": "lawyer",
+        "blueprint": "lawyer", 
         "required_tools": [],
         "is_ap_only": False,
         "key_equations": [],
         "key_rules": [
-            "Always wear safety goggles and appropriate protective equipment",
-            "Never eat or drink in the laboratory",
-            "Know the location of safety equipment (eyewash, fire extinguisher, safety shower)",
-            "Dispose of chemicals according to lab instructions",
+            "Accident Response Timeline: (1) Identify hazard/broken rule, (2) Choose equipment, (3) Execute procedure, (4) Notify teacher",
+            "Chemicals on skin/eyes require immediate flushing (eyewash/shower) for 15 minutes",
+            "Always wear safety goggles over the eyes, not on the forehead",
+            "Never dispose of unknown or reactive chemicals down the sink without instruction",
         ],
         "misconceptions": [
-            "Lab coats or goggles are only needed for 'dangerous' chemicals",
-            "A lab fire can be put out with water (not always true for chemical fires)",
+            "A lab fire can always be put out with water (chemical fires require extinguishers or sand)",
             "Smelling a chemical directly is the best way to identify it (wafting is required)",
+            "If you spill a small amount of acid, you should clean it up yourself before telling the teacher",
         ],
         "objectives": [
-            "Identify common lab safety rules",
-            "Recognize hazard symbols",
+            "Analyze a lab scenario to identify safety violations",
+            "Determine the chronological response to a lab accident",
         ],
         "canonical_unit": "unit-intro-chem",
         "canonical_index": 0,
@@ -39,24 +43,24 @@ MASTER_LESSONS: dict[str, dict] = {
 
     "L-intro-scientific-method": {
         "title": "Scientific Method",
-        "blueprint": "lawyer",
+        "blueprint": "detective", # Changed to Detective: Observe -> Hypothesize -> Test
         "required_tools": [],
         "is_ap_only": False,
         "key_equations": [],
         "key_rules": [
-            "Observation leads to a question",
-            "A hypothesis must be testable and falsifiable",
-            "Experiments must include controlled variables",
-            "Results must be reproducible",
+            "Observations are factual data; inferences are logical assumptions based on data",
+            "A valid hypothesis must be testable and predict an outcome (If... then...)",
+            "An independent variable is changed by the scientist; a dependent variable is measured",
+            "Control groups do not receive the experimental treatment and are used for baseline comparison",
         ],
         "misconceptions": [
-            "A 'Theory' is just a guess (in science, it is a well-supported explanation)",
-            "Experiments must prove the hypothesis right to be successful",
-            "The scientific method is a rigid, linear set of steps",
+            "A 'Theory' is just a guess (in science, it is a highly supported, broad explanation of 'why')",
+            "A 'Law' is a better version of a theory (Laws describe 'what' happens, theories explain 'why')",
+            "Experiments must prove the hypothesis right to be considered successful",
         ],
         "objectives": [
-            "Describe steps of the scientific method",
-            "Distinguish hypothesis from theory",
+            "Extract independent and dependent variables from an experimental design",
+            "Distinguish between hypothesis, theory, and law",
         ],
         "canonical_unit": "unit-intro-chem",
         "canonical_index": 1,
@@ -64,24 +68,24 @@ MASTER_LESSONS: dict[str, dict] = {
 
     "L-intro-classification-matter": {
         "title": "Classification of Matter",
-        "blueprint": "lawyer",
+        "blueprint": "detective", # Changed to Detective: Analyze properties -> Classify
         "required_tools": [],
         "is_ap_only": False,
         "key_equations": [],
         "key_rules": [
-            "Elements consist of only one type of atom",
-            "Compounds contain two or more elements chemically bonded",
-            "Mixtures contain substances physically combined",
-            "Mixtures can be homogeneous or heterogeneous",
+            "Elements cannot be broken down by chemical or physical means",
+            "Compounds contain two or more elements chemically bonded in fixed ratios",
+            "Homogeneous mixtures (solutions) have a uniform composition throughout",
+            "Heterogeneous mixtures have distinct, separable visual boundaries or phases",
         ],
         "misconceptions": [
-            "A compound is just a mixture of elements",
-            "Heterogeneous mixtures are always visible to the naked eye",
-            "Pure water is the same as tap water (tap water is a mixture)",
+            "A compound is just a physical mixture of elements",
+            "Pure water and tap water are the same thing (tap water is a homogeneous mixture of water and ions)",
+            "All homogeneous materials are pure substances (alloys and solutions are mixtures)",
         ],
         "objectives": [
-            "Classify matter as element, compound, or mixture",
-            "Distinguish pure substances from mixtures",
+            "Use macroscopic observations to classify matter",
+            "Determine if a substance can be physically or chemically separated",
         ],
         "canonical_unit": "unit-intro-chem",
         "canonical_index": 2,
@@ -89,23 +93,23 @@ MASTER_LESSONS: dict[str, dict] = {
 
     "L-intro-chem-phys-changes": {
         "title": "Chemical & Physical Changes",
-        "blueprint": "lawyer",
+        "blueprint": "lawyer", # Lawyer is perfect here: Claim (Chem/Phys) -> Evidence -> Reason
         "required_tools": [],
         "is_ap_only": False,
         "key_equations": [],
         "key_rules": [
-            "Physical changes alter form but not chemical composition",
-            "Chemical changes produce new substances",
-            "Indicators of chemical change include gas formation, precipitate, color change, or heat release",
+            "Physical changes alter state or appearance but NOT the chemical formula (e.g., melting, dissolving)",
+            "Chemical changes break and form bonds to create entirely new substances",
+            "Evidence of a chemical change: unexpected color change, gas evolution (bubbles), heat/light release, or precipitate formation",
         ],
         "misconceptions": [
-            "Boiling water is a chemical change because gas is formed",
-            "Dissolving sugar is a chemical change",
-            "Mass is lost during a chemical reaction if a gas escapes",
+            "Boiling water is a chemical change because a gas is formed (it is still H2O)",
+            "Dissolving salt in water is a chemical change because the salt disappears",
+            "If a process releases heat, it must be a chemical reaction (freezing/condensing also release heat)",
         ],
         "objectives": [
-            "Identify chemical vs physical changes",
-            "Give examples of each type",
+            "Argue whether a change is physical or chemical using observable evidence",
+            "Distinguish between phase changes and chemical reactions",
         ],
         "canonical_unit": "unit-intro-chem",
         "canonical_index": 3,
@@ -113,29 +117,27 @@ MASTER_LESSONS: dict[str, dict] = {
 
     "L-intro-measurement": {
         "title": "Measurement & Scientific Notation",
-        "blueprint": "recipe",
+        "blueprint": "recipe", # Recipe is perfect here: Extract -> Convert -> Calculate
         "required_tools": ['calculator'],
         "is_ap_only": False,
         "key_equations": [
-            "value × 10^n",
-            "density = mass / volume",
+            "Density = Mass / Volume",
+            "Value = a × 10^n (where 1 ≤ a < 10)"
         ],
         "key_rules": [
-            "SI units are the standard measurement system in science",
-            "Metric prefixes represent powers of ten",
-            "Measurements must include units",
-            "Significant figures reflect measurement precision",
+            "To write scientific notation, move the decimal until the coefficient is between 1 and 10",
+            "Moving the decimal left makes the exponent positive; moving it right makes it negative",
+            "Density is an intensive property; it remains constant regardless of sample size",
+            "When calculating density, ensure mass is in grams and volume is in mL or cm³",
         ],
         "misconceptions": [
-            "Scientific notation can only be used for very large numbers",
-            "Zeros are never significant",
-            "Density depends on the amount of substance (it is an intensive property)",
+            "Density changes if you cut an object in half",
+            "A negative exponent means the number itself is a negative number (it just means it is a small decimal)",
+            "1 mL is different from 1 cm³ (they are exactly equivalent volumes)",
         ],
         "objectives": [
-            "Use SI units and metric prefixes",
-            "Express numbers in scientific notation",
-            "Perform unit conversions",
-            "Calculate density",
+            "Convert standard decimal numbers to scientific notation",
+            "Calculate density, mass, or volume using the density formula",
         ],
         "canonical_unit": "unit-intro-chem",
         "canonical_index": 4,
