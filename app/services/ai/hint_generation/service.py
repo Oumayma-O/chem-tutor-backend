@@ -7,11 +7,12 @@ from app.domain.schemas.tutor import HintOutput
 from app.services.ai.llm import generate_structured
 from app.services.ai.hint_generation import prompts
 from app.services.ai.lesson_guidance import build_lesson_guidance_block
+from app.utils.markdown_sanitizer import normalize_strings
 
 logger = get_logger(__name__)
 
 _retry = retry(
-    retry=retry_if_exception_type((TimeoutError, ConnectionError, Exception)),
+    retry=retry_if_exception_type((TimeoutError, ConnectionError)),
     stop=stop_after_attempt(3),
     wait=wait_exponential(multiplier=1, min=1, max=10),
     reraise=True,
@@ -66,6 +67,7 @@ class HintGenerationService:
             },
         ]
         hint: HintOutput = await generate_structured(messages, HintOutput, temperature=0.5, fast=True)
+        hint.hint = normalize_strings(hint.hint)
         logger.debug("hint_generated", step=step_label, level=hint_level)
         return hint
 
