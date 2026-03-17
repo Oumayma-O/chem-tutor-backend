@@ -861,4 +861,216 @@ FEW_SHOT_DATA: list[tuple[str, int, str, str, dict]] = [
             ],
         },
     ),
+    # ── 16. Lawyer: safety — lab equipment and procedures ────────────────────
+    (
+        "unit-intro-chem",
+        0,
+        "medium",
+        "lawyer",
+        {
+            "title": "Safe Response to a Chemical Splash",
+            "statement": (
+                "During a chemistry lab, a student accidentally drops a beaker of dilute $\\mathrm{HCl}$. "
+                "A small splash hits their face, near their eyes. The hazard label on the acid bottle shows the corrosive symbol.\n\n"
+                "The student is wearing their safety goggles on their forehead instead of over their eyes. "
+                "Identify the hazard, determine the necessary safety equipment, state the required procedure, and conclude the final action."
+            ),
+            "steps": [
+                {
+                    "label": "Concept ID",
+                    "type": "variable_id",
+                    "instruction": "Identify the primary hazard and the broken rule.",
+                    "explanation": "Extract the specific danger and the safety violation from the scenario.",
+                    "labeledValues": [
+                        {"variable": "Hazard", "value": "corrosive acid", "unit": ""},
+                        {"variable": "Broken Rule", "value": "goggles on forehead", "unit": ""},
+                    ],
+                    "skillUsed": "Recognize hazard symbols",
+                },
+                {
+                    "label": "Relation",
+                    "type": "given",
+                    "instruction": "Name the specific safety equipment required for this exposure.",
+                    "explanation": "Chemical contact near or in the eyes requires immediate flushing with a specialized station.",
+                    "correctAnswer": "eyewash station",
+                    "skillUsed": "Identify common lab safety rules",
+                },
+                {
+                    "label": "Evidence / Claim",
+                    "type": "interactive",
+                    "instruction": "State the standard procedure for using this equipment.",
+                    "explanation": "Standard lab protocol requires flushing the affected area continuously to fully dilute the corrosive chemical.",
+                    "correctAnswer": "rinse for 15 minutes",
+                    "skillUsed": "Identify common lab safety rules",
+                },
+                {
+                    "label": "Conclusion",
+                    "type": "interactive",
+                    "instruction": "What is the very next action after using the equipment?",
+                    "explanation": "The instructor must be notified immediately after any accident or exposure occurs.",
+                    "correctAnswer": "notify the teacher",
+                    "skillUsed": "Identify common lab safety rules",
+                },
+            ],
+        },
+    ),
+    # ── 17. Lawyer: safety — Level 1 (Worked) — Personal Protective Equipment ──
+    (
+        "unit-intro-chem",
+        0,
+        "easy",
+        "lawyer",
+        {
+            "title": "Proper Use of Personal Protective Equipment",
+            "statement": (
+                "During a lab, a student is pouring a concentrated solution of sodium hydroxide, $\\mathrm{NaOH}$, into a graduated cylinder. "
+                "Because their safety goggles are fogging up, the student pushes the goggles up to rest on their forehead.\n\n"
+                "The bottle of $\\mathrm{NaOH}$ has a corrosive hazard symbol. "
+                "Identify the hazard and the broken rule, explain why the behavior is dangerous, and state the correct action."
+            ),
+            "steps": [
+                {
+                    "label": "Concept ID",
+                    "type": "variable_id",
+                    "instruction": "Identify the primary hazard and the broken rule.",
+                    "explanation": "Extract the chemical danger and the unsafe behavior from the scenario.",
+                    "labeledValues": [
+                        {"variable": "Hazard", "value": "corrosive base", "unit": ""},
+                        {"variable": "Broken Rule", "value": "goggles on forehead", "unit": ""},
+                    ],
+                    "skillUsed": "Recognize hazard symbols",
+                },
+                {
+                    "label": "Relation",
+                    "type": "given",
+                    "instruction": "State the safety rule being violated.",
+                    "explanation": "Safety equipment must be worn correctly to provide actual protection.",
+                    "correctAnswer": "always wear safety goggles over the eyes",
+                    "skillUsed": "Identify common lab safety rules",
+                },
+                {
+                    "label": "Evidence / Claim",
+                    "type": "given",
+                    "instruction": "State the risk of this unsafe behavior.",
+                    "explanation": "A splash from a corrosive base can cause permanent eye damage if unprotected.",
+                    "correctAnswer": "chemical splash to the eyes",
+                    "skillUsed": "Recognize hazard symbols",
+                },
+                {
+                    "label": "Conclusion",
+                    "type": "given",
+                    "instruction": "Give the safest immediate action.",
+                    "explanation": "The student must secure their protective equipment before continuing the experiment.",
+                    "correctAnswer": "stop pouring and put goggles over eyes",
+                    "skillUsed": "Identify common lab safety rules",
+                },
+            ],
+        },
+    ),
+    # ── 18. Lawyer: safety — Level 2 (Faded) — Chemical Waste Disposal ────────
+    (
+        "unit-intro-chem",
+        0,
+        "medium",
+        "lawyer",
+        {
+            "title": "Safe Chemical Disposal Procedures",
+            "statement": (
+                "A student completes a precipitation lab involving toxic heavy metals, including a solution of lead(II) nitrate, $\\mathrm{Pb(NO_3)_2}$. "
+                "To clean up quickly, the student carries the remaining solution to the sink and prepares to pour it down the drain.\n\n"
+                "The lab instructions explicitly state that heavy metals are environmental hazards. "
+                "Identify the hazard and the broken rule, state the correct disposal method, and conclude the immediate safe action."
+            ),
+            "steps": [
+                {
+                    "label": "Concept ID",
+                    "type": "variable_id",
+                    "instruction": "Identify the hazard and the broken rule.",
+                    "explanation": "Extract the specific chemical danger and the unsafe action from the scenario.",
+                    "labeledValues": [
+                        {"variable": "Hazard", "value": "toxic heavy metals", "unit": ""},
+                        {"variable": "Broken Rule", "value": "pouring chemicals down the sink", "unit": ""},
+                    ],
+                    "skillUsed": "Recognize hazard symbols",
+                },
+                {
+                    "label": "Relation",
+                    "type": "given",
+                    "instruction": "State the safety rule regarding chemical waste.",
+                    "explanation": "Chemicals cannot be discarded in standard drains unless explicitly permitted.",
+                    "correctAnswer": "dispose of chemicals according to lab instructions",
+                    "skillUsed": "Identify common lab safety rules",
+                },
+                {
+                    "label": "Evidence / Claim",
+                    "type": "interactive",
+                    "instruction": "Where should this specific waste go?",
+                    "explanation": "Heavy metals require a specialized, marked hazardous waste container.",
+                    "correctAnswer": "designated hazardous waste container",
+                    "skillUsed": "Identify common lab safety rules",
+                },
+                {
+                    "label": "Conclusion",
+                    "type": "interactive",
+                    "instruction": "What should the student do right now?",
+                    "explanation": "If unsure of the disposal location, the student must halt and consult the instructor.",
+                    "correctAnswer": "stop and ask the teacher",
+                    "skillUsed": "Identify common lab safety rules",
+                },
+            ],
+        },
+    ),
+    # ── 19. Lawyer: safety — Level 3 (Practice) — Food and Drink Contamination ─
+    (
+        "unit-intro-chem",
+        0,
+        "hard",
+        "lawyer",
+        {
+            "title": "Preventing Cross-Contamination",
+            "statement": (
+                "During a crystal-growing experiment with copper(II) sulfate, $\\mathrm{CuSO_4}$, a student becomes thirsty. "
+                "They pull a water bottle from their backpack, place it on the lab bench next to their chemical powders, and take a drink.\n\n"
+                "Copper(II) sulfate is harmful if swallowed. "
+                "Identify the hazard and the broken rule, explain the unseen risk, and state the safest immediate action."
+            ),
+            "steps": [
+                {
+                    "label": "Concept ID",
+                    "type": "variable_id",
+                    "instruction": "Identify the hazard and the broken rule.",
+                    "explanation": "Extract the chemical danger and the prohibited behavior.",
+                    "labeledValues": [
+                        {"variable": "Hazard", "value": "harmful if swallowed", "unit": ""},
+                        {"variable": "Broken Rule", "value": "drinking in the lab", "unit": ""},
+                    ],
+                    "skillUsed": "Recognize hazard symbols",
+                },
+                {
+                    "label": "Relation",
+                    "type": "interactive",
+                    "instruction": "State the safety rule being violated.",
+                    "explanation": "Labs strictly prohibit ingestion to prevent accidental poisoning.",
+                    "correctAnswer": "never eat or drink in the laboratory",
+                    "skillUsed": "Identify common lab safety rules",
+                },
+                {
+                    "label": "Evidence / Claim",
+                    "type": "interactive",
+                    "instruction": "State the hidden risk of having the bottle on the bench.",
+                    "explanation": "Chemical dust or splashes can easily contaminate food or drink containers nearby.",
+                    "correctAnswer": "chemical contamination of the bottle",
+                    "skillUsed": "Recognize hazard symbols",
+                },
+                {
+                    "label": "Conclusion",
+                    "type": "interactive",
+                    "instruction": "Give the safest immediate action.",
+                    "explanation": "The food or drink item must be removed from the hazardous environment immediately.",
+                    "correctAnswer": "move the bottle outside the lab and wash hands",
+                    "skillUsed": "Identify common lab safety rules",
+                },
+            ],
+        },
+    ),
 ]

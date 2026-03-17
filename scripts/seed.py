@@ -6,7 +6,7 @@ Architecture:
   seed_data/units.py    — STANDARD_UNITS, AP_UNITS, UNIT_BRIDGE_MAP
   seed_data/phases.py   — STANDARD_PHASES, AP_PHASES
   seed_data/lookup.py   — GRADES, INTERESTS, KEEP_COURSE_NAMES
-  seed_data/few_shots.py — FEW_SHOT_DATA
+  seed_data/problem_few_shots.py — FEW_SHOT_DATA
 
 Usage:
   python -m scripts.seed           # idempotent upsert
@@ -27,7 +27,7 @@ from app.core.config import get_settings
 from app.infrastructure.database.models import (
     Course, FewShotExample, Grade, Interest, Lesson, Phase, Unit, UnitLesson,
 )
-from scripts.seed_data.few_shots import FEW_SHOT_DATA
+from scripts.seed_data.problem_few_shots import FEW_SHOT_DATA
 from scripts.seed_data.lessons import MASTER_LESSONS
 from scripts.seed_data.lookup import GRADES, INTERESTS, KEEP_COURSE_NAMES
 from scripts.seed_data.phases import AP_PHASES, STANDARD_PHASES
