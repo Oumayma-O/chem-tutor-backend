@@ -96,6 +96,8 @@ async def get_unit(
                 key_equations=l.key_equations or [],
                 key_rules=l.key_rules or [],
                 misconceptions=l.misconceptions or [],
+                blueprint=l.blueprint or "solver",
+                has_simulation=l.has_simulation,
                 standards=stds,
                 is_active=l.is_active,
                 required_tools=l.required_tools or [],

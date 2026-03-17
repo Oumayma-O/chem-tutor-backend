@@ -21,6 +21,8 @@ class LessonOut(BaseModel):
     key_equations: list[str] = Field(default_factory=list)
     key_rules: list[str] = Field(default_factory=list)
     misconceptions: list[str] = Field(default_factory=list)
+    blueprint: str = "solver"
+    has_simulation: bool = False
     standards: list[StandardOut] = Field(default_factory=list)
     is_active: bool
     required_tools: list[str] = Field(default_factory=list)
