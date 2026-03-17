@@ -27,10 +27,10 @@ logger = get_logger(__name__)
 # ── Constants ───────────────────────────────────────────────────────────────
 
 MAX_GENERATION_ATTEMPTS = 3
-DEFAULT_TEMPERATURE = 0.4
+DEFAULT_TEMPERATURE = 0.5
 
 _LLM_RETRY = retry(
-    retry=retry_if_exception_type((TimeoutError, ConnectionError, Exception)),
+    retry=retry_if_exception_type((TimeoutError, ConnectionError)),
     stop=stop_after_attempt(3),
     wait=wait_exponential(multiplier=1, min=1, max=10),
     reraise=True,
@@ -74,6 +74,8 @@ def enforce_step_types(problem: ProblemOutput, level: int) -> ProblemOutput:
         if exp_type == "drag_drop" and not step.equation_parts:
             step.type = "interactive"  # type: ignore[assignment]
         if exp_type == "variable_id" and not step.labeled_values:
+            step.type = "interactive"  # type: ignore[assignment]
+        if exp_type == "comparison" and not step.comparison_parts:
             step.type = "interactive"  # type: ignore[assignment]
     return problem
 
@@ -151,7 +153,7 @@ class ProblemGenerationService:
         focus_areas: list[str] | None,
         problem_style: str | None,
         lesson_context: dict | None,
-        db_example: dict | None,
+        db_examples: list[dict],
     ) -> str:
         """Build the system prompt for problem generation."""
         config = prompts.BLUEPRINT_CONFIG.get(resolved_blueprint, prompts.BLUEPRINT_CONFIG["solver"])
@@ -179,7 +181,7 @@ class ProblemGenerationService:
             grade_block=f"Student grade level: {grade_level}." if grade_level else "",
             skills_block=prompts.build_skills_block(skill_list),
             lesson_guidance_block=build_lesson_guidance_block(lesson_context),
-        ) + prompts.get_few_shot_block(db_example)
+        ) + prompts.get_few_shot_block(db_examples)
 
     @_LLM_RETRY
     async def generate(
@@ -200,10 +202,10 @@ class ProblemGenerationService:
         resolved_blueprint = blueprint or "solver"
         step_count = prompts.get_step_count_for_prompt(resolved_blueprint)
 
-        db_example = None
+        db_examples: list[dict] = []
         if db is not None:
-            from app.services.ai.problem_generation.few_shots import get_few_shot
-            db_example = await get_few_shot(db, unit_id, lesson_index, difficulty, level)
+            from app.services.ai.problem_generation.few_shots import get_few_shots
+            db_examples = await get_few_shots(db, unit_id, lesson_index, difficulty, level)
 
         system = self._build_system_prompt(
             resolved_blueprint=resolved_blueprint,
@@ -217,7 +219,7 @@ class ProblemGenerationService:
             focus_areas=focus_areas,
             problem_style=problem_style,
             lesson_context=lesson_context,
-            db_example=db_example,
+            db_examples=db_examples,
         )
         messages = [
             {"role": "system", "content": system},
