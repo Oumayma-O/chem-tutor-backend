@@ -9,6 +9,8 @@ Single source of truth for lesson metadata: scripts/seed_data/lessons.py
 # ── Version ────────────────────────────────────────────────────────────────
 PROMPT_VERSION = "v13-katex"
 
+from app.services.ai.shared.latex_rules import SHARED_LATEX_RULES  # noqa: E402
+
 # Re-export shared blueprint symbols so callers can keep importing from here
 from app.services.ai.shared.blueprints import (  # noqa: E402, F401
     BlueprintName,
@@ -128,7 +130,8 @@ You MUST choose the `type` for each step based on what the student is doing:
 
 
 # ── System prompt ──────────────────────────────────────────────────────────
-GENERATE_PROBLEM_SYSTEM = """\
+GENERATE_PROBLEM_SYSTEM = (
+    """\
 You are an expert Chemistry tutor generating a {difficulty} problem.
 
 Generate a {difficulty} problem for {lesson_name}.
@@ -143,26 +146,22 @@ BLUEPRINT for {blueprint}:
 ### LABEL RULE ###
 For each step, set "label" to exactly ONE of the blueprint labels above, in order: step 1 = first label, step 2 = second, etc. Do NOT combine labels, add alternatives, or extra text. Example: "Concept ID" not "Concept ID | Claim | ...".
 
-### CRITICAL FORMATTING & LATEX RULES ###
-Use ONLY $...$ (single-dollar inline math) for ALL math. NEVER use $$...$$ (display/block math) — it renders oversized and centered in the UI. NEVER use \\( \\).
-1. Chemical formulas: $\\mathrm{{}}$ with subscripts. CORRECT: $\\mathrm{{NH_4NO_3}}$, $\\mathrm{{H_2O}}$. WRONG: NH4NO3 or $\\text{{CaCl}}_2$ (use \\mathrm for formulas).
-2. Units only inside $\\text{{}}$ with leading space: $110.98 \\text{{ g/mol}}$, $63.62 \\text{{ amu}}$. WRONG: "$84 , \\text{{ MJ/mol}}$" or "$\\text{{amu}}$" (no leading space).
-3. Specific variables: $q_{{\\text{{system}}}}$, $q_{{\\text{{surr}}}}$.
-4. Temperatures: $25.0^\\circ\\text{{C}}$. Percentages: $69.17\\%$. Multiplication: $\\times$. Reactions: $\\rightarrow$.
-5. MIXED TEXT: Keep plain English OUTSIDE math. Put only symbols/formulas/numbers inside $...$.
+"""
+    + SHARED_LATEX_RULES
+    + """
+
+### PROBLEM-SPECIFIC FORMATTING ###
+1. Specific variables: $q_{{\\text{{system}}}}$, $q_{{\\text{{surr}}}}$.
+2. Temperatures: $25.0^\\circ\\text{{C}}$. Percentages: $69.17\\%$. Multiplication: $\\times$. Reactions: $\\rightarrow$.
+3. MIXED TEXT: Keep plain English OUTSIDE math. Put only symbols/formulas/numbers inside $...$.
    CORRECT: $\\mathrm{{HCl}}$ and $\\mathrm{{NaOH}}$ mixture | water and calorimeter
    WRONG: $\\mathrm{{HCl}} + \\mathrm{{NaOH}} \\text{{ mixture}}$ or $\\text{{water + calorimeter}}$
    If a value is purely an English phrase (e.g. "water", "beaker and room air"), do NOT wrap it in LaTeX.
-6. labeledValues: "variable" = plain string (e.g. "System", "Surroundings"). "value" = mix only when needed: "$\\mathrm{{X}}$ in water" not "$\\mathrm{{X}} \\text{{ in water}}$".
-7. Statement paragraphs: Separate with \\n\\n. NEVER one block.
-8. Isotopes: $^{{32}}_{{16}}\\mathrm{{S}}^{{2-}}$. Scientific notation: ALWAYS $6.022 \\times 10^{{23}}$ or $6.02 \\times 10^{{22}}$ (never "e" or "E": no 6.02e22, 6.022E23 in statement, instruction, or explanation).
-
-### JSON / LATEX ESCAPING RULES ###
-Your output is parsed as JSON. In JSON, \\t is a tab and \\n is newline. You MUST double-escape every LaTeX backslash so the parser receives one backslash (e.g. in JSON write \\\\text{{}} not \\text{{}}).
-- CORRECT in JSON: \\\\text{{amu}}, \\\\mathrm{{H_2O}}, \\\\times, \\\\rightarrow
-- INCORRECT (breaks parser): \\text{{amu}}, \\mathrm{{H_2O}}, \\t, \\n
-- NEVER output ANSI escape codes, unicode control characters (e.g. \\u001b), or unescaped tabs.
-- The "correctAnswer" field MUST be plain text or easily typed on a keyboard (e.g. "q_system = -q_surr", "-2299 J"). Do NOT use LaTeX in "correctAnswer".
+4. labeledValues: "variable" = plain string (e.g. "System", "Surroundings"). "value" = mix only when needed: "$\\mathrm{{X}}$ in water" not "$\\mathrm{{X}} \\text{{ in water}}$".
+5. Statement paragraphs: Separate with \\n\\n. NEVER one block.
+6. Isotopes: $^{{32}}_{{16}}\\mathrm{{S}}^{{2-}}$. Scientific notation: ALWAYS $6.022 \\times 10^{{23}}$ (never "e" or "E" notation in statement, instruction, or explanation).
+7. NEVER output ANSI escape codes, unicode control characters (e.g. \\u001b), or unescaped tabs.
+8. The "correctAnswer" field MUST be plain text or easily typed on a keyboard (e.g. "q_system = -q_surr", "-2299 J"). Do NOT use LaTeX in "correctAnswer".
 
 ### CRITICAL UI CONSTRAINTS: INSTRUCTIONS AND MICRO-INPUTS ###
 You are generating interactive steps for a compact student UI. Each step has THREE distinct fields:
@@ -211,3 +210,4 @@ CONSTRAINTS:
 {lesson_guidance_block}
 
 Unit: {unit_id}"""
+)
