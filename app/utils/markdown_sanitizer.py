@@ -59,8 +59,8 @@ _RE_TAB_LATEX = re.compile(
 _RE_FF_LATEX = re.compile(r"\x0c(rac|orall)(?=[^a-zA-Z]|$)")
 
 def _recover_tab_corrupted_latex(s: str) -> str:
-    s = _RE_TAB_LATEX.sub(r"\\\1", s)
-    s = _RE_FF_LATEX.sub(r"\\\1", s)
+    s = _RE_TAB_LATEX.sub(r"\\t\1", s)
+    s = _RE_FF_LATEX.sub(r"\\f\1", s)
     return s
 
 
