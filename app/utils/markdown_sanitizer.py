@@ -8,7 +8,7 @@ Fixes applied to every string:
 - Orphaned \\text: \\textamu → \\text{amu}
 - Orphaned \\mathrm: \\mathrmMg → \\mathrm{Mg}, \\mathrmH2O → \\mathrm{H2O}
 - Illegal chars: raw tabs, ANSI escape codes, null bytes
-- Math wrappers: \\( and \\) → $
+- Math wrappers: \\( and \\) → $, $$...$$ → $...$
 - KaTeX dry-run: balanced braces in math blocks, no forbidden commands (e.g. \\align)
 """
 
@@ -56,8 +56,11 @@ def _strip_illegal_chars(s: str) -> str:
 
 
 # Normalize \( and \) to $ (inline math)
+# Collapse $$...$$ → $...$ (display math renders oversized/centered in the UI)
+_RE_DISPLAY_MATH = re.compile(r"\$\$([^$]*?)\$\$", re.DOTALL)
 def _normalize_math_wrappers(s: str) -> str:
     s = s.replace("\\(", "$").replace("\\)", "$")
+    s = _RE_DISPLAY_MATH.sub(r"$\1$", s)
     return s
 
 
@@ -170,7 +173,7 @@ def normalize_and_validate_problem(problem_dict: dict) -> dict:
     KaTeX dry-run validation. Safe for React Markdown/KaTeX frontend.
 
     - Fixes unbracketed exponents (10^23 → 10^{23}), orphaned \\text, tabs/ANSI,
-      and normalizes \\( \\) to $.
+      normalizes \\( \\) to $, and collapses $$...$$ → $...$.
     - Validates that math blocks have balanced braces and no forbidden commands.
 
     Raises ValueError if validation fails.
