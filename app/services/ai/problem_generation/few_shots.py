@@ -20,14 +20,19 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 
-async def get_few_shot(
+async def get_few_shots(
     db: AsyncSession,
     unit_id: str,
     lesson_index: int,
     difficulty: str,
     level: int,
-) -> dict[str, Any] | None:
-    """Return one random example_json dict, or None if no rows exist."""
+    n: int = 2,
+) -> list[dict[str, Any]]:
+    """Return up to n distinct random example_json dicts (empty list if none exist).
+
+    Fallback chain per tier — stops at the first tier that has rows.
+    Picks up to n without replacement so the LLM sees varied examples.
+    """
     from app.infrastructure.database.models import FewShotExample  # avoid circular import
 
     base = select(FewShotExample).where(FewShotExample.is_active.is_(True))
@@ -51,6 +56,7 @@ async def get_few_shot(
         result = await db.execute(base.where(*where_clause))
         rows = result.scalars().all()
         if rows:
-            return random.choice(rows).example_json
+            sample = random.sample(rows, min(n, len(rows)))
+            return [r.example_json for r in sample]
 
-    return None
+    return []

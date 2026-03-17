@@ -1,111 +1,30 @@
 """
-Problem generation prompts — blueprint config, level blocks, system prompt.
+Problem generation prompts — level blocks and system prompt.
 
-Blueprint lookup (unit_id, lesson_index) → BlueprintName is done at call-site
-by passing the Lesson.blueprint value fetched from the DB.
+Blueprint config, skills, and step counts live in app/services/ai/shared/blueprints.py
+so that problem generation and reference card generation share one source of truth.
 Single source of truth for lesson metadata: scripts/seed_data/lessons.py
 """
-
-from typing import Literal
 
 # ── Version ────────────────────────────────────────────────────────────────
 PROMPT_VERSION = "v13-katex"
 
-BlueprintName = Literal["solver", "recipe", "architect", "detective", "lawyer"]
-Tool = Literal["calculator", "periodic_table"]
-
-# ── 5 Cognitive Blueprints ─────────────────────────────────────────────────
-BLUEPRINT_CONFIG: dict[str, dict] = {
-    "solver": {
-        "step_count": 5,
-        "labels": ["Equation", "Knowns", "Substitute", "Calculate", "Answer"],
-        "logic": "Input variables -> Formula -> Result.",
-    },
-    "recipe": {
-        "step_count": 5,
-        "labels": ["Goal / Setup", "Conversion Factors", "Dimensional Setup", "Calculate", "Answer"],
-        "logic": "Series of conversions where the output of A is the input of B.",
-    },
-    "architect": {
-        "step_count": 4,
-        "labels": ["Inventory / Rules", "Draft", "Refine", "Final Answer"],
-        "logic": "Building a symbolic representation based on rules.",
-    },
-    "detective": {
-        "step_count": 4,
-        "labels": ["Data Extraction", "Feature ID", "Apply Concept", "Conclusion"],
-        "logic": "Extracting truth from a visual representation or raw data.",
-    },
-    "lawyer": {
-        "step_count": 4,
-        "labels": ["Concept ID", "Relation", "Evidence / Claim", "Conclusion"],
-        "logic": "Claim -> Evidence -> Reasoning (CER).",
-    },
-}
-
-DEFAULT_SKILLS_BY_BLUEPRINT: dict[str, list[str]] = {
-    "solver": [
-        "Select correct equation",
-        "Extract known values with units",
-        "Substitute values into equation",
-        "Compute final answer with sig figs",
-    ],
-    "recipe": [
-        "Identify conversion goal",
-        "Select conversion factors",
-        "Set up dimensional analysis",
-        "Compute final answer with sig figs",
-    ],
-    "architect": [
-        "Identify chemical rules/inventory",
-        "Draft initial symbolic representation",
-        "Refine structure/coefficients",
-        "Finalize symbolic answer",
-    ],
-    "detective": [
-        "Extract data from representation",
-        "Identify key feature or pattern",
-        "Apply chemical concept to data",
-        "Draw scientific conclusion",
-    ],
-    "lawyer": [
-        "Identify governing concept",
-        "State chemical relationship",
-        "Provide evidence/reasoning",
-        "State final conclusion",
-    ],
-}
+# Re-export shared blueprint symbols so callers can keep importing from here
+from app.services.ai.shared.blueprints import (  # noqa: E402, F401
+    BlueprintName,
+    Tool,
+    BLUEPRINT_CONFIG,
+    DEFAULT_SKILLS_BY_BLUEPRINT,
+    get_step_count_for_prompt,
+    collect_skills_from_lesson_objectives,
+    build_skills_block,
+)
 
 
-def get_step_count_for_prompt(blueprint: str) -> int:
-    return int(BLUEPRINT_CONFIG.get(blueprint, BLUEPRINT_CONFIG["solver"])["step_count"])
-
-
-def collect_skills_from_lesson_objectives(lesson_context: dict | None, blueprint: str) -> list[str]:
-    """Use lesson objectives as canonical per-step skills, with blueprint fallback."""
-    if lesson_context and (objectives := lesson_context.get("objectives")):
-        cleaned = [str(x).strip() for x in objectives if str(x).strip()]
-        if cleaned:
-            return list(dict.fromkeys(cleaned))
-    return DEFAULT_SKILLS_BY_BLUEPRINT.get(blueprint, DEFAULT_SKILLS_BY_BLUEPRINT["solver"])
-
-
-def build_skills_block(skills: list[str]) -> str:
-    if not skills:
-        return ""
-    return (
-        "SKILL LIST (use EXACT values for skillUsed): "
-        + "; ".join(skills)
-        + '\nFor each step include "skillUsed" and choose one item from this list only.'
-    )
-
-
-def get_few_shot_block(db_example: dict | None) -> str:
-    """Return a formatted few-shot block to append to the system prompt."""
-    if not db_example:
-        return ""
+def _format_one_example(example: dict, index: int) -> str:
+    """Format a single few-shot example dict into a labelled reference block."""
     step_lines = []
-    for s in db_example["steps"]:
+    for s in example["steps"]:
         label = s.get("label", "Step")
         instruction = s.get("instruction", "")
         explanation = s.get("explanation", "")
@@ -125,12 +44,29 @@ def get_few_shot_block(db_example: dict | None) -> str:
         step_lines.append(line)
     steps_text = "\n".join(step_lines)
     return (
-        "\n\n--- FEW-SHOT REFERENCE (follow this structure exactly) ---\n"
-        f"Title: {db_example['title']}\n"
-        f"Statement: {db_example['statement']}\n"
+        f"\n\n--- FEW-SHOT EXAMPLE {index} (follow this structure exactly) ---\n"
+        f"Title: {example['title']}\n"
+        f"Statement: {example['statement']}\n"
         f"Steps:\n{steps_text}\n"
-        "--- END REFERENCE — generate a NEW problem with DIFFERENT values ---"
+        f"--- END EXAMPLE {index} ---"
     )
+
+
+def get_few_shot_block(db_examples: list[dict]) -> str:
+    """Return formatted few-shot block(s) to append to the system prompt.
+
+    Accepts 0, 1, or 2 examples. With 2 examples the LLM sees varied
+    structure and LaTeX style, reducing copy-paste from any single example.
+    """
+    if not db_examples:
+        return ""
+    blocks = [_format_one_example(ex, i + 1) for i, ex in enumerate(db_examples)]
+    footer = (
+        "\n\nDo NOT reuse any example above. "
+        "Use this exact context to ensure the student gets a brand new problem "
+        "with DIFFERENT values, scenario, and numbers."
+    )
+    return "".join(blocks) + footer
 
 
 # ── Level blocks ────────────────────────────────────────────────────────────
@@ -148,9 +84,11 @@ You MUST choose the `type` for each step based on what the student is doing:
    - WHEN: A step requires identifying or entering MULTIPLE labeled values
      (e.g. extracting several Knowns, two abundances, multiple masses).
    - Populate "labeledValues" (array of {{variable, value, unit}}). Leave "correctAnswer" null.
-   - EVERY "variable" and "value" that contains math MUST be wrapped in $...$:
-     CORRECT: variable="$[A]_0$", value="$0.80$", unit="M"
-     CORRECT: variable="formula", value="$\\mathrm{{C_6H_{{12}}O_6}}$", unit=""
+   - "variable" MUST be a plain readable label (no $ or LaTeX) — the UI renders it at normal size.
+     "value" and "unit" may contain math wrapped in $...$:
+     CORRECT: variable="Initial Concentration", value="$0.80$", unit="M"
+     CORRECT: variable="Formula", value="$\\mathrm{{C_6H_{{12}}O_6}}$", unit=""
+     WRONG:   variable="$[A]_0$" (LaTeX in variable causes oversized KaTeX rendering)
      WRONG:   variable="[A]0", value="\\mathrm{{C_6H_{{12}}O_6}}" (bare LaTeX without $)
    - In Level 2, if a variable_id step falls in position 1 or 2 (i.e., it is "given"),
      set type="given" AND still populate "labeledValues". The UI displays labeled values for "given"
@@ -206,7 +144,7 @@ BLUEPRINT for {blueprint}:
 For each step, set "label" to exactly ONE of the blueprint labels above, in order: step 1 = first label, step 2 = second, etc. Do NOT combine labels, add alternatives, or extra text. Example: "Concept ID" not "Concept ID | Claim | ...".
 
 ### CRITICAL FORMATTING & LATEX RULES ###
-Use ONLY $...$ for math. NEVER use \\( \\).
+Use ONLY $...$ (single-dollar inline math) for ALL math. NEVER use $$...$$ (display/block math) — it renders oversized and centered in the UI. NEVER use \\( \\).
 1. Chemical formulas: $\\mathrm{{}}$ with subscripts. CORRECT: $\\mathrm{{NH_4NO_3}}$, $\\mathrm{{H_2O}}$. WRONG: NH4NO3 or $\\text{{CaCl}}_2$ (use \\mathrm for formulas).
 2. Units only inside $\\text{{}}$ with leading space: $110.98 \\text{{ g/mol}}$, $63.62 \\text{{ amu}}$. WRONG: "$84 , \\text{{ MJ/mol}}$" or "$\\text{{amu}}$" (no leading space).
 3. Specific variables: $q_{{\\text{{system}}}}$, $q_{{\\text{{surr}}}}$.
@@ -224,7 +162,6 @@ Your output is parsed as JSON. In JSON, \\t is a tab and \\n is newline. You MUS
 - CORRECT in JSON: \\\\text{{amu}}, \\\\mathrm{{H_2O}}, \\\\times, \\\\rightarrow
 - INCORRECT (breaks parser): \\text{{amu}}, \\mathrm{{H_2O}}, \\t, \\n
 - NEVER output ANSI escape codes, unicode control characters (e.g. \\u001b), or unescaped tabs.
-- In "labeledValues", use plain strings for "variable" (e.g. "System", "Surroundings") so the UI renders them at normal size; put LaTeX only in "value" inside $...$.
 - The "correctAnswer" field MUST be plain text or easily typed on a keyboard (e.g. "q_system = -q_surr", "-2299 J"). Do NOT use LaTeX in "correctAnswer".
 
 ### CRITICAL UI CONSTRAINTS: INSTRUCTIONS AND MICRO-INPUTS ###
