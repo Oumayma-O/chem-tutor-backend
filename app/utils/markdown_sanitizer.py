@@ -80,6 +80,8 @@ _RE_DISPLAY_MATH = re.compile(r"\$\$([^$]*?)\$\$", re.DOTALL)
 def _normalize_math_wrappers(s: str) -> str:
     s = s.replace("\\(", "$").replace("\\)", "$")
     s = _RE_DISPLAY_MATH.sub(r"$\1$", s)
+    # Collapse any remaining orphaned $$ (e.g. trailing "...$$.") → $
+    s = s.replace("$$", "$")
     return s
 
 
