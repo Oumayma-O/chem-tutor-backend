@@ -37,7 +37,7 @@ _LLM_RETRY = retry(
 )
 
 # Label keywords → step type (for level 3 / cache correction)
-_DRAG_DROP_LABELS = {"equation", "substitute", "formula", "expression"}
+_DRAG_DROP_LABELS = {"equation", "substitute", "formula", "expression", "draft", "arrange", "order", "sequence", "configuration"}
 _VARIABLE_ID_LABELS = {"knowns", "given", "variables", "identify", "known values"}
 
 

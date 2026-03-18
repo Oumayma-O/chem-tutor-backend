@@ -112,12 +112,12 @@ You MUST choose the `type` for each step based on what the student is doing:
    - Set "correctAnswer" to exactly one of: "<", ">", "=".
 
 3. type="drag_drop"
-   - WHEN: A step requires assembling a full SYMBOLIC equation or formula using variable/operator
-     tokens (e.g. ["P_1", "V_1", "=", "P_2", "V_2"] or ["[A]_t", "=", "[A]_0", "-", "k", "*", "t"]).
+   - WHEN: A step requires assembling a full SYMBOLIC equation/formula OR arranging an ordered
+     sequence of symbolic tokens (e.g. electron configuration subshells, orbital order).
+     Examples: ["P_1", "V_1", "=", "P_2", "V_2"] | ["$1s^2$", "$2s^2$", "$2p^6$", "$3s^2$", "$3p^3$"]
    - NEVER use drag_drop when any token is a plain NUMBER (e.g. ["2", "*", "16.00"] is WRONG).
-     If the step involves numeric substitution or arithmetic, force type to "interactive" so the
-     student types the expression directly.
-   - Populate "equationParts". Leave "correctAnswer" null.
+     If the step involves numeric substitution or arithmetic, use type="interactive" instead.
+   - Populate "equationParts" with tokens in the CORRECT order. Leave "correctAnswer" null.
 
 4. type="given" or type="interactive"
    - WHEN: A standard single-value micro-input step (none of the above apply).

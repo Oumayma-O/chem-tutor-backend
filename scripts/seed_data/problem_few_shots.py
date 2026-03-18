@@ -1073,4 +1073,72 @@ FEW_SHOT_DATA: list[tuple[str, int, str, str, dict]] = [
             ],
         },
     ),
+    # ── 20. Architect: electron configuration (drag_drop for ordered sequence) ─
+    (
+        "unit-electrons",
+        2,
+        "medium",
+        "architect",
+        {
+            "title": "Electron Configuration of Phosphorus",
+            "statement": (
+                "An AP Chemistry student is reviewing atomic structure. "
+                "A neutral phosphorus ($\\mathrm{P}$) atom has an atomic number of $15$.\n\n"
+                "Determine the occupied subshells, assemble the full electron configuration, "
+                "and apply Hund's rule to the valence electrons."
+            ),
+            "steps": [
+                {
+                    "label": "Inventory / Rules",
+                    "type": "variable_id",
+                    "instruction": "Distribute the 15 electrons into the correct subshells.",
+                    "explanation": "Following the Aufbau principle: $1s$, $2s$, $2p$, $3s$ fill completely; 3 remain for $3p$.",
+                    "skillUsed": "Write basic electron configurations",
+                    "correctAnswer": None,
+                    "equationParts": None,
+                    "labeledValues": [
+                        {"variable": "1s", "value": "2", "unit": "$e^-$"},
+                        {"variable": "2s", "value": "2", "unit": "$e^-$"},
+                        {"variable": "2p", "value": "6", "unit": "$e^-$"},
+                        {"variable": "3s", "value": "2", "unit": "$e^-$"},
+                        {"variable": "3p", "value": "3", "unit": "$e^-$"},
+                    ],
+                    "comparisonParts": None,
+                },
+                {
+                    "label": "Draft",
+                    "type": "drag_drop",
+                    "instruction": "Arrange the subshells in the correct Aufbau order.",
+                    "explanation": "Fill lowest to highest energy: $1s \\rightarrow 2s \\rightarrow 2p \\rightarrow 3s \\rightarrow 3p$.",
+                    "skillUsed": "Write full electron configurations",
+                    "correctAnswer": None,
+                    "equationParts": ["$1s^2$", "$2s^2$", "$2p^6$", "$3s^2$", "$3p^3$"],
+                    "labeledValues": None,
+                    "comparisonParts": None,
+                },
+                {
+                    "label": "Refine",
+                    "type": "interactive",
+                    "instruction": "How many unpaired electrons are in the 3p subshell?",
+                    "explanation": "By Hund's rule, the three $3p$ electrons each occupy a separate orbital singly.",
+                    "skillUsed": "Draw orbital notation diagrams",
+                    "correctAnswer": "3",
+                    "equationParts": None,
+                    "labeledValues": None,
+                    "comparisonParts": None,
+                },
+                {
+                    "label": "Final Answer",
+                    "type": "interactive",
+                    "instruction": "State the complete electron configuration.",
+                    "explanation": "Combine the ordered subshells into a single notation string.",
+                    "skillUsed": "Write full electron configurations",
+                    "correctAnswer": "1s2 2s2 2p6 3s2 3p3",
+                    "equationParts": None,
+                    "labeledValues": None,
+                    "comparisonParts": None,
+                },
+            ],
+        },
+    ),
 ]
