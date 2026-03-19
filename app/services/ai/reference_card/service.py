@@ -52,7 +52,7 @@ async def generate_reference_card(
 
     for attempt in range(MAX_ATTEMPTS):
         raw: ReferenceCardOutput = await generate_structured(
-            messages, ReferenceCardOutput, temperature=0.4, fast=True
+            messages, ReferenceCardOutput, temperature=0.4
         )
         card_dict = normalize_strings(raw.model_dump(mode="json"))
 
