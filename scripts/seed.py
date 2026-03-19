@@ -297,22 +297,30 @@ async def _seed_few_shots(async_session) -> None:
                 "steps": _fs_normalize_steps(ex["steps"]),
             }
 
-            session.add(FewShotExample(
+            await session.execute(text("""
+                INSERT INTO few_shot_examples
+                    (unit_id, lesson_index, difficulty, level, strategy,
+                     variant_index, example_json, is_active, promoted, created_at)
+                VALUES
+                    (:unit_id, :lesson_index, :difficulty, 1, :strategy,
+                     :variant_index, cast(:example_json as jsonb), true, false, now())
+                ON CONFLICT (unit_id, lesson_index, difficulty, level, strategy, variant_index)
+                DO UPDATE SET
+                    example_json = EXCLUDED.example_json,
+                    is_active    = EXCLUDED.is_active
+            """).bindparams(
                 unit_id=unit_id,
                 lesson_index=lesson_index,
                 difficulty=difficulty,
-                level=1,
                 strategy=blueprint,
                 variant_index=variant_index,
-                example_json=normalized_json,
-                is_active=True,
-                promoted=False,
+                example_json=__import__("json").dumps(normalized_json),
             ))
             inserted += 1
 
         await session.commit()
 
-    print(f"  {inserted} inserted")
+    print(f"  {inserted} upserted")
 
 
 # ══════════════════════════════════════════════════════════════
