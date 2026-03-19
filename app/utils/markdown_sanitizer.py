@@ -98,6 +98,25 @@ def _fix_dollar_split_exponents(s: str) -> str:
     return s
 
 
+# Bare braced super/subscripts: "1s^{2} 2s^{2} 2p^{6}" → "$1s^{2} 2s^{2} 2p^{6}$"
+# Detects ^{...} or _{...} patterns that are outside $...$ delimiters.
+# Covers electron configs and any bare LaTeX notation the LLM forgot to wrap.
+_RE_BARE_BRACE_NOTATION = re.compile(r"[\^_]\{[^}]+\}")
+
+def _wrap_bare_sub_super(s: str) -> str:
+    if not _RE_BARE_BRACE_NOTATION.search(s):
+        return s
+    if "$" not in s:
+        return f"${s}$"
+    # Check if the pattern exists OUTSIDE existing $...$ blocks
+    non_math = _RE_DOLLAR_SEGMENT.sub("", s)
+    if _RE_BARE_BRACE_NOTATION.search(non_math):
+        # Partial wrapping: strip delimiters and re-wrap whole string
+        stripped = _RE_DOLLAR_SEGMENT.sub(lambda m: m.group(0)[1:-1], s)
+        return f"${stripped}$"
+    return s
+
+
 # Auto-wrap bare LaTeX: if a string contains \command but no $ delimiters,
 # the LLM forgot to wrap it — enclose the whole string in $...$
 # Also handles the partial case: LLM wrapped only part of the expression
@@ -132,6 +151,7 @@ def _normalize_string(s: str) -> str:
     s = _fix_orphan_mathrm(s)
     s = _fix_unclosed_mathrm(s)
     s = _normalize_math_wrappers(s)
+    s = _wrap_bare_sub_super(s)
     s = _wrap_bare_latex(s)
     return s
 
