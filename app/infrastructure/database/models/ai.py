@@ -51,7 +51,8 @@ class PromptVersion(Base):
 class FewShotExample(Base):
     """
     Curated few-shot examples served to the LLM at generation time.
-    Keyed by (unit_id, lesson_index, difficulty, level).
+    Keyed by (unit_id, lesson_index, difficulty, level, strategy, variant_index)
+    so multiple problem variants per slot can coexist.
     """
     __tablename__ = "few_shot_examples"
 
@@ -61,11 +62,16 @@ class FewShotExample(Base):
     difficulty: Mapped[str] = mapped_column(String(10), nullable=False)
     level: Mapped[int] = mapped_column(Integer, nullable=False, default=1)
     strategy: Mapped[str | None] = mapped_column(String(20), nullable=True)
+    variant_index: Mapped[int] = mapped_column(Integer, nullable=False, default=1, server_default="1")
     example_json: Mapped[dict] = mapped_column(JSONB, nullable=False)
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
     promoted: Mapped[bool] = mapped_column(Boolean, default=False)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now)
 
     __table_args__ = (
-        Index("ix_few_shot_lookup", "unit_id", "lesson_index", "difficulty", "level"),
+        Index(
+            "ix_few_shot_lookup",
+            "unit_id", "lesson_index", "difficulty", "level", "strategy", "variant_index",
+            unique=True,
+        ),
     )

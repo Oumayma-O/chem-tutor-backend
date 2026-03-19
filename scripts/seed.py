@@ -263,10 +263,34 @@ def _fs_normalize_steps(steps: list[dict]) -> list[dict]:
 
 async def _seed_few_shots(async_session) -> None:
     print("\n─── Few-shot examples ───")
+
+    # ── Ensure variant_index column and correct unique index exist ────────────
+    # Done here (not via Alembic) so no migration files are needed.
+    async with async_session() as session:
+        await session.execute(text(
+            "ALTER TABLE few_shot_examples "
+            "ADD COLUMN IF NOT EXISTS variant_index INTEGER NOT NULL DEFAULT 1"
+        ))
+        await session.execute(text("DROP INDEX IF EXISTS ix_few_shot_lookup"))
+        await session.execute(text(
+            "CREATE UNIQUE INDEX ix_few_shot_lookup "
+            "ON few_shot_examples "
+            "(unit_id, lesson_index, difficulty, level, strategy, variant_index)"
+        ))
+        await session.commit()
+
+    # ── Insert all examples, assigning variant_index per slot ─────────────────
+    # variant_index increments for each additional problem with the same
+    # (unit_id, lesson_index, difficulty, strategy) key so all variants are kept.
+    variant_counter: dict[tuple, int] = {}
     inserted = 0
 
     async with async_session() as session:
         for unit_id, lesson_index, difficulty, blueprint, ex in FEW_SHOT_DATA:
+            slot_key = (unit_id, lesson_index, difficulty, blueprint)
+            variant_counter[slot_key] = variant_counter.get(slot_key, 0) + 1
+            variant_index = variant_counter[slot_key]
+
             normalized_json = {
                 "title": ex["title"],
                 "statement": ex["statement"],
@@ -278,7 +302,8 @@ async def _seed_few_shots(async_session) -> None:
                 lesson_index=lesson_index,
                 difficulty=difficulty,
                 level=1,
-                strategy=blueprint,  # column reused for blueprint name
+                strategy=blueprint,
+                variant_index=variant_index,
                 example_json=normalized_json,
                 is_active=True,
                 promoted=False,

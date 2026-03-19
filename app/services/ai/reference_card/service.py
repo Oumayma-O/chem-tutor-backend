@@ -1,23 +1,19 @@
 """
 Reference Card generation service.
 
-Uses a few-shot LangChain chain with structured output.
-The result is meant to be generated ONCE per lesson and persisted in the DB.
+Few-shot examples are embedded in the system prompt (same pattern as problem
+generation) so this service can use generate_structured() — which handles the
+OpenAI function_calling method, provider abstraction, and message building.
 
 Normalization pipeline (same guarantees as problem generation):
   LLM → model_dump → normalize_strings → validate_math_strings → model_validate
 Retries up to MAX_ATTEMPTS times if validation fails.
 """
 
-from langchain_core.messages import AIMessage, HumanMessage, SystemMessage
-
 from app.core.logging import get_logger
 from app.domain.schemas.tutor.problems import ReferenceCardOutput
-from app.services.ai.llm import get_llm
-from app.services.ai.reference_card.prompts import (
-    build_reference_card_system,
-    get_few_shots_for_blueprint,
-)
+from app.services.ai.llm import generate_structured
+from app.services.ai.reference_card.prompts import build_reference_card_system
 from app.utils.markdown_sanitizer import normalize_strings, validate_math_strings
 
 logger = get_logger(__name__)
@@ -33,7 +29,7 @@ async def generate_reference_card(
     blueprint: str = "solver",
 ) -> ReferenceCardOutput:
     """
-    Call the LLM chain to generate a conceptual reference card for a lesson.
+    Call the LLM to generate a conceptual reference card for a lesson.
 
     Args:
         lesson_name:   Human-readable lesson name, e.g. "Boyle's Law".
@@ -43,25 +39,21 @@ async def generate_reference_card(
         blueprint:     Lesson's cognitive blueprint (from Lesson.blueprint in DB).
     """
     system_prompt = build_reference_card_system(blueprint, key_equations)
-
-    llm = get_llm(fast=True, temperature=0.1)
-    structured_llm = llm.with_structured_output(ReferenceCardOutput)
-
     user_prompt = (
         f"Generate a reference card for lesson '{lesson_name}' "
         f"(unit_id='{unit_id}', lesson_index={lesson_index})."
     )
-
-    messages: list = [SystemMessage(content=system_prompt)]
-    for ex in get_few_shots_for_blueprint(blueprint):
-        messages.append(HumanMessage(content=ex["human"]))
-        messages.append(AIMessage(content=ex["assistant"]))
-    messages.append(HumanMessage(content=user_prompt))
+    messages = [
+        {"role": "system", "content": system_prompt},
+        {"role": "user",   "content": user_prompt},
+    ]
 
     last_error: ValueError | None = None
 
     for attempt in range(MAX_ATTEMPTS):
-        raw: ReferenceCardOutput = await structured_llm.ainvoke(messages)
+        raw: ReferenceCardOutput = await generate_structured(
+            messages, ReferenceCardOutput, temperature=0.4, fast=True
+        )
         card_dict = normalize_strings(raw.model_dump(mode="json"))
 
         ok, msg = validate_math_strings(card_dict)

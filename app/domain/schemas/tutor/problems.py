@@ -112,6 +112,10 @@ class GenerateProblemRequest(BaseModel):
     problem_style: str | None = None
     lesson_context: LessonContext | None = None
     exclude_ids: list[str] = Field(default_factory=list)  # e.g. current problem id so "See Another" returns a different one
+    # When True: skip playlist resume check and force a fresh LLM generation.
+    # Also bypasses the per-slot cap so the student always gets a brand-new problem.
+    # Use for explicit "Try Another Problem" actions, not routine prefetches.
+    force_regenerate: bool = False
 
 
 class ProblemDeliveryResponse(BaseModel):

@@ -21,10 +21,23 @@ MATH DELIMITERS — use ONLY $...$ (inline math):
   CORRECT: $\\\\text{{Avg Atomic Mass}} = \\\\sum (\\\\text{{mass}} \\\\times \\\\text{{abundance}})$
   WRONG:   \\\\text{{Avg Atomic Mass}} = \\\\sum (...)  ← renders literally as "\\text{{...}}"
 
+VARIABLES & EQUATIONS — ALL math must be inside $...$:
+- Single variable names used mathematically: $k$, $n$, $T$, $P$, $V$, $R^2$
+- Superscripts/subscripts: ALWAYS $R^2$, $k_1$, $[A]_t$ — NEVER bare R^{{2}}, k_1, [A]_t
+  WRONG: R^{{2}}= 0.998; for ln|X| vs. time, R^{{2}}= 0.962  ← breaks into multiple lines
+  CORRECT: $R^2 = 0.998$; for $\\\\ln|X|$ vs. time, $R^2 = 0.962$
+- Full equations belong in one $...$: $R^2 = 0.998$, $[A]_t = [A]_0 e^{{-kt}}$
+- Integrated rate law expressions: $[A]_t = [A]_0 - kt$ (zero), $\\\\ln[A]_t = \\\\ln[A]_0 - kt$ (first),
+  $\\\\frac{{1}}{{[A]_t}} = \\\\frac{{1}}{{[A]_0}} + kt$ (second)
+
 NOTATION:
 - Chemical formulas: $\\\\mathrm{{H_2O}}$, $\\\\mathrm{{NH_4NO_3}}$ — always \\\\mathrm{{}}, NOT \\\\text{{}}
 - Units: inside $\\\\text{{ }}$ with a LEADING SPACE — $3.5 \\\\text{{ g/mol}}$, $63.62 \\\\text{{ amu}}$
 - Exponents: always use braces — $10^{{23}}$ not $10^23$
+- Electron configurations: write the ENTIRE config in ONE $...$
+  CORRECT: "$1s^2 2s^2 2p^6 3s^2 3p^3$"
+  WRONG:   "$1s^2$ $2s^2$ $2p^6$" — fragmented per subshell, breaks rendering
+  WRONG:   "1s^{{2}} 2s^{{2}} 2p^{{6}}" — bare text without delimiters
 
 JSON ESCAPING — every LaTeX backslash MUST be doubled in JSON output:
 - CORRECT: \\\\text{{g/mol}}, \\\\frac{{m}}{{M}}, \\\\mathrm{{H_2O}}, \\\\times, \\\\rightarrow, \\\\sum

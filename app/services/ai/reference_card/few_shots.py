@@ -114,3 +114,26 @@ _FEW_SHOT_MAP: dict[str, list[dict]] = {
 def get_few_shots_for_blueprint(blueprint: str) -> list[dict]:
     """Return few-shot (human/assistant) pairs for the given blueprint name."""
     return _FEW_SHOT_MAP.get(blueprint, _SOLVER)
+
+
+def get_few_shot_text_block(blueprint: str) -> str:
+    """
+    Format the blueprint's few-shot example as a text block to embed in the
+    system prompt — same approach as problem generation's get_few_shot_block().
+    This lets the service use generate_structured() instead of a manual message chain.
+    """
+    examples = _FEW_SHOT_MAP.get(blueprint, _SOLVER)
+    if not examples:
+        return ""
+    blocks = []
+    for i, ex in enumerate(examples, 1):
+        blocks.append(
+            f"\n\n--- FEW-SHOT EXAMPLE {i} (follow this structure exactly) ---\n"
+            f"Request: {ex['human']}\n"
+            f"Response:\n{ex['assistant']}\n"
+            f"--- END EXAMPLE {i} ---"
+        )
+    return "".join(blocks) + (
+        "\n\nDo NOT copy values from the example above. "
+        "Generate a card for the specific lesson requested."
+    )

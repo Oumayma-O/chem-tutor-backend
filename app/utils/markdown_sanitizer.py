@@ -85,6 +85,19 @@ def _normalize_math_wrappers(s: str) -> str:
     return s
 
 
+# Fix $X$^{n} / $X$_{n}: superscript or subscript that leaked outside closing $
+# e.g. "$2s$^{2}" → "$2s^{2}$", "$k$_{obs}" → "$k_{obs}$"
+# This happens when the LLM wraps only the base in $...$ and forgets to include
+# the exponent/subscript inside the same delimiters.
+_RE_DOLLAR_SPLIT_SUPER = re.compile(r"\$([^$]+)\$\^\{([^}]+)\}")
+_RE_DOLLAR_SPLIT_SUB = re.compile(r"\$([^$]+)\$_\{([^}]+)\}")
+
+def _fix_dollar_split_exponents(s: str) -> str:
+    s = _RE_DOLLAR_SPLIT_SUPER.sub(r"$\1^{\2}$", s)
+    s = _RE_DOLLAR_SPLIT_SUB.sub(r"$\1_{\2}$", s)
+    return s
+
+
 # Auto-wrap bare LaTeX: if a string contains \command but no $ delimiters,
 # the LLM forgot to wrap it — enclose the whole string in $...$
 # Also handles the partial case: LLM wrapped only part of the expression
@@ -113,6 +126,7 @@ def _normalize_string(s: str) -> str:
         return s
     s = _recover_tab_corrupted_latex(s)
     s = _strip_illegal_chars(s)
+    s = _fix_dollar_split_exponents(s)
     s = _fix_unbracketed_exponents(s)
     s = _fix_orphan_text(s)
     s = _fix_orphan_mathrm(s)

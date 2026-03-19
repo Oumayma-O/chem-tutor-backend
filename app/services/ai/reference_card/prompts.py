@@ -8,11 +8,10 @@ Shared LaTeX/JSON escaping rules are imported from app/services/ai/shared/latex_
 
 from app.services.ai.shared.blueprints import BLUEPRINT_CONFIG
 from app.services.ai.shared.latex_rules import SHARED_LATEX_RULES
-from app.services.ai.reference_card.few_shots import get_few_shots_for_blueprint  # noqa: F401
+from app.services.ai.reference_card.few_shots import get_few_shot_text_block  # noqa: F401
 
 __all__ = [
     "build_reference_card_system",
-    "get_few_shots_for_blueprint",
 ]
 
 _SYSTEM_TEMPLATE = (
@@ -34,7 +33,10 @@ REFERENCE CARD RULES:
 2. Produce exactly {step_count} steps labelled: {labels_block}.
 3. Each "content" field MUST be a SHORT, punchy phrase (max 10 words). Bullet-style logic only.
 4. Write the "hint" as a single encouraging sentence telling the student how to begin.
-5. Output valid JSON matching the schema.{equations_rule}"""
+5. Output valid JSON matching the schema.{equations_rule}
+6. MATH IN CONTENT FIELDS: Any formula, variable, or LaTeX expression in a "content" string MUST be wrapped in $...$. NEVER write bare LaTeX outside of dollar signs.
+   CORRECT: "Use $\\\\bar{{A}} = \\\\sum(\\\\text{{mass}} \\\\times \\\\text{{abundance}})$"
+   WRONG:   "\\\\text{{Avg Atomic Mass}} = \\\\sum (...)" — bare LaTeX without $...$ renders as raw text."""
 )
 
 
@@ -42,7 +44,7 @@ def build_reference_card_system(
     blueprint: str,
     key_equations: list[str] | None = None,
 ) -> str:
-    """Return a blueprint-specific system prompt for reference card generation."""
+    """Return a blueprint-specific system prompt with embedded few-shot example."""
     config = BLUEPRINT_CONFIG.get(blueprint, BLUEPRINT_CONFIG["solver"])
     labels_block = " | ".join(config["labels"])
     equations_rule = ""
@@ -52,10 +54,11 @@ def build_reference_card_system(
             f"\n\nCRITICAL EQUATIONS: You must include these exact equations somewhere "
             f"in your steps: {formatted}"
         )
-    return _SYSTEM_TEMPLATE.format(
+    base = _SYSTEM_TEMPLATE.format(
         blueprint=blueprint,
         labels_block=labels_block,
         step_count=config["step_count"],
         blueprint_logic=config["logic"],
         equations_rule=equations_rule,
     )
+    return base + get_few_shot_text_block(blueprint)
