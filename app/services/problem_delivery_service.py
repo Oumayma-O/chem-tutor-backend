@@ -13,6 +13,7 @@ Encapsulates:
 
 from __future__ import annotations
 
+import asyncio
 import time
 import uuid as _uuid
 
@@ -22,6 +23,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.config import get_settings
 from app.core.logging import get_logger
 from app.domain.schemas.tutor import GenerateProblemRequest, ProblemDeliveryResponse, ProblemOutput
+from app.infrastructure.database.connection import AsyncSessionFactory
 from app.infrastructure.database.repositories.unit_repo import LessonRepository
 from app.infrastructure.database.repositories.mastery_repo import MasteryRepository
 from app.infrastructure.database.repositories.playlist_repo import UserLessonPlaylistRepository
@@ -154,21 +156,50 @@ class ProblemDeliveryService:
             if mastery_record:
                 effective_difficulty = mastery_record.current_difficulty
 
-        # ── Cap check ──────────────────────────────────────────
-        if playlist_repo and req.user_id:
+        # ── Fetch-or-Generate: resume from playlist ────────────
+        # Return the user's current problem instantly (0 LLM cost) when they
+        # already have a problem for this slot and haven't excluded it.
+        # force_regenerate=True bypasses this for explicit "Try Another" actions.
+        if playlist_repo and req.user_id and not req.force_regenerate:
             playlist = await playlist_repo.get(
                 req.user_id, req.unit_id, req.lesson_index, req.level, effective_difficulty
             )
-            if playlist and len(playlist.problems) >= max_p:
+            if playlist and playlist.problems:
                 ci = playlist.current_index
-                problem = ProblemOutput.model_validate(playlist.problems[ci])
-                enforce_step_types(problem, req.level)
                 total = len(playlist.problems)
-                return ProblemDeliveryResponse(
-                    problem=problem,
-                    current_index=ci, total=total, max_problems=max_p,
-                    has_prev=ci > 0, has_next=ci < total - 1, at_limit=True,
-                )
+                current_data = playlist.problems[ci]
+                current_id = current_data.get("id") if isinstance(current_data, dict) else None
+                exclude = set(req.exclude_ids or [])
+                if current_id and current_id not in exclude:
+                    problem = ProblemOutput.model_validate(current_data)
+                    enforce_step_types(problem, req.level)
+                    logger.info(
+                        "problem_resumed_from_playlist",
+                        user_id=str(req.user_id), unit=req.unit_id,
+                        lesson=req.lesson_index, level=req.level,
+                        current_index=ci, total=total,
+                    )
+                    return ProblemDeliveryResponse(
+                        problem=problem,
+                        current_index=ci, total=total, max_problems=max_p,
+                        has_prev=ci > 0, has_next=ci < total - 1,
+                        at_limit=total >= max_p,
+                    )
+                # Current problem is excluded (user wants "See Another") but
+                # the playlist is at cap — can't generate more; return the
+                # current problem anyway so the user isn't stuck.
+                if total >= max_p:
+                    problem = ProblemOutput.model_validate(current_data)
+                    enforce_step_types(problem, req.level)
+                    return ProblemDeliveryResponse(
+                        problem=problem,
+                        current_index=ci, total=total, max_problems=max_p,
+                        has_prev=ci > 0, has_next=ci < total - 1, at_limit=True,
+                    )
+
+        # ── Cap check (anonymous mode only — authenticated users are handled above) ──
+        # For authenticated users with force_regenerate=True we intentionally bypass
+        # the cap, allowing them to generate a fresh problem on explicit request.
 
         # ── Cache (Level 1 only) ───────────────────────────────
         problem: ProblemOutput | None = None
@@ -227,24 +258,61 @@ class ProblemDeliveryService:
                 self._gen.provider_name, self._gen.model_name, self._gen.prompt_version,
             )
 
-        # ── Playlist append ────────────────────────────────────
+        # ── Playlist append (shielded from client disconnect) ─────────────────
+        # asyncio.shield() keeps the persist coroutine alive even when the HTTP
+        # client drops the connection (hard refresh, tab close, fast SPA nav).
+        # This guarantees that every prefetch-triggered generation is saved to
+        # user_lesson_playlists, enabling instant resume on the next visit.
+        # A fresh AsyncSessionFactory session is used because the request-scoped
+        # self._db may already be closed by the time the shield runs.
         if playlist_repo and req.user_id:
-            updated = await playlist_repo.append_and_advance(
-                user_id=req.user_id,
-                unit_id=req.unit_id,
-                lesson_index=req.lesson_index,
-                level=req.level,
-                difficulty=effective_difficulty,
-                problem_data=problem.model_dump(by_alias=True),
-            )
-            await self._db.commit()
-            total = len(updated.problems)
-            ci = updated.current_index
-            return ProblemDeliveryResponse(
-                problem=problem,
-                current_index=ci, total=total, max_problems=max_p,
-                has_prev=ci > 0, has_next=ci < total - 1, at_limit=total >= max_p,
-            )
+            problem_data = problem.model_dump(by_alias=True)
+            user_id = req.user_id
+            unit_id = req.unit_id
+            lesson_index = req.lesson_index
+            level = req.level
+
+            async def _persist_playlist():
+                try:
+                    async with AsyncSessionFactory() as fresh_db:
+                        fresh_repo = UserLessonPlaylistRepository(fresh_db)
+                        pl = await fresh_repo.append_and_advance(
+                            user_id=user_id,
+                            unit_id=unit_id,
+                            lesson_index=lesson_index,
+                            level=level,
+                            difficulty=effective_difficulty,
+                            problem_data=problem_data,
+                        )
+                        await fresh_db.commit()
+                    logger.info(
+                        "playlist_persisted",
+                        user_id=str(user_id),
+                        unit=unit_id,
+                        lesson=lesson_index,
+                        level=level,
+                        total=len(pl.problems),
+                    )
+                    return pl
+                except Exception as exc:
+                    logger.error(
+                        "playlist_persist_failed",
+                        user_id=str(user_id),
+                        unit=unit_id,
+                        lesson=lesson_index,
+                        error=str(exc),
+                    )
+                    return None
+
+            updated = await asyncio.shield(_persist_playlist())
+            if updated is not None:
+                total = len(updated.problems)
+                ci = updated.current_index
+                return ProblemDeliveryResponse(
+                    problem=problem,
+                    current_index=ci, total=total, max_problems=max_p,
+                    has_prev=ci > 0, has_next=ci < total - 1, at_limit=total >= max_p,
+                )
 
         return ProblemDeliveryResponse(problem=problem)
 

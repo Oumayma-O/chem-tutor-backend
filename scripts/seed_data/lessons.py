@@ -1031,6 +1031,7 @@ MASTER_LESSONS: dict[str, dict] = {
         "key_equations": [],
         "key_rules": [],
         "misconceptions": [],
+        "has_simulation": False,
         "objectives": [
             "Identify Arrhenius, Brønsted-Lowry, and Lewis acid/base definitions",
             "Distinguish strong acids/bases from weak acids/bases",
@@ -1551,6 +1552,7 @@ MASTER_LESSONS: dict[str, dict] = {
         ],
         "key_rules": [],
         "misconceptions": [],
+        "has_simulation": False,
         "objectives": [
             "Apply zero-order integrated rate law",
             "Recognize a zero-order plot ([A] vs time is linear)",
@@ -1579,7 +1581,7 @@ MASTER_LESSONS: dict[str, dict] = {
             "The units of k for first-order are M/s (they are 1/s)",
         ],
         "extension_of": "L-ap-kinetics-rate-laws",
-        "has_simulation": True,
+        "has_simulation": False,
         "objectives": [
             "Apply first-order integrated rate law",
             "Calculate half-life",
@@ -1599,6 +1601,7 @@ MASTER_LESSONS: dict[str, dict] = {
         ],
         "key_rules": [],
         "misconceptions": [],
+        "has_simulation": False,
         "objectives": [
             "Apply second-order integrated rate law",
             "Recognize a second-order plot (1/[A] vs time is linear)",
@@ -1615,6 +1618,7 @@ MASTER_LESSONS: dict[str, dict] = {
         "key_equations": [],
         "key_rules": [],
         "misconceptions": [],
+        "has_simulation": False,
         "objectives": [
             "Distinguish zero-, first-, and second-order reactions from graphs",
             "Select the correct integrated rate law given experimental data",
@@ -1650,6 +1654,7 @@ MASTER_LESSONS: dict[str, dict] = {
         ],
         "key_rules": [],
         "misconceptions": [],
+        "has_simulation": False,
         "objectives": [
             "Use the Arrhenius equation to relate rate constant, temperature, and activation energy",
             "Calculate Ea from experimental k values at two temperatures",
@@ -1925,7 +1930,7 @@ MASTER_LESSONS: dict[str, dict] = {
             "You can make a buffer using a strong acid and its conjugate",
         ],
         "extension_of": "L-solutions-acids-bases-props",
-        "has_simulation": True,
+        "has_simulation": False,
         "objectives": [
             "Design a buffer of a given pH",
             "Calculate buffer pH using Henderson-Hasselbalch",
@@ -1942,6 +1947,7 @@ MASTER_LESSONS: dict[str, dict] = {
         "key_equations": [],
         "key_rules": [],
         "misconceptions": [],
+        "has_simulation": False,
         "objectives": [
             "Interpret strong acid–strong base and weak acid–strong base titration curves",
             "Identify the equivalence point and half-equivalence point",
