@@ -1141,4 +1141,214 @@ FEW_SHOT_DATA: list[tuple[str, int, str, str, dict]] = [
             ],
         },
     ),
+    # ── 21. Architect: noble gas config — Level 1 (full worked example) ────────
+    (
+        "unit-electrons",
+        3,
+        "medium",
+        "architect",
+        {
+            "title": "Noble Gas Configuration and Valence Electrons for Selenium",
+            "statement": (
+                "A student in AP Chemistry is reviewing electron configurations for main-group elements "
+                "and wants to write a noble gas abbreviation for selenium, $\\mathrm{Se}$.\n\n"
+                "Selenium has atomic number $34$. The preceding noble gas is argon, $\\mathrm{Ar}$, "
+                "with atomic number $18$. After $[\\mathrm{Ar}]$, the remaining electrons fill as "
+                "$4s^{2} 3d^{10} 4p^{4}$.\n\n"
+                "Write the noble gas abbreviated electron configuration for selenium and determine "
+                "how many valence electrons selenium has."
+            ),
+            "steps": [
+                {
+                    "label": "Inventory / Rules",
+                    "type": "variable_id",
+                    "instruction": "Identify the core and outer subshells.",
+                    "explanation": "Use the preceding noble gas as the core, then list filled subshells after it.",
+                    "skillUsed": "Write noble gas abbreviated electron configurations",
+                    "correctAnswer": None,
+                    "equationParts": None,
+                    "labeledValues": [
+                        {"variable": "Noble gas core", "value": "$[\\mathrm{Ar}]$", "unit": ""},
+                        {"variable": "Outer subshells after core", "value": "$4s^{2} 3d^{10} 4p^{4}$", "unit": ""},
+                    ],
+                    "comparisonParts": None,
+                },
+                {
+                    "label": "Draft",
+                    "type": "drag_drop",
+                    "instruction": "Assemble the abbreviated configuration.",
+                    "explanation": "Place the noble gas core first, followed by the remaining filled subshells in Aufbau order.",
+                    "skillUsed": "Write noble gas abbreviated electron configurations",
+                    "correctAnswer": None,
+                    "equationParts": [
+                        "$[\\mathrm{Ar}]$",
+                        "$4s^{2}$",
+                        "$3d^{10}$",
+                        "$4p^{4}$",
+                    ],
+                    "labeledValues": None,
+                    "comparisonParts": None,
+                },
+                {
+                    "label": "Refine",
+                    "type": "given",
+                    "instruction": "Count the valence electrons.",
+                    "explanation": "Valence electrons occupy the highest principal level $n=4$: $4s^{2}$ and $4p^{4}$ contribute $2+4=6$.",
+                    "skillUsed": "Identify valence electrons from configurations",
+                    "correctAnswer": "6",
+                    "equationParts": None,
+                    "labeledValues": None,
+                    "comparisonParts": None,
+                },
+                {
+                    "label": "Final Answer",
+                    "type": "given",
+                    "instruction": "State both final results.",
+                    "explanation": "Combine the abbreviated configuration and the valence electron count.",
+                    "skillUsed": "Identify valence electrons from configurations",
+                    "correctAnswer": "[Ar] 4s2 3d10 4p4; 6 valence electrons",
+                    "equationParts": None,
+                    "labeledValues": None,
+                    "comparisonParts": None,
+                },
+            ],
+        },
+    ),
+    # ── 21b. Architect: noble gas config — Level 2 (faded, selenium) ─────────
+    (
+        "unit-electrons",
+        3,
+        "medium",
+        "architect",
+        {
+            "title": "Abbreviated Configuration for Selenium",
+            "statement": (
+                "An AP Chemistry student is reviewing electron configurations and wants a fast way "
+                "to represent selenium using noble gas notation.\n\n"
+                "Selenium has atomic number $34$. The previous noble gas is argon, $\\mathrm{Ar}$, "
+                "with $18$ electrons.\n\n"
+                "Write the noble gas abbreviated electron configuration for selenium and determine "
+                "the number of valence electrons."
+            ),
+            "steps": [
+                {
+                    "label": "Inventory / Rules",
+                    "type": "given",
+                    "instruction": "Identify the core noble gas and remaining electrons.",
+                    "explanation": "Subtract core electrons: $34 - 18 = 16$ electrons beyond $\\mathrm{Ar}$.",
+                    "skillUsed": "Write noble gas abbreviated electron configurations",
+                    "correctAnswer": None,
+                    "equationParts": None,
+                    "labeledValues": [
+                        {"variable": "Core noble gas", "value": "$\\mathrm{Ar}$", "unit": ""},
+                        {"variable": "Remaining electrons", "value": "$16$", "unit": "electrons"},
+                    ],
+                    "comparisonParts": None,
+                },
+                {
+                    "label": "Draft",
+                    "type": "given",
+                    "instruction": "List the subshell filling after the noble gas core.",
+                    "explanation": "After $[\\mathrm{Ar}]$, fill $4s$, then $3d$, then $4p$ to place $16$ electrons.",
+                    "skillUsed": "Write noble gas abbreviated electron configurations",
+                    "correctAnswer": None,
+                    "equationParts": [
+                        "$[\\mathrm{Ar}]$",
+                        "$4s^{2}$",
+                        "$3d^{10}$",
+                        "$4p^{4}$",
+                    ],
+                    "labeledValues": None,
+                    "comparisonParts": None,
+                },
+                {
+                    "label": "Refine",
+                    "type": "interactive",
+                    "instruction": "Enter the abbreviated electron configuration.",
+                    "explanation": "Combine the noble gas core with filled outer subshells in order.",
+                    "skillUsed": "Write noble gas abbreviated electron configurations",
+                    "correctAnswer": "[Ar] 4s2 3d10 4p4",
+                    "equationParts": None,
+                    "labeledValues": None,
+                    "comparisonParts": None,
+                },
+                {
+                    "label": "Final Answer",
+                    "type": "interactive",
+                    "instruction": "State the number of valence electrons.",
+                    "explanation": "For selenium, the highest principal level is $n=4$: $4s^{2} 4p^{4}$, totaling $6$.",
+                    "skillUsed": "Identify valence electrons from configurations",
+                    "correctAnswer": "6",
+                    "equationParts": None,
+                    "labeledValues": None,
+                    "comparisonParts": None,
+                },
+            ],
+        },
+    ),
+    # ── 22. Architect: electron configuration — Level 2 (Faded) ─────────────
+    (
+        "unit-electrons",
+        3,
+        "medium",
+        "architect",
+        {
+            "title": "Noble Gas Configuration for Calcium",
+            "statement": (
+                "An AP Chemistry student is reviewing electron configurations and needs a fast way to "
+                "represent calcium, $\\mathrm{Ca}$, using noble gas notation.\n\n"
+                "Calcium has atomic number $20$. The previous noble gas is argon, $\\mathrm{Ar}$, with $18$ electrons.\n\n"
+                "Write the noble gas abbreviated electron configuration for calcium and determine its number of valence electrons."
+            ),
+            "steps": [
+                {
+                    "label": "Inventory / Rules",
+                    "type": "given",
+                    "instruction": "Identify the core noble gas and remaining electrons.",
+                    "explanation": "Subtract the core electrons from the total: $20 - 18 = 2$ electrons beyond $\\mathrm{Ar}$.",
+                    "skillUsed": "Write noble gas abbreviated electron configurations",
+                    "correctAnswer": "Core: [Ar], Remaining: 2",
+                    "equationParts": None,
+                    "labeledValues": None,
+                    "comparisonParts": None,
+                },
+                {
+                    "label": "Draft",
+                    "type": "drag_drop",
+                    "instruction": "Assemble the subshell filling after the core.",
+                    "explanation": "After $[\\mathrm{Ar}]$, the next $2$ electrons fill the $4s$ subshell.",
+                    "skillUsed": "Write noble gas abbreviated electron configurations",
+                    "correctAnswer": None,
+                    "equationParts": [
+                        "$[\\mathrm{Ar}]$",
+                        "$4s^2$",
+                    ],
+                    "labeledValues": None,
+                    "comparisonParts": None,
+                },
+                {
+                    "label": "Refine",
+                    "type": "interactive",
+                    "instruction": "Enter the abbreviated electron configuration.",
+                    "explanation": "Combine the noble gas core with the filled outer subshells.",
+                    "skillUsed": "Write noble gas abbreviated electron configurations",
+                    "correctAnswer": "[Ar] 4s2",
+                    "equationParts": None,
+                    "labeledValues": None,
+                    "comparisonParts": None,
+                },
+                {
+                    "label": "Final Answer",
+                    "type": "interactive",
+                    "instruction": "State the number of valence electrons.",
+                    "explanation": "For calcium, the highest principal level is $n=4$: $4s^2$, totaling $2$ valence electrons.",
+                    "skillUsed": "Identify valence electrons from configurations",
+                    "correctAnswer": "2",
+                    "equationParts": None,
+                    "labeledValues": None,
+                    "comparisonParts": None,
+                },
+            ],
+        },
+    ),
 ]
