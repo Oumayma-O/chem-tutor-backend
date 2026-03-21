@@ -759,7 +759,7 @@ MASTER_LESSONS: dict[str, dict] = {
         "is_ap_only": False,
         "key_equations": [
             "$n = \\dfrac{m}{M}$",
-            "N = n × Nₐ",
+            "$N = n \\times N_A$",
         ],
         "key_rules": [],
         "misconceptions": [],
@@ -1003,7 +1003,7 @@ MASTER_LESSONS: dict[str, dict] = {
         "is_ap_only": False,
         "key_equations": [
             "$M = \\dfrac{n}{V}$",
-            "M₁V₁ = M₂V₂ (Dilution)",
+            "$M_1 V_1 = M_2 V_2$ (Dilution)",
         ],
         "key_rules": [
             "Volume must be in Liters",
@@ -1371,7 +1371,7 @@ MASTER_LESSONS: dict[str, dict] = {
         "required_tools": ['calculator', 'periodic_table'],
         "is_ap_only": True,
         "key_equations": [
-            "FC = V − L − B/2",
+            "$\\text{FC} = V - L - \\dfrac{B}{2}$",
         ],
         "key_rules": [
             "Formal charge helps determine the most stable Lewis structure",
@@ -1547,8 +1547,8 @@ MASTER_LESSONS: dict[str, dict] = {
         "required_tools": ['calculator'],
         "is_ap_only": True,
         "key_equations": [
-            "[A]t = −kt + [A]₀",
-            "$t_{1/2} = [\\text{A}]_0 / (2k)$",
+            "$[\\text{A}]_t = -kt + [\\text{A}]_0$",
+            "$t_{1/2} = \\dfrac{[\\text{A}]_0}{2k}$",
         ],
         "key_rules": [],
         "misconceptions": [],
@@ -1567,7 +1567,7 @@ MASTER_LESSONS: dict[str, dict] = {
         "required_tools": ['calculator'],
         "is_ap_only": True,
         "key_equations": [
-            "ln[A]t = −kt + ln[A]₀",
+            "$\\ln[\\text{A}]_t = -kt + \\ln[\\text{A}]_0$",
             "$t_{1/2} = \\dfrac{0.693}{k}$",
         ],
         "key_rules": [
@@ -1596,7 +1596,7 @@ MASTER_LESSONS: dict[str, dict] = {
         "required_tools": ['calculator'],
         "is_ap_only": True,
         "key_equations": [
-            "$1/[\\text{A}]_t = kt + 1/[\\text{A}]_0$",
+            "$\\dfrac{1}{[\\text{A}]_t} = kt + \\dfrac{1}{[\\text{A}]_0}$",
             "$t_{1/2} = \\dfrac{1}{k[\\text{A}]_0}$",
         ],
         "key_rules": [],
@@ -1650,7 +1650,7 @@ MASTER_LESSONS: dict[str, dict] = {
         "is_ap_only": True,
         "key_equations": [
             "$k = A\\,e^{-E_a/RT}$",
-            "$\\ln(k_2/k_1) = \\dfrac{E_a}{R}\\left(\\dfrac{1}{T_1} - \\dfrac{1}{T_2}\\right)$",
+            "$\\ln\\!\\left(\\dfrac{k_2}{k_1}\\right) = \\dfrac{E_a}{R}\\left(\\dfrac{1}{T_1} - \\dfrac{1}{T_2}\\right)$",
         ],
         "key_rules": [],
         "misconceptions": [],
