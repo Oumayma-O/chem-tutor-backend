@@ -121,8 +121,8 @@ MASTER_LESSONS: dict[str, dict] = {
         "required_tools": ['calculator'],
         "is_ap_only": False,
         "key_equations": [
-            "Density = Mass / Volume",
-            "Value = a × 10^n (where 1 ≤ a < 10)"
+            "$d = m / V$",
+            "$a \\times 10^{n}$, where $1 \\leq a < 10$"
         ],
         "key_rules": [
             "To write scientific notation, move the decimal until the coefficient is between 1 and 10",
@@ -178,8 +178,8 @@ MASTER_LESSONS: dict[str, dict] = {
         "required_tools": ['periodic_table'],
         "is_ap_only": False,
         "key_equations": [
-            "Mass Number (A) = Z + n",
-            "Charge = protons - electrons",
+            "$A = Z + n$",
+            "$\\text{charge} = p^{+} - e^{-}$",
         ],
         "key_rules": [
             "Atomic number (Z) defines the element",
@@ -205,7 +205,7 @@ MASTER_LESSONS: dict[str, dict] = {
         "required_tools": ['calculator', 'periodic_table'],
         "is_ap_only": False,
         "key_equations": [
-            "Avg Atomic Mass = Σ(Isotope Mass × Fractional Abundance)",
+            "$\\bar{m} = \\sum (m_i \\times f_i)$",
         ],
         "key_rules": [
             "Abundance must be converted from percentage to decimal",
@@ -250,8 +250,8 @@ MASTER_LESSONS: dict[str, dict] = {
         "required_tools": ['calculator'],
         "is_ap_only": False,
         "key_equations": [
-            "t½ = 0.693 / k",
-            "N = N₀ × (1/2)^(t / t½)",
+            "$t_{1/2} = 0.693 / k$",
+            "$N = N_0 \\times (\\tfrac{1}{2})^{t/t_{1/2}}$",
         ],
         "key_rules": [],
         "misconceptions": [],
@@ -269,7 +269,7 @@ MASTER_LESSONS: dict[str, dict] = {
         "required_tools": ['periodic_table'],
         "is_ap_only": False,
         "key_equations": [
-            "E = mc²",
+            "$E = mc^2$",
         ],
         "key_rules": [],
         "misconceptions": [],
@@ -490,7 +490,7 @@ MASTER_LESSONS: dict[str, dict] = {
         "required_tools": ['periodic_table'],
         "is_ap_only": False,
         "key_equations": [
-            "Lattice Energy ∝ (q₁q₂ / r)",
+            "$E_{\\text{lattice}} \\propto q_1 q_2 / r$",
         ],
         "key_rules": [
             "Involves transfer of electrons from metal to nonmetal",
@@ -668,7 +668,7 @@ MASTER_LESSONS: dict[str, dict] = {
         "required_tools": ['calculator'],
         "is_ap_only": False,
         "key_equations": [
-            "Known Value × (Desired Unit / Known Unit) = Result",
+            "$\\text{known} \\times \\dfrac{\\text{desired unit}}{\\text{known unit}} = \\text{result}$",
         ],
         "key_rules": [
             "Units must cancel out diagonally",
@@ -732,7 +732,7 @@ MASTER_LESSONS: dict[str, dict] = {
         "required_tools": ['calculator', 'periodic_table'],
         "is_ap_only": False,
         "key_equations": [
-            "n = m / M",
+            "$n = \\dfrac{m}{M}$",
         ],
         "key_rules": [
             "Molar mass is found by summing atomic masses from the periodic table",
@@ -758,7 +758,7 @@ MASTER_LESSONS: dict[str, dict] = {
         "required_tools": ['calculator', 'periodic_table'],
         "is_ap_only": False,
         "key_equations": [
-            "n = m / M",
+            "$n = \\dfrac{m}{M}$",
             "N = n × Nₐ",
         ],
         "key_rules": [],
@@ -777,7 +777,7 @@ MASTER_LESSONS: dict[str, dict] = {
         "required_tools": ['calculator', 'periodic_table'],
         "is_ap_only": False,
         "key_equations": [
-            "% Element = (Mass of Element / Total Molar Mass) × 100",
+            "$\\%\\,\\text{element} = \\dfrac{M_{\\text{element}}}{M_{\\text{compound}}} \\times 100$",
         ],
         "key_rules": [
             "Percentages must sum to 100%",
@@ -913,7 +913,7 @@ MASTER_LESSONS: dict[str, dict] = {
         "required_tools": ['calculator'],
         "is_ap_only": False,
         "key_equations": [
-            "Moles A × (coeff B / coeff A) = Moles B",
+            "$n_A \\times \\dfrac{c_B}{c_A} = n_B$",
         ],
         "key_rules": [],
         "misconceptions": [],
@@ -956,7 +956,7 @@ MASTER_LESSONS: dict[str, dict] = {
         "required_tools": ['calculator', 'periodic_table'],
         "is_ap_only": False,
         "key_equations": [
-            "% Yield = (Actual / Theoretical) × 100",
+            "$\\%\\,\\text{yield} = \\dfrac{m_{\\text{actual}}}{m_{\\text{theoretical}}} \\times 100$",
         ],
         "key_rules": [
             "The limiting reactant is completely consumed and determines the yield",
@@ -1002,7 +1002,7 @@ MASTER_LESSONS: dict[str, dict] = {
         "required_tools": ['calculator', 'periodic_table'],
         "is_ap_only": False,
         "key_equations": [
-            "M = n / V",
+            "$M = \\dfrac{n}{V}$",
             "M₁V₁ = M₂V₂ (Dilution)",
         ],
         "key_rules": [
@@ -1529,7 +1529,7 @@ MASTER_LESSONS: dict[str, dict] = {
         "required_tools": ['calculator'],
         "is_ap_only": True,
         "key_equations": [
-            "rate = k[A]^m[B]^n",
+            "$\\text{rate} = k[\\text{A}]^m[\\text{B}]^n$",
         ],
         "key_rules": [],
         "misconceptions": [],
@@ -1548,11 +1548,11 @@ MASTER_LESSONS: dict[str, dict] = {
         "is_ap_only": True,
         "key_equations": [
             "[A]t = −kt + [A]₀",
-            "t½ = [A]₀ / (2k)",
+            "$t_{1/2} = [\\text{A}]_0 / (2k)$",
         ],
         "key_rules": [],
         "misconceptions": [],
-        "has_simulation": False,
+        "has_simulation": True,
         "objectives": [
             "Apply zero-order integrated rate law",
             "Recognize a zero-order plot ([A] vs time is linear)",
@@ -1568,7 +1568,7 @@ MASTER_LESSONS: dict[str, dict] = {
         "is_ap_only": True,
         "key_equations": [
             "ln[A]t = −kt + ln[A]₀",
-            "t½ = 0.693 / k",
+            "$t_{1/2} = \\dfrac{0.693}{k}$",
         ],
         "key_rules": [
             "A plot of ln[A] vs time is linear for first-order reactions",
@@ -1596,8 +1596,8 @@ MASTER_LESSONS: dict[str, dict] = {
         "required_tools": ['calculator'],
         "is_ap_only": True,
         "key_equations": [
-            "1/[A]t = kt + 1/[A]₀",
-            "t½ = 1 / (k[A]₀)",
+            "$1/[\\text{A}]_t = kt + 1/[\\text{A}]_0$",
+            "$t_{1/2} = \\dfrac{1}{k[\\text{A}]_0}$",
         ],
         "key_rules": [],
         "misconceptions": [],
@@ -1649,8 +1649,8 @@ MASTER_LESSONS: dict[str, dict] = {
         "required_tools": ['calculator'],
         "is_ap_only": True,
         "key_equations": [
-            "k = A × e^(−Ea / RT)",
-            "ln(k₂/k₁) = (Ea/R)(1/T₁ − 1/T₂)",
+            "$k = A\\,e^{-E_a/RT}$",
+            "$\\ln(k_2/k_1) = \\dfrac{E_a}{R}\\left(\\dfrac{1}{T_1} - \\dfrac{1}{T_2}\\right)$",
         ],
         "key_rules": [],
         "misconceptions": [],
@@ -1711,7 +1711,7 @@ MASTER_LESSONS: dict[str, dict] = {
         "required_tools": [],
         "is_ap_only": True,
         "key_equations": [
-            "Kc = [products]^coeff / [reactants]^coeff",
+            "$K_c = [\\text{products}]^c / [\\text{reactants}]^c$",
         ],
         "key_rules": [],
         "misconceptions": [],
@@ -1729,7 +1729,7 @@ MASTER_LESSONS: dict[str, dict] = {
         "required_tools": ['calculator'],
         "is_ap_only": True,
         "key_equations": [
-            "Kp = Kc(RT)^Δn",
+            "$K_p = K_c(RT)^{\\Delta n}$",
         ],
         "key_rules": [],
         "misconceptions": [],
@@ -1804,7 +1804,7 @@ MASTER_LESSONS: dict[str, dict] = {
         "required_tools": ['calculator'],
         "is_ap_only": True,
         "key_equations": [
-            "Ksp = [cation]^a [anion]^b",
+            "$K_{sp} = [\\text{cation}]^a[\\text{anion}]^b$",
         ],
         "key_rules": [],
         "misconceptions": [],
@@ -1826,7 +1826,7 @@ MASTER_LESSONS: dict[str, dict] = {
         "required_tools": ["calculator"],
         "is_ap_only": True,
         "key_equations":[
-            "Ka = [H⁺][A⁻] / [HA]",
+            "$K_a = [\\text{H}^+][\\text{A}^-] / [\\text{HA}]$",
         ],
         "key_rules":[
             "Weak acids only partially dissociate in water, establishing a dynamic equilibrium",
@@ -1854,7 +1854,7 @@ MASTER_LESSONS: dict[str, dict] = {
         "required_tools": ["calculator"],
         "is_ap_only": True,
         "key_equations": [
-            "% ionization = ([H⁺]eq / [HA]₀) × 100",
+            "$\\%\\,\\text{ionization} = \\dfrac{[\\text{H}^+]_{\\text{eq}}}{[\\text{HA}]_0} \\times 100$",
         ],
         "key_rules":[
             "ICE stands for Initial, Change, and Equilibrium concentrations",
@@ -1917,7 +1917,7 @@ MASTER_LESSONS: dict[str, dict] = {
         "required_tools": ['calculator'],
         "is_ap_only": True,
         "key_equations": [
-            "pH = pKa + log([A⁻]/[HA])",
+            "$\\text{pH} = \\text{p}K_a + \\log\\dfrac{[\\text{A}^-]}{[\\text{HA}]}$",
         ],
         "key_rules": [
             "Buffers consist of a weak acid and its conjugate base",
@@ -2071,8 +2071,8 @@ MASTER_LESSONS: dict[str, dict] = {
         "required_tools": ['calculator'],
         "is_ap_only": True,
         "key_equations": [
-            "E = E° − (RT/nF) ln Q",
-            "E = E° − (0.0592/n) log Q  (at 298 K)",
+            "$E = E^\\circ - \\dfrac{RT}{nF} \\ln Q$",
+            "$E = E^\\circ - \\dfrac{0.0592}{n} \\log Q$ (at 298 K)",
         ],
         "key_rules": [],
         "misconceptions": [],
@@ -2106,7 +2106,7 @@ MASTER_LESSONS: dict[str, dict] = {
         "required_tools": ['calculator', 'periodic_table'],
         "is_ap_only": True,
         "key_equations": [
-            "m = (M × I × t) / (n × F)",
+            "$m = \\dfrac{M \\cdot I \\cdot t}{n \\cdot F}$",
         ],
         "key_rules": [],
         "misconceptions": [],
