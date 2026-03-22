@@ -1581,7 +1581,7 @@ MASTER_LESSONS: dict[str, dict] = {
             "The units of k for first-order are M/s (they are 1/s)",
         ],
         "extension_of": "L-ap-kinetics-rate-laws",
-        "has_simulation": False,
+        "has_simulation": True,
         "objectives": [
             "Apply first-order integrated rate law",
             "Calculate half-life",
@@ -1601,7 +1601,7 @@ MASTER_LESSONS: dict[str, dict] = {
         ],
         "key_rules": [],
         "misconceptions": [],
-        "has_simulation": False,
+        "has_simulation": True,
         "objectives": [
             "Apply second-order integrated rate law",
             "Recognize a second-order plot (1/[A] vs time is linear)",
