@@ -17,7 +17,9 @@ engine: AsyncEngine = create_async_engine(
     settings.database_url,
     pool_size=settings.db_pool_size,
     max_overflow=settings.db_max_overflow,
-    pool_pre_ping=True,   # Detect stale connections
+    pool_pre_ping=True,        # Detect stale connections before checkout
+    pool_recycle=300,          # Recycle connections every 5 min (Neon drops idle ~5–10 min)
+    pool_timeout=30,           # Raise after 30s waiting for a connection
     echo=settings.log_level.lower() == "debug",
     connect_args={"timeout": 30},  # Neon free-tier can take ~15s to wake from suspend
 )
