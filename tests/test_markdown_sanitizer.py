@@ -16,6 +16,23 @@ def test_normalize_fixes_unbracketed_exponents() -> None:
     assert "10^{n}" in out["statement"]
 
 
+def test_normalize_fixes_backslash_cdotk_units() -> None:
+    """LLM emits \\backslash\\text{cdotK} instead of \\cdot between J/mol and K."""
+    d = _minimal_problem_dict()
+    d["statement"] = r"Use $R = 8.314 \text{ J/mol}\backslash\text{cdotK}$."
+    out = normalize_and_validate_problem(d)
+    assert r"\backslash\text{cdotK}" not in out["statement"]
+    assert r"\cdot \text{K}" in out["statement"]
+
+
+def test_normalize_fixes_text_cdotk_only() -> None:
+    d = _minimal_problem_dict()
+    d["steps"][0]["instruction"] = r"Gas constant $8.314 \text{ J/mol}\text{cdotK}$."
+    out = normalize_and_validate_problem(d)
+    assert r"\text{cdotK}" not in out["steps"][0]["instruction"]
+    assert r"\cdot \text{K}" in out["steps"][0]["instruction"]
+
+
 def test_normalize_fixes_orphan_text() -> None:
     d = _minimal_problem_dict()
     d["statement"] = "Mass in \\textamu."

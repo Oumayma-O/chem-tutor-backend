@@ -4,6 +4,7 @@ Deterministic Markdown/LaTeX sanitizer for LLM-generated problem JSON.
 Pipeline: LLM → structured JSON → normalize_and_validate_problem() → safe for React/KaTeX.
 
 Fixes applied to every string:
+- Mis-written units: \\backslash\\text{cdotK} → \\cdot \\text{K} (LLM confusion vs \\cdot)
 - Unbracketed exponents: 10^23 → 10^{23}
 - Orphaned \\text: \\textamu → \\text{amu}
 - Orphaned \\mathrm: \\mathrmMg → \\mathrm{Mg}, \\mathrmH2O → \\mathrm{H2O}
@@ -24,6 +25,33 @@ _RE_EXP_LETTER = re.compile(r"(\d+)\^([a-zA-Z])(?!\s*\{)")
 def _fix_unbracketed_exponents(s: str) -> str:
     s = _RE_EXP_DIGITS.sub(r"\1^{\2}", s)
     s = _RE_EXP_LETTER.sub(r"\1^{\2}", s)
+    return s
+
+
+# LLM mistake: \backslash\text{cdotK} or \text{cdotK} instead of \cdot \text{K} (units like J/mol·K)
+_RE_BACKSLASH_TEXT_CDOTK = re.compile(
+    r"\\backslash\s*\\text\{cdot\s*K\}",
+    re.IGNORECASE,
+)
+_RE_BACKSLASH_TEXT_CDOTK_COMPACT = re.compile(
+    r"\\backslash\s*\\text\{cdotK\}",
+    re.IGNORECASE,
+)
+_RE_TEXT_CDOTK = re.compile(r"\\text\{cdotK\}", re.IGNORECASE)
+_RE_TEXT_CDOT_K = re.compile(r"\\text\{cdot\s*K\}", re.IGNORECASE)
+
+
+def _fix_cdot_unit_garbage(s: str) -> str:
+    """
+    Fix \backslash\text{cdotK} and similar: models use \\backslash when they mean \\cdot,
+    and pack 'cdotK' inside \\text{...} which KaTeX renders as broken / red text.
+    """
+    s = _RE_BACKSLASH_TEXT_CDOTK.sub(r"\\cdot \\text{K}", s)
+    s = _RE_BACKSLASH_TEXT_CDOTK_COMPACT.sub(r"\\cdot \\text{K}", s)
+    s = _RE_TEXT_CDOTK.sub(r"\\cdot \\text{K}", s)
+    s = _RE_TEXT_CDOT_K.sub(r"\\cdot \\text{K}", s)
+    # Rare: \backslash\cdot or \backslash\cdot\text{...}
+    s = re.sub(r"\\backslash\s*\\cdot", r"\\cdot", s)
     return s
 
 
@@ -146,6 +174,7 @@ def _normalize_string(s: str) -> str:
     s = _recover_tab_corrupted_latex(s)
     s = _strip_illegal_chars(s)
     s = _fix_dollar_split_exponents(s)
+    s = _fix_cdot_unit_garbage(s)
     s = _fix_unbracketed_exponents(s)
     s = _fix_orphan_text(s)
     s = _fix_orphan_mathrm(s)
@@ -251,7 +280,8 @@ def normalize_strings(obj: Any) -> Any:
     Apply all deterministic string fixes recursively to any JSON-serialisable
     object (dict, list, or scalar).  Safe to call on any LLM output dict.
 
-    Fixes: unbracketed exponents, orphaned \\text/\\mathrm, tabs/ANSI/nulls,
+    Fixes: \\backslash/\\text{cdotK} unit mistakes, unbracketed exponents,
+    orphaned \\text/\\mathrm, tabs/ANSI/nulls,
     \\( \\) → $, and $$...$$ → $...$.
     """
     return _recursive_normalize(obj)

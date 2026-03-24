@@ -33,6 +33,10 @@ VARIABLES & EQUATIONS — ALL math must be inside $...$:
 NOTATION:
 - Chemical formulas: $\\\\mathrm{{H_2O}}$, $\\\\mathrm{{NH_4NO_3}}$ — always \\\\mathrm{{}}, NOT \\\\text{{}}
 - Units: inside $\\\\text{{ }}$ with a LEADING SPACE — $3.5 \\\\text{{ g/mol}}$, $63.62 \\\\text{{ amu}}$
+- Compound units (e.g. gas constant $R$): prefer ONE unit chunk
+  CORRECT: $R = 8.314 \\\\text{{ J/(mol·K)}}$  OR  $8.314 \\\\text{{ J/mol}}\\\\cdot\\\\text{{ K}}$ (use $\\\\cdot$ for the dot between factors).
+  NEVER use $\\\\backslash$ before a unit — that prints a stray backslash glyph, not multiplication.
+  NEVER write $\\\\text{{cdotK}}$ or $\\\\backslash\\\\text{{cdotK}}$ — that breaks KaTeX; use $\\\\cdot\\\\text{{ K}}$ or combine into $\\\\text{{ J/(mol·K)}}$.
 - Exponents: always use braces — $10^{{23}}$ not $10^23$
 - Electron configurations: write the ENTIRE config in ONE $...$
   CORRECT: "$1s^2 2s^2 2p^6 3s^2 3p^3$"

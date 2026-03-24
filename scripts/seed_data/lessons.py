@@ -1618,7 +1618,7 @@ MASTER_LESSONS: dict[str, dict] = {
         "key_equations": [],
         "key_rules": [],
         "misconceptions": [],
-        "has_simulation": False,
+        "has_simulation": True,
         "objectives": [
             "Distinguish zero-, first-, and second-order reactions from graphs",
             "Select the correct integrated rate law given experimental data",
@@ -1654,7 +1654,7 @@ MASTER_LESSONS: dict[str, dict] = {
         ],
         "key_rules": [],
         "misconceptions": [],
-        "has_simulation": False,
+        "has_simulation": True,
         "objectives": [
             "Use the Arrhenius equation to relate rate constant, temperature, and activation energy",
             "Calculate Ea from experimental k values at two temperatures",
@@ -1671,6 +1671,7 @@ MASTER_LESSONS: dict[str, dict] = {
         "key_equations": [],
         "key_rules": [],
         "misconceptions": [],
+        "has_simulation": True,
         "objectives": [
             "Explain how catalysts lower activation energy",
             "Distinguish homogeneous from heterogeneous catalysis",
