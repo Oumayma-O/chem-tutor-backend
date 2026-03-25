@@ -34,14 +34,36 @@ NOTATION:
 - Chemical formulas: $\\\\mathrm{{H_2O}}$, $\\\\mathrm{{NH_4NO_3}}$ — always \\\\mathrm{{}}, NOT \\\\text{{}}
 - Units: inside $\\\\text{{ }}$ with a LEADING SPACE — $3.5 \\\\text{{ g/mol}}$, $63.62 \\\\text{{ amu}}$
 - Compound units (e.g. gas constant $R$): prefer ONE unit chunk
-  CORRECT: $R = 8.314 \\\\text{{ J/(mol·K)}}$  OR  $8.314 \\\\text{{ J/mol}}\\\\cdot\\\\text{{ K}}$ (use $\\\\cdot$ for the dot between factors).
+  CORRECT: $R = 8.314 \\\\text{{ J/(mol·K)}}$  (use unicode · inside \\\\text{{}})
+  CORRECT: $8.314 \\\\text{{ J/mol}}\\\\cdot\\\\text{{ K}}$  (\\\\cdot between two separate \\\\text{{}} blocks)
+  NEVER: $\\\\text{{ J/(mol\\\\cdotK)}}$ — \\\\cdot is a MATH command; it is INVALID inside \\\\text{{}}.
   NEVER use $\\\\backslash$ before a unit — that prints a stray backslash glyph, not multiplication.
-  NEVER write $\\\\text{{cdotK}}$ or $\\\\backslash\\\\text{{cdotK}}$ — that breaks KaTeX; use $\\\\cdot\\\\text{{ K}}$ or combine into $\\\\text{{ J/(mol·K)}}$.
+  NEVER write $\\\\text{{cdotK}}$ or $\\\\backslash\\\\text{{cdotK}}$ — that breaks KaTeX.
+- **7. THE GAS CONSTANT RULE:** You MUST write the gas constant unit exactly like this:
+  $\\\\text{{J/(mol}} \\\\cdot \\\\text{{K)}}$.
+  NEVER write $\\\\cdotK$ (glued) or a bare $\\\\cdot K$ for kelvin — KaTeX treats $\\\\cdotK$ as one invalid command.
+  Put a space after $\\\\cdot$ and wrap the K in $\\\\text{{...}}$.
+
+### CRITICAL FORMATTING & LATEX RULES ###
+- **8. Fractions & Division:** NEVER use a slash (/) for division in formulas, substitutions, or calculations. You MUST use vertical LaTeX fractions: $\\\\frac{{numerator}}{{denominator}}$.
+  BAD: $\\\\ln(4.50 \\\\times 10^{{-3}} / 1.20 \\\\times 10^{{-3}}) = E_a / 8.314$
+  GOOD: $\\\\ln\\\\left(\\\\frac{{4.50 \\\\times 10^{{-3}}}}{{1.20 \\\\times 10^{{-3}}}}\\\\right) = \\\\frac{{E_a}}{{8.314}}$
+- **9. Units vs. Math:** ONLY use a slash (/) when writing units (e.g. $\\\\text{{J/mol}}$ or $\\\\text{{M/s}}$). Everything else must use $\\\\frac{{}}{{}}$. When wrapping fractions in parentheses, ALWAYS use $\\\\left($ and $\\\\right)$ so the parentheses stretch to fit a tall $\\\\frac{{}}{{}}$ (avoid raw parentheses that stay tiny next to a large fraction).
+- **10. Multiplication symbol:** NEVER use the letter x or X or an asterisk * for multiplication inside LaTeX equations. You MUST ALWAYS use $\\\\times$.
+  BAD: $1.15x10^{{-2}}$ or $1.15 * 10^{{-2}}$
+  GOOD: $1.15 \\\\times 10^{{-2}}$
+
 - Exponents: always use braces — $10^{{23}}$ not $10^23$
 - Electron configurations: write the ENTIRE config in ONE $...$
   CORRECT: "$1s^2 2s^2 2p^6 3s^2 3p^3$"
   WRONG:   "$1s^2$ $2s^2$ $2p^6$" — fragmented per subshell, breaks rendering
   WRONG:   "1s^{{2}} 2s^{{2}} 2p^{{6}}" — bare text without delimiters
+
+BANNED CALCULATOR SYNTAX (any formula the student READS — statement, instruction, explanation, labeledValues value/unit):
+- NEVER plain-text math: ASCII * for multiply, ln( ) without $...$, or scientific "e" notation (8.10e-3, 1.2E+5).
+  WRONG: Ea = 8.314 * ln(8.10e-3/1.20e-3) / (1/298.15 - 1/318.15)  ← renders as ugly monospace, not KaTeX.
+- Use $...$ with $\\\\times$, $10^{{-3}}$, and $\\\\ln(...)$ (or $\\\\ln\\\\left(...\\\\right)$ for clarity).
+- "correctAnswer" may stay short plain numbers when the UI expects typing — but any displayed setup/substitution line must be LaTeX in $...$.
 
 JSON ESCAPING — every LaTeX backslash MUST be doubled in JSON output:
 - CORRECT: \\\\text{{g/mol}}, \\\\frac{{m}}{{M}}, \\\\mathrm{{H_2O}}, \\\\times, \\\\rightarrow, \\\\sum

@@ -16,6 +16,28 @@ def test_normalize_fixes_unbracketed_exponents() -> None:
     assert "10^{n}" in out["statement"]
 
 
+def test_normalize_upgrades_calculator_style_equation() -> None:
+    """ASCII * , e-notation, ln( → LaTeX in $...$ (Arrhenius-style substitution lines)."""
+    d = _minimal_problem_dict()
+    raw = "Ea = 8.314 * ln(8.10e-3/1.20e-3) / (1/298.15 - 1/318.15)"
+    d["steps"][0]["instruction"] = raw
+    out = normalize_and_validate_problem(d)
+    s = out["steps"][0]["instruction"]
+    assert s.startswith("$") and s.endswith("$")
+    assert "8.10e-3" not in s
+    assert r"\times 10^{-3}" in s
+    assert r"\times" in s
+    assert r"\ln(" in s
+    assert "E_a =" in s or "E_a=" in s.replace(" ", "")
+
+
+def test_normalize_skips_short_sci_without_star_or_ln() -> None:
+    d = _minimal_problem_dict()
+    d["statement"] = "Given rate k = 1.20e-3 at 298 K."
+    out = normalize_and_validate_problem(d)
+    assert "e-3" in out["statement"] or "e^{" in out["statement"]
+
+
 def test_normalize_fixes_backslash_cdotk_units() -> None:
     """LLM emits \\backslash\\text{cdotK} instead of \\cdot between J/mol and K."""
     d = _minimal_problem_dict()
@@ -31,6 +53,41 @@ def test_normalize_fixes_text_cdotk_only() -> None:
     out = normalize_and_validate_problem(d)
     assert r"\text{cdotK}" not in out["steps"][0]["instruction"]
     assert r"\cdot \text{K}" in out["steps"][0]["instruction"]
+
+
+def test_normalize_forces_cdot_kelvin_to_text() -> None:
+    """\\cdotK is invalid; \\cdot K must become \\cdot \\text{K} for KaTeX."""
+    d = _minimal_problem_dict()
+    d["statement"] = r"$R = 8.314 \text{ J/(mol\cdotK)}$ and also $k = 1/\text{mol}\cdot K$."
+    out = normalize_and_validate_problem(d)
+    assert r"\cdotK" not in out["statement"]
+    assert r"\cdot \text{K}" in out["statement"]
+
+
+def test_normalize_converts_slash_division_to_frac() -> None:
+    """Paren division, sci-not division, E_a/R — not unit slashes inside \\text."""
+    d = _minimal_problem_dict()
+    d["steps"][0]["explanation"] = (
+        r"$\ln\left((4.50 \times 10^{-3}) / (1.20 \times 10^{-3})\right)$ and "
+        r"$E_a / R$ and $E_a/RT$ and units $8.314 \text{ J/(mol}\cdot \text{K)}$."
+    )
+    out = normalize_and_validate_problem(d)
+    s = out["steps"][0]["explanation"]
+    assert r"\frac{4.50 \times 10^{-3}}{1.20 \times 10^{-3}}" in s
+    assert r"\frac{E_a}{R}" in s
+    assert r"\frac{E_a}{RT}" in s
+    assert r"\text{ J/(mol}" in s  # unit slash preserved inside \text
+
+
+def test_normalize_fixes_lazy_x_times_before_sci_frac() -> None:
+    """LLM writes 1.15x10^{-2}; must become \\times then \\frac for a/b."""
+    d = _minimal_problem_dict()
+    d["steps"][0]["explanation"] = r"$\ln(1.15x10^{-2} / 2.40x10^{-3})$"
+    out = normalize_and_validate_problem(d)
+    s = out["steps"][0]["explanation"]
+    assert "x10" not in s
+    assert r"\times 10" in s
+    assert r"\frac{1.15 \times 10^{-2}}{2.40 \times 10^{-3}}" in s
 
 
 def test_normalize_fixes_orphan_text() -> None:

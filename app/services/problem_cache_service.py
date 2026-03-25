@@ -20,6 +20,7 @@ from app.core.config import get_settings
 from app.core.logging import get_logger
 from app.domain.schemas.tutor import ProblemOutput
 from app.infrastructure.database.repositories.problem_cache_repo import ProblemCacheRepository
+from app.utils.markdown_sanitizer import normalize_strings
 
 logger = get_logger(__name__)
 settings = get_settings()
@@ -87,7 +88,7 @@ class ProblemCacheService:
             lesson=lesson_index,
             level=level,
         )
-        return ProblemOutput.model_validate(entry.problem_data)
+        return ProblemOutput.model_validate(normalize_strings(entry.problem_data))
 
     async def store(
         self,

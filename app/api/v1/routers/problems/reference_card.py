@@ -23,6 +23,7 @@ from app.domain.schemas.tutor.problems import ReferenceCardOutput
 from app.infrastructure.database.connection import get_db, AsyncSessionFactory
 from app.infrastructure.database.repositories.unit_repo import LessonRepository
 from app.services.ai.reference_card.service import generate_reference_card
+from app.utils.markdown_sanitizer import normalize_strings
 
 logger = get_logger(__name__)
 
@@ -60,7 +61,7 @@ async def get_reference_card(
 
     # ── 2. Cache hit: card already stored on the lesson row ───
     if lesson.reference_card_json:
-        return ReferenceCardOutput.model_validate(lesson.reference_card_json)
+        return ReferenceCardOutput.model_validate(normalize_strings(lesson.reference_card_json))
 
     # ── 3. LLM generation — shielded from client disconnect ──────────────────
     # asyncio.shield() wraps only the LLM call so it keeps running even if the

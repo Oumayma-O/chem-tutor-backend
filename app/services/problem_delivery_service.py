@@ -32,6 +32,7 @@ from app.services.ai.problem_generation.service import (
     enforce_step_types,
 )
 from app.services.problem_cache_service import ProblemCacheService
+from app.utils.markdown_sanitizer import normalize_strings
 
 logger = get_logger(__name__)
 
@@ -171,7 +172,7 @@ class ProblemDeliveryService:
                 current_id = current_data.get("id") if isinstance(current_data, dict) else None
                 exclude = set(req.exclude_ids or [])
                 if current_id and current_id not in exclude:
-                    problem = ProblemOutput.model_validate(current_data)
+                    problem = ProblemOutput.model_validate(normalize_strings(current_data))
                     enforce_step_types(problem, req.level)
                     logger.info(
                         "problem_resumed_from_playlist",
@@ -189,7 +190,7 @@ class ProblemDeliveryService:
                 # the playlist is at cap — can't generate more; return the
                 # current problem anyway so the user isn't stuck.
                 if total >= max_p:
-                    problem = ProblemOutput.model_validate(current_data)
+                    problem = ProblemOutput.model_validate(normalize_strings(current_data))
                     enforce_step_types(problem, req.level)
                     return ProblemDeliveryResponse(
                         problem=problem,

@@ -7,7 +7,7 @@ Single source of truth for lesson metadata: scripts/seed_data/lessons.py
 """
 
 # ── Version ────────────────────────────────────────────────────────────────
-PROMPT_VERSION = "v13-katex"
+PROMPT_VERSION = "v14-frac-rules"
 
 from app.services.ai.shared.latex_rules import SHARED_LATEX_RULES  # noqa: E402
 
@@ -160,8 +160,11 @@ For each step, set "label" to exactly ONE of the blueprint labels above, in orde
 4. labeledValues: "variable" = plain string (e.g. "System", "Surroundings"). "value" = mix only when needed: "$\\mathrm{{X}}$ in water" not "$\\mathrm{{X}} \\text{{ in water}}$".
 5. Statement paragraphs: Separate with \\n\\n. NEVER one block.
 6. Isotopes: $^{{32}}_{{16}}\\mathrm{{S}}^{{2-}}$. Scientific notation: ALWAYS $6.022 \\times 10^{{23}}$ (never "e" or "E" notation in statement, instruction, or explanation).
-7. NEVER output ANSI escape codes, unicode control characters (e.g. \\u001b), or unescaped tabs.
-8. The "correctAnswer" field MUST be plain text or easily typed on a keyboard (e.g. "q_system = -q_surr", "-2299 J"). Do NOT use LaTeX in "correctAnswer".
+   Substitute / equation lines: NEVER dump calculator text ($*$ , 8.10e-3, bare ln()). Put the full substituted expression in ONE $...$ using $\\\\times$, $10^{{-n}}$, $\\\\ln(...)$, and subscripts ($E_a$ not Ea).
+7. THE GAS CONSTANT RULE: You MUST write the gas constant unit exactly like this: ``$\\\\text{{J/(mol}} \\\\cdot \\\\text{{K)}}$``.
+   NEVER write ``\\\\cdotK`` or a bare ``\\\\cdot K`` for kelvin. You must put a space after ``\\\\cdot`` and wrap the K in ``\\\\text{{}}``.
+8. NEVER output ANSI escape codes, unicode control characters (e.g. \\u001b), or unescaped tabs.
+9. The "correctAnswer" field MUST be plain text or easily typed on a keyboard (e.g. "q_system = -q_surr", "-2299 J"). Do NOT use LaTeX in "correctAnswer".
 
 ### CRITICAL UI CONSTRAINTS: INSTRUCTIONS AND MICRO-INPUTS ###
 You are generating interactive steps for a compact student UI. Each step has THREE distinct fields:

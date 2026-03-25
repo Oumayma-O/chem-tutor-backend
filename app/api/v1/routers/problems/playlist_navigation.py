@@ -12,6 +12,7 @@ from app.core.config import get_settings
 from app.infrastructure.database.connection import get_db
 from app.infrastructure.database.repositories.playlist_repo import UserLessonPlaylistRepository
 from app.services.ai.problem_generation.service import enforce_step_types
+from app.utils.markdown_sanitizer import normalize_strings
 
 router = APIRouter()
 
@@ -72,7 +73,7 @@ async def navigate_problem(
         new_index = ci + 1
 
     updated = await repo.update_index(playlist, new_index)
-    problem = ProblemOutput.model_validate(updated.problems[new_index])
+    problem = ProblemOutput.model_validate(normalize_strings(updated.problems[new_index]))
     enforce_step_types(problem, req.level)  # fix stale step types from old cache
 
     return ProblemDeliveryResponse(
