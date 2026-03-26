@@ -53,6 +53,12 @@ NOTATION:
   BAD: $1.15x10^{{-2}}$ or $1.15 * 10^{{-2}}$
   GOOD: $1.15 \\\\times 10^{{-2}}$
 
+- **11. SPACES IN MATH — English words MUST use \\text{{}}:** In math mode KaTeX ignores all spaces, so bare words run together ("formulaunitstog"). Any English word or phrase inside $...$ MUST be wrapped in $\\\\text{{ }}$ with a leading space.
+  WRONG: $3.20 \\\\times 10^{{22}} formula units to g$  ← renders as "formulaunitstog"
+  CORRECT: $3.20 \\\\times 10^{{22}} \\\\text{{ formula units to g}}$
+  This applies to unit labels, context words, and any English prose inside math.
+- **12. DECIMAL LIMITS — intermediate steps max 4 decimal places:** When computing an unrounded intermediate value, NEVER output more than 4 decimal places. Truncate floating-point results (e.g. write $18.1172$, NOT $18.11723679840585$). The student only needs enough precision to round to sig figs in the final step.
+
 - Exponents: always use braces — $10^{{23}}$ not $10^23$
 - Electron configurations: write the ENTIRE config in ONE $...$
   CORRECT: "$1s^2 2s^2 2p^6 3s^2 3p^3$"

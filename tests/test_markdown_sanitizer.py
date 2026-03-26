@@ -4,6 +4,8 @@ import pytest
 
 from app.utils.markdown_sanitizer import (
     normalize_and_validate_problem,
+    normalize_hint_text,
+    normalize_strings,
     validate_math_blocks,
 )
 
@@ -77,6 +79,20 @@ def test_normalize_converts_slash_division_to_frac() -> None:
     assert r"\frac{E_a}{R}" in s
     assert r"\frac{E_a}{RT}" in s
     assert r"\text{ J/(mol}" in s  # unit slash preserved inside \text
+
+
+def test_hint_normalize_does_not_wrap_prose_in_math_mode() -> None:
+    """Full-string $...$ wrap is for problem fields; hints stay prose so word spaces stay visible."""
+    raw = (
+        r"State E_a with the proper energy unit; since you used R in "
+        r"J/(mol\cdot K), report E_a in J/mol (or convert to kJ/mol by dividing by 1000)."
+    )
+    problem_style = normalize_strings(raw)
+    hint_style = normalize_hint_text(raw)
+    assert problem_style.startswith("$") and problem_style.endswith("$")
+    assert not hint_style.startswith("$")
+    assert " with the " in hint_style
+    assert r"\cdot \text{K}" in hint_style
 
 
 def test_normalize_fixes_lazy_x_times_before_sci_frac() -> None:
@@ -168,6 +184,42 @@ def test_normalize_and_validate_returns_new_dict() -> None:
     assert out is not d
     assert "10^{5}" in out["statement"]
     assert "10^5" in d["statement"]
+
+
+def test_truncate_long_floats() -> None:
+    """LLM float-precision dumps are rounded to 4 decimal places."""
+    from app.utils.markdown_sanitizer import normalize_strings
+    # Standard case: 15-decimal float → 4 decimal places
+    out = normalize_strings({"v": "18.11723679840585 g"})
+    assert "18.1172" in out["v"]
+    assert "18.11723" not in out["v"]
+    # Short float untouched
+    out2 = normalize_strings({"v": "6.022 g"})
+    assert out2["v"] == "6.022 g"
+    # Very small number (0.000...) preserved
+    out3 = normalize_strings({"v": "0.000123456"})
+    assert out3["v"] == "0.000123456"
+    # Scientific notation mantissa preserved (e suffix → skip)
+    out4 = normalize_strings({"v": "$1.23456e-3$"})
+    assert "1.23456e-3" in out4["v"]
+
+
+def test_fix_bare_words_in_math() -> None:
+    """Bare English word sequences inside $...$ are wrapped in \\text{}."""
+    from app.utils.markdown_sanitizer import normalize_strings
+    # Core bug case
+    out = normalize_strings({"v": "$3.20 \\times 10^{22} formula units to g$"})
+    assert "\\text{" in out["v"]
+    assert "formulaunitstog" not in out["v"]
+    # Already correct — must not double-wrap
+    out2 = normalize_strings({"v": "$3.20 \\times 10^{22} \\text{ formula units to g}$"})
+    assert out2["v"].count("\\text{") == 1
+    # Single-letter variable not touched
+    out3 = normalize_strings({"v": "$k g$"})
+    assert "\\text{" not in out3["v"]
+    # Content inside braces not touched
+    out4 = normalize_strings({"v": "$\\mathrm{formula units}$"})
+    assert out4["v"].count("\\text{") == 0
 
 
 def _minimal_problem_dict() -> dict:

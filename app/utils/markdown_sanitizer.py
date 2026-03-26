@@ -240,6 +240,86 @@ def _upgrade_calculator_style_math(s: str) -> str:
     return f"${t}$"
 
 
+# Long-float truncation: LLM dumps raw Python floats (e.g. 18.11723679840585).
+# Round any decimal with 5+ places to 4 decimal places.
+# Skips: scientific notation (followed by e/E), very small numbers (0.000...).
+_RE_LONG_FLOAT = re.compile(r'(?<!\d)(\d+\.\d{5,})(?![eE\d])')
+
+
+def _truncate_long_floats(s: str) -> str:
+    """
+    Round any decimal number with 5+ decimal places to 4 places.
+    Prevents LLM float-precision dumps (e.g. 18.11723679840585 → 18.1172).
+    Preserves very small numbers starting with 0.000 (rounding those loses sig figs).
+    """
+    def _round_it(m: re.Match) -> str:
+        orig = m.group(1)
+        if orig.startswith("0.000"):
+            return orig
+        return str(round(float(orig), 4))
+    return _RE_LONG_FLOAT.sub(_round_it, s)
+
+
+# Bare English words in math: LLM writes $3.20 \times 10^{22} formula units to g$
+# — in KaTeX math mode spaces are ignored, producing "formulaunitstog".
+# Fix: wrap consecutive bare word sequences in \text{ }.
+# Only matches multi-word sequences (2+ words) to avoid false-positives on
+# single-letter variables (k, n, T) or short abbreviations (mol, amu).
+_RE_BARE_MULTIWORD = re.compile(
+    r'(?<!\\)'                      # not preceded by backslash (not a LaTeX command)
+    r'(?<![{^_])'                   # not after brace/script opener
+    r'\b'
+    r'([a-zA-Z]{3,}'                # first word: 3+ alpha chars
+    r'(?:[ \t]+[a-zA-Z]{2,})+)'    # 1+ additional words of 2+ chars (required)
+    r'\b'
+)
+
+
+def _wrap_bare_multiword_phrases(content: str) -> str:
+    """
+    In the top-level (non-braced) portion of a math block, wrap multi-word bare
+    phrases in \\text{}.  Content inside {...} braces (e.g. \\text{...}, ^{...})
+    is passed through unchanged so we never double-wrap.
+    """
+    result: list[str] = []
+    plain_buf: list[str] = []
+    depth = 0
+
+    for ch in content:
+        if ch == '{':
+            if depth == 0:
+                plain_text = ''.join(plain_buf)
+                result.append(_RE_BARE_MULTIWORD.sub(r'\\text{ \1}', plain_text))
+                plain_buf = []
+            depth += 1
+            result.append(ch)
+        elif ch == '}':
+            depth -= 1
+            result.append(ch)
+        elif depth == 0:
+            plain_buf.append(ch)
+        else:
+            result.append(ch)
+
+    if plain_buf:
+        result.append(_RE_BARE_MULTIWORD.sub(r'\\text{ \1}', ''.join(plain_buf)))
+
+    return ''.join(result)
+
+
+def _fix_bare_words_in_math(s: str) -> str:
+    """
+    Scan each $...$ math block and wrap bare English word sequences in \\text{}.
+    e.g. $3.20 \\times 10^{22} formula units to g$
+      → $3.20 \\times 10^{22} \\text{ formula units to} g$
+    """
+    def fix_block(m: re.Match) -> str:
+        inner = m.group(1)
+        fixed = _wrap_bare_multiword_phrases(inner)
+        return f'${fixed}$' if fixed != inner else m.group(0)
+    return re.sub(r'\$([^$]+)\$', fix_block, s)
+
+
 def _convert_slashes_to_fractions(s: str) -> str:
     """
     Convert LLM inline division (/) into \\frac{}{} for kinetics / Arrhenius patterns only.
@@ -286,8 +366,14 @@ def _convert_slashes_to_fractions(s: str) -> str:
     return s
 
 
-def _normalize_string(s: str) -> str:
-    """Apply all deterministic string fixes. Idempotent-friendly."""
+def _normalize_string(s: str, *, for_hint: bool = False) -> str:
+    """Apply all deterministic string fixes. Idempotent-friendly.
+
+    When ``for_hint`` is True, skip auto-wrapping the whole string in ``$...$``.
+    That wrapping is for structured problem fields; on tutor sentences it puts
+    prose in math mode, where KaTeX ignores spaces between words (looks glued:
+    ``StateEawiththeproper...``).
+    """
     if not isinstance(s, str) or not s:
         return s
     s = _recover_tab_corrupted_latex(s)
@@ -299,23 +385,26 @@ def _normalize_string(s: str) -> str:
     s = _fix_orphan_mathrm(s)
     s = _fix_unclosed_mathrm(s)
     s = _normalize_math_wrappers(s)
-    s = _wrap_bare_sub_super(s)
-    s = _wrap_bare_latex(s)
+    if not for_hint:
+        s = _wrap_bare_sub_super(s)
+        s = _wrap_bare_latex(s)
     s = _upgrade_calculator_style_math(s)
     s = _convert_slashes_to_fractions(s)
+    s = _fix_bare_words_in_math(s)
+    s = _truncate_long_floats(s)
     return s
 
 
 # ── Recursive walk ─────────────────────────────────────────────────────────
 
-def _recursive_normalize(obj: Any) -> Any:
+def _recursive_normalize(obj: Any, *, for_hint: bool = False) -> Any:
     """Recursively process dict/list and normalize every string value."""
     if isinstance(obj, str):
-        return _normalize_string(obj)
+        return _normalize_string(obj, for_hint=for_hint)
     if isinstance(obj, dict):
-        return {k: _recursive_normalize(v) for k, v in obj.items()}
+        return {k: _recursive_normalize(v, for_hint=for_hint) for k, v in obj.items()}
     if isinstance(obj, list):
-        return [_recursive_normalize(item) for item in obj]
+        return [_recursive_normalize(item, for_hint=for_hint) for item in obj]
     return obj
 
 
@@ -405,7 +494,17 @@ def normalize_strings(obj: Any) -> Any:
     orphaned \\text/\\mathrm, tabs/ANSI/nulls,
     \\( \\) → $, and $$...$$ → $...$.
     """
-    return _recursive_normalize(obj)
+    return _recursive_normalize(obj, for_hint=False)
+
+
+def normalize_hint_text(s: str) -> str:
+    """
+    Sanitize LLM hint prose: same fixes as ``normalize_strings`` on a single string,
+    but do **not** wrap the entire message in ``$...$``. Full-string wrapping is
+    for equation-heavy problem fields; on hints it forces KaTeX math mode where
+    spaces between words are not preserved, producing glued text.
+    """
+    return _normalize_string(s, for_hint=True)
 
 
 def validate_math_strings(obj: Any) -> tuple[bool, str]:
