@@ -29,6 +29,7 @@ from app.infrastructure.database.models import (
 )
 from scripts.seed_data.problem_few_shots import FEW_SHOT_DATA
 from scripts.seed_data.lessons import MASTER_LESSONS
+from scripts.seed_data.reference_cards import REFERENCE_CARDS
 from scripts.seed_data.lookup import GRADES, INTERESTS, KEEP_COURSE_NAMES
 from scripts.seed_data.phases import AP_PHASES, STANDARD_PHASES
 from scripts.seed_data.units import AP_UNITS, STANDARD_UNITS
@@ -323,6 +324,27 @@ async def _seed_few_shots(async_session) -> None:
     print(f"  {inserted} upserted")
 
 
+async def _seed_reference_cards(async_session) -> None:
+    print("\n─── Reference cards ───")
+    seeded = 0
+    async with async_session() as session:
+        for card in REFERENCE_CARDS:
+            lesson = await session.scalar(
+                select(Lesson)
+                .where(Lesson.unit_id == card["unit_id"])
+                .where(Lesson.lesson_index == card["lesson_index"])
+            )
+            if lesson is None:
+                print(f"  ⚠  No lesson for {card['unit_id']} index {card['lesson_index']} — skipped")
+                continue
+            if lesson.reference_card_json is None:
+                lesson.reference_card_json = card
+                seeded += 1
+                print(f"  + {card['unit_id']}[{card['lesson_index']}]: {card['lesson']}")
+        await session.commit()
+    print(f"  {seeded} seeded (existing cards untouched)")
+
+
 # ══════════════════════════════════════════════════════════════
 # MAIN
 # ══════════════════════════════════════════════════════════════
@@ -377,6 +399,7 @@ async def main() -> None:
             await seed(session)
 
     await _seed_few_shots(async_session)
+    await _seed_reference_cards(async_session)
     await eng.dispose()
 
 

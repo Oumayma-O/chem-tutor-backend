@@ -157,4 +157,3 @@ class ReferenceCardOutput(BaseModel):
     unit_id: str
     lesson_index: int
     steps: list[ReferenceStepCard] = Field(min_length=3, max_length=5)
-    hint: str = "Apply this general approach to the current problem!"

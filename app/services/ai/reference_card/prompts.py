@@ -32,9 +32,8 @@ REFERENCE CARD RULES:
 1. Show the GENERAL METHOD only. NO concrete numeric values (e.g. use $m$ not $5.0 \\\\text{{ g}}$).
 2. Produce exactly {step_count} steps labelled: {labels_block}.
 3. Each "content" field MUST be a SHORT, punchy phrase (max 10 words). Bullet-style logic only.
-4. Write the "hint" as a single encouraging sentence telling the student how to begin.
-5. Output valid JSON matching the schema.{equations_rule}
-6. MATH IN CONTENT FIELDS: Any formula, variable, or LaTeX expression in a "content" string MUST be wrapped in $...$. NEVER write bare LaTeX outside of dollar signs.
+4. Output valid JSON matching the schema.{equations_rule}
+5. MATH IN CONTENT FIELDS: Any formula, variable, or LaTeX expression in a "content" string MUST be wrapped in $...$. NEVER write bare LaTeX outside of dollar signs.
    CORRECT: "Use $\\\\bar{{A}} = \\\\sum(\\\\text{{mass}} \\\\times \\\\text{{abundance}})$"
    WRONG:   "\\\\text{{Avg Atomic Mass}} = \\\\sum (...)" — bare LaTeX without $...$ renders as raw text."""
 )
