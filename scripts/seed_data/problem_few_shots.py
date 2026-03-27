@@ -2,7 +2,8 @@
 
 Tuple layout: (unit_id, lesson_index, difficulty, blueprint, problem_dict)
 The `blueprint` field maps to Lesson.blueprint from the DB.
-Field names in step dicts use camelCase (API/JSON convention) to match LLM output exactly.
+Field names in step dicts use camelCase to match LLM output; seed normalizes ``inputFields`` to ``input_fields``.
+Multi-answer steps: type ``multi_input`` with ``inputFields`` (each item: ``label``, ``value``, ``unit``).
 
 Rules enforced here:
 - All math/chemistry uses LaTeX ($...$) with \\text{} for units.
@@ -87,12 +88,12 @@ FEW_SHOT_DATA: list[tuple[str, int, str, str, dict]] = [
                 },
                 {
                     "label": "Feature ID",
-                    "type": "variable_id",
+                    "type": "multi_input",
                     "instruction": "Convert the percentage abundances to decimals.",
                     "explanation": "Divide each percentage by $100$: $69.0 \\div 100 = 0.690$ and $31.0 \\div 100 = 0.310$.",
-                    "labeledValues": [
-                        {"variable": "Abundance 1", "value": "$0.690$", "unit": ""},
-                        {"variable": "Abundance 2", "value": "$0.310$", "unit": ""},
+                    "inputFields": [
+                        {"label": "Abundance 1", "value": "$0.690$", "unit": ""},
+                        {"label": "Abundance 2", "value": "$0.310$", "unit": ""},
                     ],
                     "skillUsed": "Identify key feature or pattern",
                 },
@@ -199,13 +200,13 @@ FEW_SHOT_DATA: list[tuple[str, int, str, str, dict]] = [
                 },
                 {
                     "label": "Knowns",
-                    "type": "variable_id",
+                    "type": "multi_input",
                     "instruction": "Extract the given values with units.",
-                    "explanation": None,
-                    "labeledValues": [
-                        {"variable": "$[A]_0$", "value": "$0.80$", "unit": "M"},
-                        {"variable": "$k$", "value": "$0.020$", "unit": "M/s"},
-                        {"variable": "$t$", "value": "$20$", "unit": "s"},
+                    "explanation": "List each given quantity with its label, numeric value, and unit.",
+                    "inputFields": [
+                        {"label": "$[A]_0$", "value": "$0.80$", "unit": "M"},
+                        {"label": "$k$", "value": "$0.020$", "unit": "M/s"},
+                        {"label": "$t$", "value": "$20$", "unit": "s"},
                     ],
                     "skillUsed": "Extract known values with units",
                 },
@@ -574,12 +575,12 @@ FEW_SHOT_DATA: list[tuple[str, int, str, str, dict]] = [
             "steps": [
                 {
                     "label": "Concept ID",
-                    "type": "variable_id",
+                    "type": "multi_input",
                     "instruction": "List the system and surroundings.",
                     "explanation": "The chemicals dissolving are the system; water and calorimeter are surroundings.",
-                    "labeledValues": [
-                        {"variable": "System", "value": "$\\mathrm{NH_4NO_3}$ dissolving in water", "unit": ""},
-                        {"variable": "Surroundings", "value": "water and calorimeter", "unit": ""},
+                    "inputFields": [
+                        {"label": "System", "value": "$\\mathrm{NH_4NO_3}$ dissolving in water", "unit": ""},
+                        {"label": "Surroundings", "value": "water and calorimeter", "unit": ""},
                     ],
                     "skillUsed": "Define system and surroundings",
                 },
@@ -630,12 +631,12 @@ FEW_SHOT_DATA: list[tuple[str, int, str, str, dict]] = [
             "steps": [
                 {
                     "label": "Concept ID",
-                    "type": "variable_id",
+                    "type": "multi_input",
                     "instruction": "Identify the system and surroundings.",
                     "explanation": "The chemical reaction is the system; the surrounding water in the cup is the surroundings.",
-                    "labeledValues": [
-                        {"variable": "System", "value": "$\\mathrm{HCl}$ and $\\mathrm{NaOH}$ reacting", "unit": ""},
-                        {"variable": "Surroundings", "value": "solution water in the cup", "unit": ""},
+                    "inputFields": [
+                        {"label": "System", "value": "$\\mathrm{HCl}$ and $\\mathrm{NaOH}$ reacting", "unit": ""},
+                        {"label": "Surroundings", "value": "solution water in the cup", "unit": ""},
                     ],
                     "skillUsed": "Define system and surroundings",
                 },
@@ -713,7 +714,7 @@ FEW_SHOT_DATA: list[tuple[str, int, str, str, dict]] = [
                     "label": "Calculate",
                     "type": "given",
                     "instruction": "Calculate the unrounded number of formula units.",
-                    "explanation": None,
+                    "explanation": "Divide mass by molar mass to get moles, then multiply by Avogadro's number.",
                     "correctAnswer": "6.0238 × 10²²",
                     "skillUsed": "Set up dimensional analysis",
                 },
@@ -731,76 +732,66 @@ FEW_SHOT_DATA: list[tuple[str, int, str, str, dict]] = [
     # ── 14. Detective: kinetics — initial rates → rate law ────────────────────
     (
         "ap-unit-5",
-        0,
+        1,
         "medium",
         "detective",
         {
-            "title": "Initial Rates: Determining a Rate Law",
+            "title": "Method of Initial Rates for a Two-Reactant Reaction",
             "statement": (
-                "A reaction between gases $\\mathrm{A}$ and $\\mathrm{B}$ follows the form "
-                "$\\mathrm{A} + \\mathrm{B} \\rightarrow \\text{products}$. A student measures initial rates at the same temperature.\n\n"
-                "Experiment 1: $[\\mathrm{A}] = 0.10 \\text{ M}$, $[\\mathrm{B}] = 0.10 \\text{ M}$, "
-                "rate $= 2.0 \\times 10^{-3} \\text{ M/s}$.\n\n"
-                "Experiment 2: $[\\mathrm{A}] = 0.20 \\text{ M}$, $[\\mathrm{B}] = 0.10 \\text{ M}$, "
-                "rate $= 4.0 \\times 10^{-3} \\text{ M/s}$.\n\n"
-                "Experiment 3: $[\\mathrm{A}] = 0.10 \\text{ M}$, $[\\mathrm{B}] = 0.30 \\text{ M}$, "
-                "rate $= 1.8 \\times 10^{-2} \\text{ M/s}$.\n\n"
-                "Use the data to determine the order in $\\mathrm{A}$, the order in $\\mathrm{B}$, "
-                "and the overall reaction order. What is the rate law?"
+                "A reaction between aqueous reactants $\\mathrm{X}$ and $\\mathrm{Y}$ forms products. "
+                "A student measures initial rates at the same temperature for several trials.\n\n"
+                "Experiment 1: $[\\mathrm{X}] = 0.15 \\text{ M}$, $[\\mathrm{Y}] = 0.10 \\text{ M}$, "
+                "rate $= 3.0 \\times 10^{-4} \\text{ M/s}$.\n\n"
+                "Experiment 2: $[\\mathrm{X}] = 0.30 \\text{ M}$, $[\\mathrm{Y}] = 0.10 \\text{ M}$, "
+                "rate $= 1.2 \\times 10^{-3} \\text{ M/s}$.\n\n"
+                "Experiment 3: $[\\mathrm{X}] = 0.15 \\text{ M}$, $[\\mathrm{Y}] = 0.20 \\text{ M}$, "
+                "rate $= 6.0 \\times 10^{-4} \\text{ M/s}$.\n\n"
+                "Use the data to determine the order in $\\mathrm{X}$, the order in $\\mathrm{Y}$, "
+                "the overall reaction order, and the rate law."
             ),
             "steps": [
                 {
                     "label": "Data Extraction",
-                    "type": "variable_id",
-                    "instruction": "Extract the experiment values.",
-                    "explanation": None,
-                    "labeledValues": [
-                        {
-                            "variable": "Experiment 1",
-                            "value": "$[\\mathrm{A}] = 0.10$, $[\\mathrm{B}] = 0.10$, rate $= 2.0 \\times 10^{-3}$",
-                            "unit": "M, M, M/s",
-                        },
-                        {
-                            "variable": "Experiment 2",
-                            "value": "$[\\mathrm{A}] = 0.20$, $[\\mathrm{B}] = 0.10$, rate $= 4.0 \\times 10^{-3}$",
-                            "unit": "M, M, M/s",
-                        },
-                        {
-                            "variable": "Experiment 3",
-                            "value": "$[\\mathrm{A}] = 0.10$, $[\\mathrm{B}] = 0.30$, rate $= 1.8 \\times 10^{-2}$",
-                            "unit": "M, M, M/s",
-                        },
+                    "type": "multi_input",
+                    "instruction": "Extract the three experiment values.",
+                    "explanation": "Compare trials where one reactant concentration stays constant.",
+                    "inputFields": [
+                        {"label": "Experiment 1 rate", "value": "$3.0 \\times 10^{-4}$", "unit": "M/s"},
+                        {"label": "Experiment 2 X concentration", "value": "$0.30$", "unit": "M"},
+                        {"label": "Experiment 3 Y concentration", "value": "$0.20$", "unit": "M"},
                     ],
-                    "skillUsed": "Extract data from representation",
+                    "skillUsed": "Write rate law expressions from experimental data",
                 },
                 {
                     "label": "Feature ID",
                     "type": "given",
-                    "instruction": "Identify the order in $\\mathrm{A}$.",
-                    "explanation": "From Experiments 1 and 2, doubling $[\\mathrm{A}]$ doubles the rate, so $m = 1$.",
-                    "correctAnswer": "1",
-                    "skillUsed": "Identify key feature or pattern",
+                    "instruction": "Identify the order in $\\mathrm{X}$.",
+                    "explanation": "From Experiments 1 and 2, doubling $[\\mathrm{X}]$ quadruples the rate, so order is $2$.",
+                    "correctAnswer": "2",
+                    "skillUsed": "Write rate law expressions from experimental data",
                 },
                 {
                     "label": "Apply Concept",
                     "type": "given",
-                    "instruction": "Identify the order in $\\mathrm{B}$.",
-                    "explanation": "From Experiments 1 and 3, tripling $[\\mathrm{B}]$ increases the rate by $9$, so $n = 2$.",
-                    "correctAnswer": "2",
-                    "skillUsed": "Apply chemical concept to data",
+                    "instruction": "Identify the order in $\\mathrm{Y}$.",
+                    "explanation": "From Experiments 1 and 3, doubling $[\\mathrm{Y}]$ doubles the rate, so order is $1$.",
+                    "correctAnswer": "1",
+                    "skillUsed": "Write rate law expressions from experimental data",
                 },
                 {
                     "label": "Conclusion",
-                    "type": "given",
+                    "type": "multi_input",
                     "instruction": "State the rate law and overall order.",
-                    "explanation": "Add exponents: $1 + 2 = 3$, so rate $= k[\\mathrm{A}][\\mathrm{B}]^2$ (third order).",
-                    "correctAnswer": "rate = k[A][B]^2; 3rd order",
-                    "skillUsed": "Draw scientific conclusion",
+                    "explanation": "Add exponents: $2 + 1 = 3$, so the reaction is third order overall.",
+                    "inputFields": [
+                        {"label": "Rate law", "value": "$k[\\mathrm{X}]^{2}[\\mathrm{Y}]$", "unit": ""},
+                        {"label": "Overall reaction order", "value": "3rd order", "unit": ""},
+                    ],
+                    "skillUsed": "Determine overall reaction order",
                 },
             ],
         },
     ),
-
     # ── 15. Recipe: molar mass (Level 3 — interactive for numeric steps, no drag_drop) ──
     (
         "unit-mole",
@@ -817,12 +808,12 @@ FEW_SHOT_DATA: list[tuple[str, int, str, str, dict]] = [
             "steps": [
                 {
                     "label": "Goal / Setup",
-                    "type": "variable_id",
+                    "type": "multi_input",
                     "instruction": "Identify the formula and atomic mass values.",
                     "explanation": "Extract the chemical formula and the mass from the text.",
-                    "labeledValues": [
-                        {"variable": "formula", "value": "$\\mathrm{O_2}$", "unit": ""},
-                        {"variable": "O atomic mass", "value": "$16.00$", "unit": "g/mol"},
+                    "inputFields": [
+                        {"label": "formula", "value": "$\\mathrm{O_2}$", "unit": ""},
+                        {"label": "O atomic mass", "value": "$16.00$", "unit": "g/mol"},
                     ],
                     "skillUsed": "Identify conversion goal",
                 },
@@ -878,12 +869,12 @@ FEW_SHOT_DATA: list[tuple[str, int, str, str, dict]] = [
             "steps": [
                 {
                     "label": "Concept ID",
-                    "type": "variable_id",
+                    "type": "multi_input",
                     "instruction": "Identify the primary hazard and the broken rule.",
                     "explanation": "Extract the specific danger and the safety violation from the scenario.",
-                    "labeledValues": [
-                        {"variable": "Hazard", "value": "corrosive acid", "unit": ""},
-                        {"variable": "Broken Rule", "value": "goggles on forehead", "unit": ""},
+                    "inputFields": [
+                        {"label": "Hazard", "value": "corrosive acid", "unit": ""},
+                        {"label": "Broken Rule", "value": "goggles on forehead", "unit": ""},
                     ],
                     "skillUsed": "Recognize hazard symbols",
                 },
@@ -931,12 +922,12 @@ FEW_SHOT_DATA: list[tuple[str, int, str, str, dict]] = [
             "steps": [
                 {
                     "label": "Concept ID",
-                    "type": "variable_id",
+                    "type": "multi_input",
                     "instruction": "Identify the primary hazard and the broken rule.",
                     "explanation": "Extract the chemical danger and the unsafe behavior from the scenario.",
-                    "labeledValues": [
-                        {"variable": "Hazard", "value": "corrosive base", "unit": ""},
-                        {"variable": "Broken Rule", "value": "goggles on forehead", "unit": ""},
+                    "inputFields": [
+                        {"label": "Hazard", "value": "corrosive base", "unit": ""},
+                        {"label": "Broken Rule", "value": "goggles on forehead", "unit": ""},
                     ],
                     "skillUsed": "Recognize hazard symbols",
                 },
@@ -984,12 +975,12 @@ FEW_SHOT_DATA: list[tuple[str, int, str, str, dict]] = [
             "steps": [
                 {
                     "label": "Concept ID",
-                    "type": "variable_id",
+                    "type": "multi_input",
                     "instruction": "Identify the hazard and the broken rule.",
                     "explanation": "Extract the specific chemical danger and the unsafe action from the scenario.",
-                    "labeledValues": [
-                        {"variable": "Hazard", "value": "toxic heavy metals", "unit": ""},
-                        {"variable": "Broken Rule", "value": "pouring chemicals down the sink", "unit": ""},
+                    "inputFields": [
+                        {"label": "Hazard", "value": "toxic heavy metals", "unit": ""},
+                        {"label": "Broken Rule", "value": "pouring chemicals down the sink", "unit": ""},
                     ],
                     "skillUsed": "Recognize hazard symbols",
                 },
@@ -1037,12 +1028,12 @@ FEW_SHOT_DATA: list[tuple[str, int, str, str, dict]] = [
             "steps": [
                 {
                     "label": "Concept ID",
-                    "type": "variable_id",
+                    "type": "multi_input",
                     "instruction": "Identify the hazard and the broken rule.",
                     "explanation": "Extract the chemical danger and the prohibited behavior.",
-                    "labeledValues": [
-                        {"variable": "Hazard", "value": "harmful if swallowed", "unit": ""},
-                        {"variable": "Broken Rule", "value": "drinking in the lab", "unit": ""},
+                    "inputFields": [
+                        {"label": "Hazard", "value": "harmful if swallowed", "unit": ""},
+                        {"label": "Broken Rule", "value": "drinking in the lab", "unit": ""},
                     ],
                     "skillUsed": "Recognize hazard symbols",
                 },
@@ -1090,20 +1081,17 @@ FEW_SHOT_DATA: list[tuple[str, int, str, str, dict]] = [
             "steps": [
                 {
                     "label": "Inventory / Rules",
-                    "type": "variable_id",
+                    "type": "multi_input",
                     "instruction": "Distribute the 15 electrons into the correct subshells.",
                     "explanation": "Following the Aufbau principle: $1s$, $2s$, $2p$, $3s$ fill completely; 3 remain for $3p$.",
                     "skillUsed": "Write basic electron configurations",
-                    "correctAnswer": None,
-                    "equationParts": None,
-                    "labeledValues": [
-                        {"variable": "1s", "value": "2", "unit": "$e^-$"},
-                        {"variable": "2s", "value": "2", "unit": "$e^-$"},
-                        {"variable": "2p", "value": "6", "unit": "$e^-$"},
-                        {"variable": "3s", "value": "2", "unit": "$e^-$"},
-                        {"variable": "3p", "value": "3", "unit": "$e^-$"},
+                    "inputFields": [
+                        {"label": "1s", "value": "2", "unit": "$e^-$"},
+                        {"label": "2s", "value": "2", "unit": "$e^-$"},
+                        {"label": "2p", "value": "6", "unit": "$e^-$"},
+                        {"label": "3s", "value": "2", "unit": "$e^-$"},
+                        {"label": "3p", "value": "3", "unit": "$e^-$"},
                     ],
-                    "comparisonParts": None,
                 },
                 {
                     "label": "Draft",
@@ -1111,10 +1099,7 @@ FEW_SHOT_DATA: list[tuple[str, int, str, str, dict]] = [
                     "instruction": "Arrange the subshells in the correct Aufbau order.",
                     "explanation": "Fill lowest to highest energy: $1s \\rightarrow 2s \\rightarrow 2p \\rightarrow 3s \\rightarrow 3p$.",
                     "skillUsed": "Write full electron configurations",
-                    "correctAnswer": None,
                     "equationParts": ["$1s^2$", "$2s^2$", "$2p^6$", "$3s^2$", "$3p^3$"],
-                    "labeledValues": None,
-                    "comparisonParts": None,
                 },
                 {
                     "label": "Refine",
@@ -1123,9 +1108,6 @@ FEW_SHOT_DATA: list[tuple[str, int, str, str, dict]] = [
                     "explanation": "By Hund's rule, the three $3p$ electrons each occupy a separate orbital singly.",
                     "skillUsed": "Draw orbital notation diagrams",
                     "correctAnswer": "3",
-                    "equationParts": None,
-                    "labeledValues": None,
-                    "comparisonParts": None,
                 },
                 {
                     "label": "Final Answer",
@@ -1134,9 +1116,6 @@ FEW_SHOT_DATA: list[tuple[str, int, str, str, dict]] = [
                     "explanation": "Combine the ordered subshells into a single notation string.",
                     "skillUsed": "Write full electron configurations",
                     "correctAnswer": "1s2 2s2 2p6 3s2 3p3",
-                    "equationParts": None,
-                    "labeledValues": None,
-                    "comparisonParts": None,
                 },
             ],
         },
@@ -1161,17 +1140,14 @@ FEW_SHOT_DATA: list[tuple[str, int, str, str, dict]] = [
             "steps": [
                 {
                     "label": "Inventory / Rules",
-                    "type": "variable_id",
+                    "type": "multi_input",
                     "instruction": "Identify the core and outer subshells.",
                     "explanation": "Use the preceding noble gas as the core, then list filled subshells after it.",
                     "skillUsed": "Write noble gas abbreviated electron configurations",
-                    "correctAnswer": None,
-                    "equationParts": None,
-                    "labeledValues": [
-                        {"variable": "Noble gas core", "value": "$[\\mathrm{Ar}]$", "unit": ""},
-                        {"variable": "Outer subshells after core", "value": "$4s^{2} 3d^{10} 4p^{4}$", "unit": ""},
+                    "inputFields": [
+                        {"label": "Noble gas core", "value": "$[\\mathrm{Ar}]$", "unit": ""},
+                        {"label": "Outer subshells after core", "value": "$4s^{2} 3d^{10} 4p^{4}$", "unit": ""},
                     ],
-                    "comparisonParts": None,
                 },
                 {
                     "label": "Draft",
@@ -1179,15 +1155,12 @@ FEW_SHOT_DATA: list[tuple[str, int, str, str, dict]] = [
                     "instruction": "Assemble the abbreviated configuration.",
                     "explanation": "Place the noble gas core first, followed by the remaining filled subshells in Aufbau order.",
                     "skillUsed": "Write noble gas abbreviated electron configurations",
-                    "correctAnswer": None,
                     "equationParts": [
                         "$[\\mathrm{Ar}]$",
                         "$4s^{2}$",
                         "$3d^{10}$",
                         "$4p^{4}$",
                     ],
-                    "labeledValues": None,
-                    "comparisonParts": None,
                 },
                 {
                     "label": "Refine",
@@ -1196,20 +1169,17 @@ FEW_SHOT_DATA: list[tuple[str, int, str, str, dict]] = [
                     "explanation": "Valence electrons occupy the highest principal level $n=4$: $4s^{2}$ and $4p^{4}$ contribute $2+4=6$.",
                     "skillUsed": "Identify valence electrons from configurations",
                     "correctAnswer": "6",
-                    "equationParts": None,
-                    "labeledValues": None,
-                    "comparisonParts": None,
                 },
                 {
                     "label": "Final Answer",
-                    "type": "given",
+                    "type": "multi_input",
                     "instruction": "State both final results.",
                     "explanation": "Combine the abbreviated configuration and the valence electron count.",
                     "skillUsed": "Identify valence electrons from configurations",
-                    "correctAnswer": "[Ar] 4s2 3d10 4p4; 6 valence electrons",
-                    "equationParts": None,
-                    "labeledValues": None,
-                    "comparisonParts": None,
+                    "inputFields": [
+                        {"label": "Abbreviated configuration", "value": "[Ar] 4s2 3d10 4p4", "unit": ""},
+                        {"label": "Valence electrons", "value": "6", "unit": ""},
+                    ],
                 },
             ],
         },
@@ -1233,33 +1203,27 @@ FEW_SHOT_DATA: list[tuple[str, int, str, str, dict]] = [
             "steps": [
                 {
                     "label": "Inventory / Rules",
-                    "type": "given",
+                    "type": "multi_input",
                     "instruction": "Identify the core noble gas and remaining electrons.",
                     "explanation": "Subtract core electrons: $34 - 18 = 16$ electrons beyond $\\mathrm{Ar}$.",
                     "skillUsed": "Write noble gas abbreviated electron configurations",
-                    "correctAnswer": None,
-                    "equationParts": None,
-                    "labeledValues": [
-                        {"variable": "Core noble gas", "value": "$\\mathrm{Ar}$", "unit": ""},
-                        {"variable": "Remaining electrons", "value": "$16$", "unit": "electrons"},
+                    "inputFields": [
+                        {"label": "Core noble gas", "value": "$\\mathrm{Ar}$", "unit": ""},
+                        {"label": "Remaining electrons", "value": "$16$", "unit": "electrons"},
                     ],
-                    "comparisonParts": None,
                 },
                 {
                     "label": "Draft",
-                    "type": "given",
+                    "type": "drag_drop",
                     "instruction": "List the subshell filling after the noble gas core.",
                     "explanation": "After $[\\mathrm{Ar}]$, fill $4s$, then $3d$, then $4p$ to place $16$ electrons.",
                     "skillUsed": "Write noble gas abbreviated electron configurations",
-                    "correctAnswer": None,
                     "equationParts": [
                         "$[\\mathrm{Ar}]$",
                         "$4s^{2}$",
                         "$3d^{10}$",
                         "$4p^{4}$",
                     ],
-                    "labeledValues": None,
-                    "comparisonParts": None,
                 },
                 {
                     "label": "Refine",
@@ -1268,9 +1232,6 @@ FEW_SHOT_DATA: list[tuple[str, int, str, str, dict]] = [
                     "explanation": "Combine the noble gas core with filled outer subshells in order.",
                     "skillUsed": "Write noble gas abbreviated electron configurations",
                     "correctAnswer": "[Ar] 4s2 3d10 4p4",
-                    "equationParts": None,
-                    "labeledValues": None,
-                    "comparisonParts": None,
                 },
                 {
                     "label": "Final Answer",
@@ -1279,9 +1240,6 @@ FEW_SHOT_DATA: list[tuple[str, int, str, str, dict]] = [
                     "explanation": "For selenium, the highest principal level is $n=4$: $4s^{2} 4p^{4}$, totaling $6$.",
                     "skillUsed": "Identify valence electrons from configurations",
                     "correctAnswer": "6",
-                    "equationParts": None,
-                    "labeledValues": None,
-                    "comparisonParts": None,
                 },
             ],
         },
@@ -1308,9 +1266,6 @@ FEW_SHOT_DATA: list[tuple[str, int, str, str, dict]] = [
                     "explanation": "Subtract the core electrons from the total: $20 - 18 = 2$ electrons beyond $\\mathrm{Ar}$.",
                     "skillUsed": "Write noble gas abbreviated electron configurations",
                     "correctAnswer": "Core: [Ar], Remaining: 2",
-                    "equationParts": None,
-                    "labeledValues": None,
-                    "comparisonParts": None,
                 },
                 {
                     "label": "Draft",
@@ -1318,13 +1273,10 @@ FEW_SHOT_DATA: list[tuple[str, int, str, str, dict]] = [
                     "instruction": "Assemble the subshell filling after the core.",
                     "explanation": "After $[\\mathrm{Ar}]$, the next $2$ electrons fill the $4s$ subshell.",
                     "skillUsed": "Write noble gas abbreviated electron configurations",
-                    "correctAnswer": None,
                     "equationParts": [
                         "$[\\mathrm{Ar}]$",
                         "$4s^2$",
                     ],
-                    "labeledValues": None,
-                    "comparisonParts": None,
                 },
                 {
                     "label": "Refine",
@@ -1333,9 +1285,6 @@ FEW_SHOT_DATA: list[tuple[str, int, str, str, dict]] = [
                     "explanation": "Combine the noble gas core with the filled outer subshells.",
                     "skillUsed": "Write noble gas abbreviated electron configurations",
                     "correctAnswer": "[Ar] 4s2",
-                    "equationParts": None,
-                    "labeledValues": None,
-                    "comparisonParts": None,
                 },
                 {
                     "label": "Final Answer",
@@ -1344,9 +1293,814 @@ FEW_SHOT_DATA: list[tuple[str, int, str, str, dict]] = [
                     "explanation": "For calcium, the highest principal level is $n=4$: $4s^2$, totaling $2$ valence electrons.",
                     "skillUsed": "Identify valence electrons from configurations",
                     "correctAnswer": "2",
-                    "equationParts": None,
-                    "labeledValues": None,
-                    "comparisonParts": None,
+                },
+            ],
+        },
+    ),
+    # ── 23. Solver: Arrhenius — activation energy from two rate constants ─────
+    (
+        "ap-unit-5",
+        6,
+        "medium",
+        "solver",
+        {
+            "title": "Activation Energy from Two Rate Constants",
+            "statement": (
+                "A student investigates the decomposition of a gaseous reactant and measures the rate constant "
+                "at two different temperatures.\n\n"
+                "At $298\\,\\text{K}$, the rate constant is $k_1 = 2.50 \\times 10^{-3}\\,\\text{s}^{-1}$. "
+                "At $315\\,\\text{K}$, the rate constant is $k_2 = 8.20 \\times 10^{-3}\\,\\text{s}^{-1}$.\n\n"
+                "Given that $R = 8.314\\,\\text{J}\\,\\text{mol}^{-1}\\,\\text{K}^{-1}$, calculate the activation energy, "
+                "$E_a$, for this reaction.\n\n"
+                "*Hint: Use the two-point form of the Arrhenius equation.*"
+            ),
+            "steps": [
+                {
+                    "label": "Equation",
+                    "type": "drag_drop",
+                    "instruction": "Arrange the two-point Arrhenius equation.",
+                    "explanation": (
+                        "Use the logarithmic form of the Arrhenius equation to relate two rate constants "
+                        "at different temperatures."
+                    ),
+                    "equationParts": [
+                        "$\\ln\\left(\\frac{k_2}{k_1}\\right)$",
+                        "=",
+                        "$\\frac{E_a}{R}$",
+                        "$\\left(\\frac{1}{T_1} - \\frac{1}{T_2}\\right)$",
+                    ],
+                    "skillUsed": "Apply the Arrhenius equation to relate rate constants and temperature",
+                },
+                {
+                    "label": "Knowns",
+                    "type": "multi_input",
+                    "instruction": "Identify the given values.",
+                    "explanation": "List both rate constants, both temperatures, and the gas constant $R$.",
+                    "inputFields": [
+                        {"label": "$k_1$", "value": "$2.50 \\times 10^{-3}$", "unit": "$\\text{s}^{-1}$"},
+                        {"label": "$k_2$", "value": "$8.20 \\times 10^{-3}$", "unit": "$\\text{s}^{-1}$"},
+                        {"label": "$T_1$", "value": "$298$", "unit": "$\\text{K}$"},
+                        {"label": "$T_2$", "value": "$315$", "unit": "$\\text{K}$"},
+                        {
+                            "label": "$R$",
+                            "value": "$8.314$",
+                            "unit": "$\\text{J}\\,\\text{mol}^{-1}\\,\\text{K}^{-1}$",
+                        },
+                    ],
+                    "skillUsed": "Extract known values from a kinetics problem",
+                },
+                {
+                    "label": "Substitute",
+                    "type": "given",
+                    "instruction": "Substitute the values into the Arrhenius equation.",
+                    "explanation": (
+                        "$\\ln\\left(\\frac{8.20 \\times 10^{-3}}{2.50 \\times 10^{-3}}\\right) = "
+                        "\\frac{E_a}{8.314} \\left(\\frac{1}{298} - \\frac{1}{315}\\right)$."
+                    ),
+                    "correctAnswer": (
+                        "$\\ln\\left(\\frac{8.20 \\times 10^{-3}}{2.50 \\times 10^{-3}}\\right) = "
+                        "\\frac{E_a}{8.314} \\left(\\frac{1}{298} - \\frac{1}{315}\\right)$"
+                    ),
+                    "skillUsed": "Substitute values into the Arrhenius equation",
+                },
+                {
+                    "label": "Calculate",
+                    "type": "given",
+                    "instruction": "Solve for the activation energy.",
+                    "explanation": (
+                        "Rearranging gives:\n\n"
+                        "$E_a = \\frac{8.314 \\times \\ln\\left(\\frac{8.20 \\times 10^{-3}}{2.50 \\times 10^{-3}}\\right)}"
+                        "{\\left(\\frac{1}{298} - \\frac{1}{315}\\right)} "
+                        "\\approx 5.44 \\times 10^{4}\\,\\text{J/mol}$."
+                    ),
+                    "correctAnswer": "$5.44 \\times 10^{4}\\,\\text{J/mol}$",
+                    "skillUsed": "Calculate activation energy using the Arrhenius equation",
+                },
+                {
+                    "label": "Answer",
+                    "type": "given",
+                    "instruction": "Express the activation energy in kJ/mol.",
+                    "explanation": (
+                        "Converting to kilojoules:\n\n$E_a = 54.4\\,\\text{kJ/mol}$ (3 significant figures)."
+                    ),
+                    "correctAnswer": "$54.4\\,\\text{kJ/mol}$",
+                    "skillUsed": "Convert units and report with correct significant figures",
+                },
+            ],
+        },
+    ),
+    # ── 24. Solver: Arrhenius — variant 2 (different temperatures / rate constants) ─
+    (
+        "ap-unit-5",
+        6,
+        "medium",
+        "solver",
+        {
+            "title": "Determining Activation Energy from Temperature Change",
+            "statement": (
+                "A chemical reaction has a rate constant of $k_1 = 1.20 \\times 10^{-4}\\,\\text{s}^{-1}$ at "
+                "$285\\,\\text{K}$. When the temperature is increased to $305\\,\\text{K}$, the rate constant becomes "
+                "$k_2 = 4.80 \\times 10^{-4}\\,\\text{s}^{-1}$.\n\n"
+                "Given that $R = 8.314\\,\\text{J}\\,\\text{mol}^{-1}\\,\\text{K}^{-1}$, calculate the activation energy, "
+                "$E_a$, for this reaction.\n\n"
+                "*Hint: Start from the two-point Arrhenius equation.*"
+            ),
+            "steps": [
+                {
+                    "label": "Equation",
+                    "type": "drag_drop",
+                    "instruction": "Arrange the two-point Arrhenius equation.",
+                    "explanation": (
+                        "Use the logarithmic form to compare rate constants at two temperatures."
+                    ),
+                    "equationParts": [
+                        "$\\ln\\left(\\frac{k_2}{k_1}\\right)$",
+                        "=",
+                        "$\\frac{E_a}{R}$",
+                        "$\\left(\\frac{1}{T_1} - \\frac{1}{T_2}\\right)$",
+                    ],
+                    "skillUsed": "Apply the Arrhenius equation to relate rate constants and temperature",
+                },
+                {
+                    "label": "Knowns",
+                    "type": "multi_input",
+                    "instruction": "Identify the given values.",
+                    "explanation": "List both rate constants, both temperatures, and the gas constant $R$.",
+                    "inputFields": [
+                        {"label": "$k_1$", "value": "$1.20 \\times 10^{-4}$", "unit": "$\\text{s}^{-1}$"},
+                        {"label": "$k_2$", "value": "$4.80 \\times 10^{-4}$", "unit": "$\\text{s}^{-1}$"},
+                        {"label": "$T_1$", "value": "$285$", "unit": "$\\text{K}$"},
+                        {"label": "$T_2$", "value": "$305$", "unit": "$\\text{K}$"},
+                        {
+                            "label": "$R$",
+                            "value": "$8.314$",
+                            "unit": "$\\text{J}\\,\\text{mol}^{-1}\\,\\text{K}^{-1}$",
+                        },
+                    ],
+                    "skillUsed": "Extract known values from a kinetics problem",
+                },
+                {
+                    "label": "Substitute",
+                    "type": "given",
+                    "instruction": "Substitute the values into the equation.",
+                    "explanation": (
+                        "$\\ln\\left(\\frac{4.80 \\times 10^{-4}}{1.20 \\times 10^{-4}}\\right) = "
+                        "\\frac{E_a}{8.314} \\left(\\frac{1}{285} - \\frac{1}{305}\\right)$."
+                    ),
+                    "correctAnswer": (
+                        "$\\ln\\left(\\frac{4.80 \\times 10^{-4}}{1.20 \\times 10^{-4}}\\right) = "
+                        "\\frac{E_a}{8.314} \\left(\\frac{1}{285} - \\frac{1}{305}\\right)$"
+                    ),
+                    "skillUsed": "Substitute values into the Arrhenius equation",
+                },
+                {
+                    "label": "Calculate",
+                    "type": "given",
+                    "instruction": "Solve for the activation energy.",
+                    "explanation": (
+                        "First compute the ratio:\n\n"
+                        "$\\frac{k_2}{k_1} = 4.00 \\Rightarrow \\ln(4.00) \\approx 1.386$\n\n"
+                        "Then:\n\n"
+                        "$E_a = \\frac{8.314 \\times 1.386}{\\left(\\frac{1}{285} - \\frac{1}{305}\\right)} "
+                        "\\approx 7.20 \\times 10^{4}\\,\\text{J/mol}$."
+                    ),
+                    "correctAnswer": "$7.20 \\times 10^{4}\\,\\text{J/mol}$",
+                    "skillUsed": "Calculate activation energy using logarithms and algebra",
+                },
+                {
+                    "label": "Answer",
+                    "type": "given",
+                    "instruction": "Express the activation energy in kJ/mol.",
+                    "explanation": (
+                        "Convert to kilojoules:\n\n$E_a = 72.0\\,\\text{kJ/mol}$ (3 significant figures)."
+                    ),
+                    "correctAnswer": "$72.0\\,\\text{kJ/mol}$",
+                    "skillUsed": "Convert units and report with correct significant figures",
+                },
+            ],
+        },
+    ),
+    # ── 13. Detective: initial rates (worked) with multi-input conclusion ───
+    (
+        "ap-unit-5",
+        1,
+        "medium",
+        "detective",
+        {
+            "title": "Initial Rates for a Two-Reactant Reaction",
+            "statement": (
+                "A reaction between aqueous reactants $\\text{X}$ and $\\text{Y}$ follows "
+                "$\\text{X} + \\text{Y} \\rightarrow \\text{products}$. A student measures initial rates at "
+                "the same temperature to determine the rate law.\n\n"
+                "Experiment 1: $[\\text{X}] = 0.15 \\text{ M}$, $[\\text{Y}] = 0.10 \\text{ M}$, "
+                "rate $= 3.0 \\times 10^{-3} \\text{ M/s}$.\n\n"
+                "Experiment 2: $[\\text{X}] = 0.30 \\text{ M}$, $[\\text{Y}] = 0.10 \\text{ M}$, "
+                "rate $= 6.0 \\times 10^{-3} \\text{ M/s}$.\n\n"
+                "Experiment 3: $[\\text{X}] = 0.15 \\text{ M}$, $[\\text{Y}] = 0.20 \\text{ M}$, "
+                "rate $= 1.2 \\times 10^{-2} \\text{ M/s}$.\n\n"
+                "Use the data to determine the order in $\\text{X}$, the order in $\\text{Y}$, "
+                "and the overall reaction order."
+            ),
+            "steps": [
+                {
+                    "label": "Data Extraction",
+                    "type": "multi_input",
+                    "instruction": "Extract the experiment values.",
+                    "explanation": "Record each trial's concentrations and measured initial rate.",
+                    "inputFields": [
+                        {
+                            "label": "Experiment 1",
+                            "value": "$[\\text{X}] = 0.15$, $[\\text{Y}] = 0.10$, rate $= 3.0 \\times 10^{-3}$",
+                            "unit": "",
+                        },
+                        {
+                            "label": "Experiment 2",
+                            "value": "$[\\text{X}] = 0.30$, $[\\text{Y}] = 0.10$, rate $= 6.0 \\times 10^{-3}$",
+                            "unit": "",
+                        },
+                        {
+                            "label": "Experiment 3",
+                            "value": "$[\\text{X}] = 0.15$, $[\\text{Y}] = 0.20$, rate $= 1.2 \\times 10^{-2}$",
+                            "unit": "",
+                        },
+                    ],
+                    "skillUsed": "Write rate law expressions from experimental data",
+                },
+                {
+                    "label": "Feature ID",
+                    "type": "given",
+                    "instruction": "Identify the order in X.",
+                    "explanation": "From Exp 1 to 2, $[\\text{X}]$ doubles and rate doubles, so exponent is 1.",
+                    "correctAnswer": "1",
+                    "skillUsed": "Write rate law expressions from experimental data",
+                },
+                {
+                    "label": "Apply Concept",
+                    "type": "given",
+                    "instruction": "Identify the order in Y.",
+                    "explanation": "From Exp 1 to 3, $[\\text{Y}]$ doubles and rate quadruples, so exponent is 2.",
+                    "correctAnswer": "2",
+                    "skillUsed": "Write rate law expressions from experimental data",
+                },
+                {
+                    "label": "Conclusion",
+                    "type": "multi_input",
+                    "instruction": "State the rate law and overall order.",
+                    "explanation": "Add exponents: $1+2=3$. Report both the symbolic law and overall order.",
+                    "inputFields": [
+                        {"label": "Rate Law", "value": "k[X][Y]^2", "unit": ""},
+                        {"label": "Overall Order", "value": "3", "unit": ""},
+                    ],
+                    "skillUsed": "Determine overall reaction order",
+                },
+            ],
+        },
+    ),
+    # ── 14. Detective: initial rates (faded) with multi-input conclusion ────
+    (
+        "ap-unit-5",
+        1,
+        "medium",
+        "detective",
+        {
+            "title": "Initial Rates for Nitric Oxide and Hydrogen",
+            "statement": (
+                "The reaction $2\\text{NO} + 2\\text{H}_2 \\rightarrow \\text{N}_2 + 2\\text{H}_2\\text{O}$ "
+                "is studied at constant temperature.\n\n"
+                "Experiment 1: $[\\text{NO}] = 0.10 \\text{ M}$, $[\\text{H}_2] = 0.10 \\text{ M}$, "
+                "rate $= 1.2 \\times 10^{-3} \\text{ M/s}$.\n\n"
+                "Experiment 2: $[\\text{NO}] = 0.20 \\text{ M}$, $[\\text{H}_2] = 0.10 \\text{ M}$, "
+                "rate $= 4.8 \\times 10^{-3} \\text{ M/s}$.\n\n"
+                "Experiment 3: $[\\text{NO}] = 0.20 \\text{ M}$, $[\\text{H}_2] = 0.20 \\text{ M}$, "
+                "rate $= 9.6 \\times 10^{-3} \\text{ M/s}$.\n\n"
+                "Determine the rate law and the overall reaction order."
+            ),
+            "steps": [
+                {
+                    "label": "Data Extraction",
+                    "type": "multi_input",
+                    "instruction": "Extract the experiment values.",
+                    "explanation": "Record each trial's concentrations and measured initial rate.",
+                    "inputFields": [
+                        {
+                            "label": "Experiment 1",
+                            "value": "$[\\text{NO}] = 0.10$, $[\\text{H}_2] = 0.10$, rate $= 1.2 \\times 10^{-3}$",
+                            "unit": "",
+                        },
+                        {
+                            "label": "Experiment 2",
+                            "value": "$[\\text{NO}] = 0.20$, $[\\text{H}_2] = 0.10$, rate $= 4.8 \\times 10^{-3}$",
+                            "unit": "",
+                        },
+                        {
+                            "label": "Experiment 3",
+                            "value": "$[\\text{NO}] = 0.20$, $[\\text{H}_2] = 0.20$, rate $= 9.6 \\times 10^{-3}$",
+                            "unit": "",
+                        },
+                    ],
+                    "skillUsed": "Write rate law expressions from experimental data",
+                },
+                {
+                    "label": "Feature ID",
+                    "type": "given",
+                    "instruction": "Identify the order with respect to NO.",
+                    "explanation": "From Exp 1 to 2, doubling $[\\text{NO}]$ quadruples rate, so exponent is 2.",
+                    "correctAnswer": "2",
+                    "skillUsed": "Write rate law expressions from experimental data",
+                },
+                {
+                    "label": "Apply Concept",
+                    "type": "interactive",
+                    "instruction": "Identify the order with respect to H2.",
+                    "explanation": "From Exp 2 to 3, doubling $[\\text{H}_2]$ doubles rate, so exponent is 1.",
+                    "correctAnswer": "1",
+                    "skillUsed": "Write rate law expressions from experimental data",
+                },
+                {
+                    "label": "Conclusion",
+                    "type": "multi_input",
+                    "instruction": "State the rate law and overall order.",
+                    "explanation": "Add exponents: $2+1=3$. Report the law and the total order.",
+                    "inputFields": [
+                        {"label": "Rate Law", "value": "k[NO]^2[H2]", "unit": ""},
+                        {"label": "Overall Order", "value": "3", "unit": ""},
+                    ],
+                    "skillUsed": "Determine overall reaction order",
+                },
+            ],
+        },
+    ),
+    # ── 15. Detective: initial rates (P,Q) second-second → fourth order ────
+    (
+        "ap-unit-5",
+        1,
+        "medium",
+        "detective",
+        {
+            "title": "Determining Reaction Orders from Initial Rates",
+            "statement": (
+                "A chemist studies the reaction of a colored compound $\\text{P}$ with a catalyst "
+                "$\\text{Q}$ in aqueous solution: $\\text{P} + \\text{Q} \\rightarrow \\text{colorless product}$. "
+                "They measure initial rates at the same temperature.\n\n"
+                "Experiment 1: $[\\text{P}] = 0.10 \\text{ M}$, $[\\text{Q}] = 0.05 \\text{ M}$, "
+                "rate $= 1.5 \\times 10^{-4} \\text{ M/s}$.\n\n"
+                "Experiment 2: $[\\text{P}] = 0.20 \\text{ M}$, $[\\text{Q}] = 0.05 \\text{ M}$, "
+                "rate $= 6.0 \\times 10^{-4} \\text{ M/s}$.\n\n"
+                "Experiment 3: $[\\text{P}] = 0.10 \\text{ M}$, $[\\text{Q}] = 0.10 \\text{ M}$, "
+                "rate $= 6.0 \\times 10^{-4} \\text{ M/s}$.\n\n"
+                "Use this data to determine the order with respect to $\\text{P}$, the order with "
+                "respect to $\\text{Q}$, and the overall reaction order."
+            ),
+            "steps": [
+                {
+                    "label": "Data Extraction",
+                    "type": "multi_input",
+                    "instruction": "Compare Exp 1 and 2: determine [P] and rate factors.",
+                    "explanation": "Divide corresponding values between experiments to find each ratio.",
+                    "inputFields": [
+                        {"label": "[P] ratio (Exp 2 / Exp 1)", "value": "2", "unit": ""},
+                        {"label": "Rate ratio (Exp 2 / Exp 1)", "value": "4", "unit": ""},
+                    ],
+                    "skillUsed": "Write rate law expressions from experimental data",
+                },
+                {
+                    "label": "Feature ID",
+                    "type": "given",
+                    "instruction": "Determine the reaction order with respect to P.",
+                    "explanation": "Doubling [P] at constant [Q] quadruples rate, so $2^n=4$ and $n=2$.",
+                    "correctAnswer": "2",
+                    "skillUsed": "Determine individual reaction orders",
+                },
+                {
+                    "label": "Apply Concept",
+                    "type": "given",
+                    "instruction": "Determine the reaction order with respect to Q.",
+                    "explanation": "From Exp 1 to 3, [Q] doubles while [P] is fixed and rate quadruples, so order is 2.",
+                    "correctAnswer": "2",
+                    "skillUsed": "Write rate law expressions from experimental data",
+                },
+                {
+                    "label": "Conclusion",
+                    "type": "given",
+                    "instruction": "Calculate the overall reaction order.",
+                    "explanation": "Overall order is the sum of exponents: $2+2=4$.",
+                    "correctAnswer": "4",
+                    "skillUsed": "Determine overall reaction order",
+                },
+            ],
+        },
+    ),
+    # ── 16. Recipe: Faraday's Law — silver plating mass (Level 1) ────────────
+    (
+        "ap-unit-9",
+        6,
+        "medium",
+        "recipe",
+        {
+            "title": "Silver Plating from Electrolysis Time",
+            "statement": (
+                "A jeweler uses electrolysis to plate a metal pendant with silver. "
+                "A constant current of $2.85 \\text{ A}$ is passed through a solution containing "
+                "$\\text{Ag}^+$ ions for $18.0 \\text{ min}$.\n\n"
+                "Use $F = 96485 \\text{ C/mol}$ and the molar mass of silver, $M = 107.87 \\text{ g/mol}$. "
+                "The reduction is $\\text{Ag}^+ + \\text{e}^- \\rightarrow \\text{Ag}$, "
+                "so $n = 1$ electron per silver atom.\n\n"
+                "Calculate the mass of silver deposited on the pendant in grams."
+            ),
+            "steps": [
+                {
+                    "label": "Goal / Setup",
+                    "type": "multi_input",
+                    "instruction": "Identify the given values for Faraday's Law.",
+                    "explanation": "Extract $I$, $t$, $M$, and $n$ from the problem before any calculation.",
+                    "skillUsed": "Calculate mass deposited or volume of gas produced during electrolysis",
+                    "inputFields": [
+                        {"label": "$I$", "value": "2.85", "unit": "A"},
+                        {"label": "$t$", "value": "18.0", "unit": "min"},
+                        {"label": "$M$", "value": "107.87", "unit": "g/mol"},
+                        {"label": "$n$", "value": "1", "unit": "e⁻"},
+                    ],
+                },
+                {
+                    "label": "Conversion Factors",
+                    "type": "given",
+                    "instruction": "Convert time into seconds.",
+                    "explanation": "Use $18.0 \\text{ min} \\times 60 = 1080 \\text{ s}$ before applying $Q = It$.",
+                    "skillUsed": "Apply Faraday's constant (F = 96,485 C/mol)",
+                    "correctAnswer": "1080 s",
+                },
+                {
+                    "label": "Dimensional Setup",
+                    "type": "given",
+                    "instruction": "Set up the mass calculation expression.",
+                    "explanation": "Apply $m = \\frac{M \\cdot I \\cdot t}{n \\cdot F} = \\frac{107.87 \\times 2.85 \\times 1080}{1 \\times 96485}$.",
+                    "skillUsed": "Calculate mass deposited or volume of gas produced during electrolysis",
+                    "correctAnswer": "(107.87 * 2.85 * 1080) / (1 * 96485)",
+                },
+                {
+                    "label": "Calculate",
+                    "type": "given",
+                    "instruction": "Compute the unrounded deposited mass.",
+                    "explanation": "Evaluating gives $\\frac{332023.96}{96485} = 3.4411 \\text{ g}$.",
+                    "skillUsed": "Apply Faraday's constant (F = 96,485 C/mol)",
+                    "correctAnswer": "3.4411",
+                },
+                {
+                    "label": "Answer",
+                    "type": "given",
+                    "instruction": "Report the final mass with sig figs.",
+                    "explanation": "Round to 3 sig figs: both $2.85 \\text{ A}$ and $18.0 \\text{ min}$ have 3 significant figures.",
+                    "skillUsed": "Calculate mass deposited or volume of gas produced during electrolysis",
+                    "correctAnswer": "3.44 g",
+                },
+            ],
+        },
+    ),
+    # ── 17. Solver: ΔG°/K/E° interconversion (Level 2) ──────────────────────
+    (
+        "ap-unit-9",
+        2,
+        "medium",
+        "solver",
+        {
+            "title": "Finding the Equilibrium Constant from Standard Cell Potential",
+            "statement": (
+                "An AP Chemistry student is analyzing a galvanic cell at $25.0^\\circ\\text{C}$ "
+                "and wants to connect electrochemistry to thermodynamics.\n\n"
+                "The balanced redox reaction transfers $n = 2$ electrons, and the standard cell potential "
+                "is $E^\\circ = 0.34 \\text{ V}$. Use $F = 96485 \\text{ C/mol}$, "
+                "$R = 8.314 \\text{ J/(mol} \\cdot \\text{K)}$, and $T = 298 \\text{ K}$.\n\n"
+                "Calculate the standard free energy change, $\\Delta G^\\circ$, and then determine "
+                "the equilibrium constant, $K$, for the reaction."
+            ),
+            "steps": [
+                {
+                    "label": "Equation",
+                    "type": "drag_drop",
+                    "instruction": "Identify the needed equations.",
+                    "explanation": "Use $\\Delta G^\\circ = -nFE^\\circ$ and $\\Delta G^\\circ = -RT\\ln K$.",
+                    "skillUsed": "Interconvert ΔG°, K, and E° for electrochemical and thermodynamic problems",
+                    "equationParts": [
+                        "$\\Delta G^\\circ$",
+                        "=",
+                        "$-$",
+                        "$n$",
+                        "$F$",
+                        "$E^\\circ$",
+                    ],
+                },
+                {
+                    "label": "Knowns",
+                    "type": "multi_input",
+                    "instruction": "List the given values.",
+                    "explanation": "Identify all known variables before substitution.",
+                    "skillUsed": "Interconvert ΔG°, K, and E° for electrochemical and thermodynamic problems",
+                    "inputFields": [
+                        {"label": "Electrons transferred", "value": "$2$", "unit": ""},
+                        {"label": "Standard cell potential", "value": "$0.34$", "unit": "V"},
+                        {"label": "Faraday constant", "value": "$96485$", "unit": "$\\text{C/mol}$"},
+                        {"label": "Gas constant", "value": "$8.314$", "unit": "$\\text{J/(mol}\\cdot\\text{K)}$"},
+                        {"label": "Temperature", "value": "$298$", "unit": "K"},
+                    ],
+                },
+                {
+                    "label": "Substitute",
+                    "type": "interactive",
+                    "instruction": "Substitute into the $\\Delta G^\\circ$ formula.",
+                    "explanation": "Insert $n$, $F$, and $E^\\circ$ into $\\Delta G^\\circ = -nFE^\\circ$.",
+                    "skillUsed": "Interconvert ΔG°, K, and E° for electrochemical and thermodynamic problems",
+                    "correctAnswer": "-2 * 96485 * 0.34",
+                },
+                {
+                    "label": "Calculate",
+                    "type": "interactive",
+                    "instruction": "Calculate $K$ from $\\Delta G^\\circ$.",
+                    "explanation": "Find $\\Delta G^\\circ = -65609.8 \\text{ J/mol}$, then $\\ln K = \\frac{-\\Delta G^\\circ}{RT} = 26.47$.",
+                    "skillUsed": "Interconvert ΔG°, K, and E° for electrochemical and thermodynamic problems",
+                    "correctAnswer": "$3.15 \\times 10^{11}$",
+                },
+                {
+                    "label": "Answer",
+                    "type": "multi_input",
+                    "instruction": "State both final results.",
+                    "explanation": "Positive $E^\\circ$ gives negative $\\Delta G^\\circ$ and large $K > 1$.",
+                    "skillUsed": "Interconvert ΔG°, K, and E° for electrochemical and thermodynamic problems",
+                    "inputFields": [
+                        {"label": "$\\Delta G^\\circ$", "value": "$-65.6 \\text{ kJ/mol}$", "unit": ""},
+                        {"label": "$K$", "value": "$3.15 \\times 10^{11}$", "unit": ""},
+                    ],
+                },
+            ],
+        },
+    ),
+    # ── 18. Recipe: Faraday's Law — H₂ from water electrolysis (variant) ───────
+    (
+        "ap-unit-9",
+        6,
+        "medium",
+        "recipe",
+        {
+            "title": "Hydrogen Gas Generation in Water Electrolysis",
+            "statement": (
+                "A student performs electrolysis of water to produce hydrogen gas at the cathode. "
+                "A steady current of $1.60 \\text{ A}$ is applied for $25.0 \\text{ min}$.\n\n"
+                "The half-reaction at the cathode is:\n"
+                "$2\\text{H}_2\\text{O} + 2\\text{e}^- \\rightarrow \\text{H}_2 + 2\\text{OH}^-$\n\n"
+                "Use $F = 96485 \\text{ C/mol}$ and the molar mass of hydrogen gas, "
+                "$M = 2.016 \\text{ g/mol}$. Note that $n = 2$ electrons are required per mole of $\\text{H}_2$.\n\n"
+                "Calculate the mass of hydrogen gas produced."
+            ),
+            "steps": [
+                {
+                    "label": "Goal / Setup",
+                    "type": "multi_input",
+                    "instruction": "Identify the electrolysis variables.",
+                    "explanation": "Here, you're solving for gas produced, not metal deposited — but the same Faraday structure applies.",
+                    "skillUsed": "Calculate mass deposited or volume of gas produced during electrolysis",
+                    "inputFields": [
+                        {"label": "$I$", "value": "1.60", "unit": "A"},
+                        {"label": "$t$", "value": "25.0", "unit": "min"},
+                        {"label": "$M$", "value": "2.016", "unit": "g/mol"},
+                        {"label": "$n$", "value": "2", "unit": "e⁻"},
+                    ],
+                },
+                {
+                    "label": "Conversion Factors",
+                    "type": "given",
+                    "instruction": "Convert time to seconds.",
+                    "explanation": "Faraday's Law requires charge in coulombs, so convert minutes → seconds first.",
+                    "skillUsed": "Apply Faraday's constant (F = 96,485 C/mol)",
+                    "correctAnswer": "1500 s",
+                },
+                {
+                    "label": "Conceptual Setup",
+                    "type": "given",
+                    "instruction": "Write the full reasoning pathway.",
+                    "explanation": "Instead of jumping to the formula, think: current → charge → moles e⁻ → moles H₂ → mass.",
+                    "skillUsed": "Calculate mass deposited or volume of gas produced during electrolysis",
+                    "correctAnswer": "I*t → Q → mol e⁻ → mol H2 → g H2",
+                },
+                {
+                    "label": "Dimensional Setup",
+                    "type": "given",
+                    "instruction": "Construct the expression for mass.",
+                    "explanation": "Use $m = \\frac{M \\cdot I \\cdot t}{n \\cdot F}$ but now with $n=2$.",
+                    "skillUsed": "Apply Faraday's constant (F = 96,485 C/mol)",
+                    "correctAnswer": "(2.016 * 1.60 * 1500) / (2 * 96485)",
+                },
+                {
+                    "label": "Answer",
+                    "type": "given",
+                    "instruction": "Report final mass with correct sig figs.",
+                    "explanation": "Be careful — small molar mass + division by 2 → very small mass.",
+                    "skillUsed": "Calculate mass deposited or volume of gas produced during electrolysis",
+                    "correctAnswer": "0.0251 g",
+                },
+            ],
+        },
+    ),
+    # ── 19. Solver: E° from K (variant of ΔG°/K/E° lesson) ─────────────────────
+    (
+        "ap-unit-9",
+        2,
+        "medium",
+        "solver",
+        {
+            "title": "Determining Cell Potential from Equilibrium Constant",
+            "statement": (
+                "A redox reaction at $25^\\circ\\text{C}$ has an experimentally determined "
+                "equilibrium constant of $K = 4.5 \\times 10^{-6}$.\n\n"
+                "The reaction involves the transfer of $n = 1$ electron.\n\n"
+                "Use $R = 8.314 \\text{ J/(mol}\\cdot\\text{K)}$, $T = 298 \\text{ K}$, "
+                "and $F = 96485 \\text{ C/mol}$.\n\n"
+                "Calculate the standard cell potential $E^\\circ$ and determine whether the reaction "
+                "is spontaneous under standard conditions."
+            ),
+            "steps": [
+                {
+                    "label": "Equation",
+                    "type": "drag_drop",
+                    "instruction": "Select the correct relationship linking $K$ and $E^\\circ$.",
+                    "explanation": "You must combine $\\Delta G^\\circ = -RT\\ln K$ and $\\Delta G^\\circ = -nFE^\\circ$.",
+                    "skillUsed": "Interconvert ΔG°, K, and E° for electrochemical and thermodynamic problems",
+                    "equationParts": [
+                        "$E^\\circ$",
+                        "=",
+                        "$\\frac{RT}{nF}$",
+                        "$\\ln K$",
+                    ],
+                },
+                {
+                    "label": "Knowns",
+                    "type": "multi_input",
+                    "instruction": "Identify all given values.",
+                    "explanation": "Unlike typical problems, you're starting from $K$, not $E^\\circ$.",
+                    "skillUsed": "Interconvert ΔG°, K, and E° for electrochemical and thermodynamic problems",
+                    "inputFields": [
+                        {"label": "$K$", "value": "$4.5 \\times 10^{-6}$", "unit": ""},
+                        {"label": "$n$", "value": "$1$", "unit": ""},
+                        {"label": "$R$", "value": "$8.314$", "unit": "$\\text{J/(mol·K)}$"},
+                        {"label": "$T$", "value": "$298$", "unit": "K"},
+                        {"label": "$F$", "value": "$96485$", "unit": "$\\text{C/mol}$"},
+                    ],
+                },
+                {
+                    "label": "Transform",
+                    "type": "interactive",
+                    "instruction": "Write the expression for $E^\\circ$.",
+                    "explanation": "Rearrange: $E^\\circ = \\frac{RT}{nF} \\ln K$.",
+                    "skillUsed": "Interconvert ΔG°, K, and E° for electrochemical and thermodynamic problems",
+                    "correctAnswer": "(8.314 * 298 / (1 * 96485)) * ln(4.5e-6)",
+                },
+                {
+                    "label": "Interpretation Before Calculation",
+                    "type": "given",
+                    "instruction": "Predict the sign of $E^\\circ$.",
+                    "explanation": "Since $K < 1$, $\\ln K$ is negative → $E^\\circ$ must be negative.",
+                    "skillUsed": "Interconvert ΔG°, K, and E° for electrochemical and thermodynamic problems",
+                    "correctAnswer": "Negative",
+                },
+                {
+                    "label": "Answer",
+                    "type": "multi_input",
+                    "instruction": "State the final result and conclusion.",
+                    "explanation": "A negative $E^\\circ$ indicates a non-spontaneous reaction under standard conditions.",
+                    "skillUsed": "Interconvert ΔG°, K, and E° for electrochemical and thermodynamic problems",
+                    "inputFields": [
+                        {"label": "$E^\\circ$", "value": "$-0.32 \\text{ V}$", "unit": ""},
+                        {"label": "Spontaneity", "value": "Non-spontaneous", "unit": ""},
+                    ],
+                },
+            ],
+        },
+    ),
+    # ── 20. Recipe: Molar Mass (2-Step) — mass → molecules of Cl₂ ─────────────
+    (
+        "unit-mole",
+        2,
+        "medium",
+        "recipe",
+        {
+            "title": "Mass to Particles of Chlorine Gas",
+            "statement": (
+                "A sealed container holds $35.5 \\text{ g}$ of chlorine gas, $\\mathrm{Cl_2}$.\n\n"
+                "Using Avogadro's number, $6.022 \\times 10^{23}$ particles per mole, "
+                "calculate the number of molecules of $\\mathrm{Cl_2}$ present.\n\n"
+                "Note: Chlorine exists as a diatomic molecule."
+            ),
+            "steps": [
+                {
+                    "label": "Goal / Setup",
+                    "type": "multi_input",
+                    "instruction": "Identify given and target quantities.",
+                    "explanation": "You are converting mass → particles.",
+                    "skillUsed": "Convert between grams, moles, and particles in two steps",
+                    "inputFields": [
+                        {"label": "Given mass", "value": "35.5", "unit": "g"},
+                        {"label": "Target", "value": "molecules", "unit": ""},
+                        {"label": "Compound", "value": "$\\mathrm{Cl_2}$", "unit": ""},
+                    ],
+                },
+                {
+                    "label": "Molar Mass",
+                    "type": "given",
+                    "instruction": "Determine molar mass of $\\mathrm{Cl_2}$.",
+                    "explanation": "Each Cl is 35.45 g/mol → multiply by 2.",
+                    "skillUsed": "Calculate molar mass of compounds",
+                    "correctAnswer": "70.90 g/mol",
+                },
+                {
+                    "label": "Step 1: Mass → Moles",
+                    "type": "interactive",
+                    "instruction": "Convert grams to moles.",
+                    "explanation": "Divide by molar mass.",
+                    "skillUsed": "Convert between grams and moles",
+                    "correctAnswer": "35.5 / 70.90",
+                },
+                {
+                    "label": "Step 2: Moles → Particles",
+                    "type": "interactive",
+                    "instruction": "Convert moles to molecules.",
+                    "explanation": "Multiply by Avogadro's number.",
+                    "skillUsed": "Convert between moles and particles",
+                    "correctAnswer": "0.500 * 6.022e23",
+                },
+                {
+                    "label": "Final Answer + Insight",
+                    "type": "given",
+                    "instruction": "State the number of molecules.",
+                    "explanation": (
+                        "≈ $3.01 \\times 10^{23}$ molecules.\n"
+                        "Insight: Half a mole always gives half of Avogadro's number."
+                    ),
+                    "skillUsed": "Convert between grams, moles, and particles in two steps",
+                    "correctAnswer": "$3.01 \\times 10^{23}$ molecules",
+                },
+            ],
+        },
+    ),
+    # ── 21. Recipe: Molar Mass (2-Step) — formula units → mass of O in Al₂O₃ ───
+    (
+        "unit-mole",
+        2,
+        "medium",
+        "recipe",
+        {
+            "title": "Particles to Mass of Oxygen in a Compound",
+            "statement": (
+                "A sample contains $1.204 \\times 10^{24}$ formula units of aluminum oxide, "
+                "$\\mathrm{Al_2O_3}$.\n\n"
+                "Using Avogadro's number, $6.022 \\times 10^{23}$ formula units per mole, "
+                "calculate the mass of oxygen present in the sample.\n\n"
+                "Molar masses: Al = 26.98 g/mol, O = 16.00 g/mol."
+            ),
+            "steps": [
+                {
+                    "label": "Goal / Setup",
+                    "type": "multi_input",
+                    "instruction": "Identify what is given and what is required.",
+                    "explanation": "You are not finding total mass — only the oxygen portion.",
+                    "skillUsed": "Convert between grams, moles, and particles in two steps",
+                    "inputFields": [
+                        {"label": "Given", "value": "$1.204 \\times 10^{24}$", "unit": "formula units"},
+                        {"label": "Target", "value": "mass of oxygen", "unit": "g"},
+                        {"label": "Compound", "value": "$\\mathrm{Al_2O_3}$", "unit": ""},
+                    ],
+                },
+                {
+                    "label": "Conversion Plan",
+                    "type": "given",
+                    "instruction": "Determine the pathway.",
+                    "explanation": "Particles → moles of compound → moles of oxygen → mass of oxygen.",
+                    "skillUsed": "Stoichiometric relationships within compounds",
+                    "correctAnswer": "formula units → mol Al2O3 → mol O → g O",
+                },
+                {
+                    "label": "Step 1: Particles → Moles of Compound",
+                    "type": "interactive",
+                    "instruction": "Convert formula units to moles of $\\mathrm{Al_2O_3}$.",
+                    "explanation": "Divide by Avogadro's number.",
+                    "skillUsed": "Convert between particles and moles",
+                    "correctAnswer": "$1.204 \\times 10^{24} / 6.022 \\times 10^{23}$",
+                },
+                {
+                    "label": "Step 2: Moles of Compound → Moles of Oxygen",
+                    "type": "interactive",
+                    "instruction": "Use the formula to find moles of oxygen atoms.",
+                    "explanation": "Each $\\mathrm{Al_2O_3}$ contains 3 oxygen atoms.",
+                    "skillUsed": "Use subscripts to determine mole ratios",
+                    "correctAnswer": "2.00 * 3",
+                },
+                {
+                    "label": "Final Answer + Insight",
+                    "type": "given",
+                    "instruction": "Convert to grams and report the final mass.",
+                    "explanation": (
+                        "Moles O ≈ 6.00 mol → mass = $6.00 \\times 16.00 = 96.0$ g.\n"
+                        "Insight: Always account for subscripts when targeting a specific element."
+                    ),
+                    "skillUsed": "Convert between moles and mass",
+                    "correctAnswer": "96.0 g",
                 },
             ],
         },

@@ -161,6 +161,17 @@ REFERENCE_CARDS: list[dict] = [
 
     # ─── AP UNIT 5 — Kinetics ────────────────────────────────────────────────
     {
+        "lesson": "Reaction Rates & Rate Laws",
+        "unit_id": "ap-unit-5",
+        "lesson_index": 0,
+        "steps": [
+            {"label": "Data Extraction", "content": "Read initial concentrations and measured initial rates"},
+            {"label": "Feature ID",      "content": "Compare trials changing one reactant at a time"},
+            {"label": "Apply Concept",   "content": "Use $\\text{rate} = k[\\text{A}]^m[\\text{B}]^n$ to find orders"},
+            {"label": "Conclusion",      "content": "State rate law and identify overall order"},
+        ],
+    },
+    {
         "lesson": "Zero-Order Reactions",
         "unit_id": "ap-unit-5",
         "lesson_index": 1,
@@ -624,6 +635,151 @@ REFERENCE_CARDS: list[dict] = [
             {"label": "Draft",             "content": "Set $K_c = \\frac{[\\text{products}]^{\\text{coeff}}}{[\\text{reactants}]^{\\text{coeff}}}$"},
             {"label": "Refine",            "content": "Exclude all pure solids ($s$) and liquids ($l$)"},
             {"label": "Final Answer",      "content": "Ensure exponents match the balanced coefficients exactly"},
+        ],
+    },
+
+    # ─── AP UNIT 7 — Equilibrium (continued) ────────────────────────────────
+    {
+        "lesson": "Kp and the Relationship Between Kp and Kc",
+        "unit_id": "ap-unit-7",
+        "lesson_index": 1,
+        "steps": [
+            {"label": "Equation",  "content": "$K_p = K_c(RT)^{\\Delta n}$"},
+            {"label": "Knowns",    "content": "$K_c$, $R$, $T$, and $\\Delta n$"},
+            {"label": "Substitute","content": "Insert values into $K_p = K_c(RT)^{\\Delta n}$"},
+            {"label": "Calculate", "content": "Find $(RT)^{\\Delta n}$, then multiply by $K_c$"},
+            {"label": "Answer",    "content": "Report $K_p$ with proper significant figures"},
+        ],
+    },
+    {
+        "lesson": "Reaction Quotient Q",
+        "unit_id": "ap-unit-7",
+        "lesson_index": 2,
+        "steps": [
+            {"label": "Equation",  "content": "$Q = \\frac{\\text{products}^{\\text{coeff}}}{\\text{reactants}^{\\text{coeff}}}$"},
+            {"label": "Knowns",    "content": "Use concentrations or pressures from the reaction state"},
+            {"label": "Substitute","content": "Insert values into $Q_c$ or $Q_p$ expression"},
+            {"label": "Calculate", "content": "Evaluate numerator, denominator, then the fraction"},
+            {"label": "Answer",    "content": "Compare $Q$ with $K$ to predict shift"},
+        ],
+    },
+    {
+        "lesson": "Le Châtelier's Principle",
+        "unit_id": "ap-unit-7",
+        "lesson_index": 3,
+        "steps": [
+            {"label": "Concept ID",       "content": "Equilibrium shifts to oppose imposed stress"},
+            {"label": "Relation",         "content": "Identify changes in concentration, pressure, temperature"},
+            {"label": "Evidence / Claim", "content": "System counteracts stress to re-establish $K$"},
+            {"label": "Conclusion",       "content": "Predict shift direction and favored side"},
+        ],
+    },
+    {
+        "lesson": "ICE Tables",
+        "unit_id": "ap-unit-7",
+        "lesson_index": 4,
+        "steps": [
+            {"label": "Goal / Setup",       "content": "Write balanced equilibrium reaction and table"},
+            {"label": "Conversion Factors", "content": "Use coefficients for $I \\rightarrow C \\rightarrow E$ changes"},
+            {"label": "Dimensional Setup",  "content": "Set changes as $\\pm x$ by stoichiometry"},
+            {"label": "Calculate",          "content": "Substitute $E$ terms into $K$ expression"},
+            {"label": "Answer",             "content": "Solve for equilibrium amounts and check reasonableness"},
+        ],
+    },
+    {
+        "lesson": "Solubility Equilibria & Ksp",
+        "unit_id": "ap-unit-7",
+        "lesson_index": 5,
+        "steps": [
+            {"label": "Equation",  "content": "$K_{sp} = [\\text{cation}]^a[\\text{anion}]^b$"},
+            {"label": "Knowns",    "content": "Write ions, coefficients, and molar solubility $s$"},
+            {"label": "Substitute","content": "Replace ion concentrations with multiples of $s$"},
+            {"label": "Calculate", "content": "Solve for $s$ using the $K_{sp}$ expression"},
+            {"label": "Answer",    "content": "Report solubility in $\\text{M}$ or compare precipitates"},
+        ],
+    },
+
+    # ─── AP UNIT 9 — Thermodynamics & Electrochemistry ───────────────────────
+    {
+        "lesson": "Entropy & the Second Law",
+        "unit_id": "ap-unit-9",
+        "lesson_index": 0,
+        "steps": [
+            {"label": "Equation",  "content": "$\\Delta S^\\circ_{\\mathrm{rxn}} = \\sum S^\\circ(\\text{products}) - \\sum S^\\circ(\\text{reactants})$"},
+            {"label": "Knowns",    "content": "Need $S^\\circ$ values and balanced coefficients"},
+            {"label": "Substitute","content": "Multiply each $S^\\circ$ by its coefficient"},
+            {"label": "Calculate", "content": "Sum each side, then subtract reactants"},
+            {"label": "Answer",    "content": "Report $\\Delta S^\\circ_{\\mathrm{rxn}}$ in $\\text{J/(mol}\\cdot \\text{K)}$"},
+        ],
+    },
+    {
+        "lesson": "Gibbs Free Energy",
+        "unit_id": "ap-unit-9",
+        "lesson_index": 1,
+        "steps": [
+            {"label": "Equation",  "content": "$\\Delta G = \\Delta H - T\\Delta S$; $\\Delta G^\\circ = -RT \\ln K$"},
+            {"label": "Knowns",    "content": "Identify $\\Delta H$, $T$, $\\Delta S$, or $K$"},
+            {"label": "Substitute","content": "Place knowns into the matching Gibbs equation"},
+            {"label": "Calculate", "content": "Solve for $\\Delta G$ or $K$ algebraically"},
+            {"label": "Answer",    "content": "State spontaneity from the sign of $\\Delta G$"},
+        ],
+    },
+    {
+        "lesson": "Relationships Between ΔG°, K, and E°",
+        "unit_id": "ap-unit-9",
+        "lesson_index": 2,
+        "steps": [
+            {"label": "Equation",  "content": "$\\Delta G^\\circ = -RT \\ln K$; $\\Delta G^\\circ = -nFE^\\circ$"},
+            {"label": "Knowns",    "content": "$R$, $T$, $K$, $n$, $F$, $E^\\circ$ as given"},
+            {"label": "Substitute","content": "Insert known values into either relationship"},
+            {"label": "Calculate", "content": "Solve for missing $\\Delta G^\\circ$, $K$, or $E^\\circ$"},
+            {"label": "Answer",    "content": "Report sign, magnitude, and correct units"},
+        ],
+    },
+    {
+        "lesson": "Galvanic Cells & Cell Notation",
+        "unit_id": "ap-unit-9",
+        "lesson_index": 3,
+        "steps": [
+            {"label": "Inventory / Rules", "content": "Identify anode, cathode, and species in each half-cell"},
+            {"label": "Draft",             "content": "Write oxidation, reduction, and $E^\\circ_{\\text{cell}} = E^\\circ_{\\text{red}}(\\text{cathode}) - E^\\circ_{\\text{red}}(\\text{anode})$"},
+            {"label": "Refine",            "content": "Build notation: anode $|$ ions $||$ ions $|$ cathode"},
+            {"label": "Final Answer",      "content": "Confirm electron flow and balanced overall redox equation"},
+        ],
+    },
+    {
+        "lesson": "Nernst Equation",
+        "unit_id": "ap-unit-9",
+        "lesson_index": 4,
+        "steps": [
+            {"label": "Equation",  "content": "$E = E^\\circ - \\frac{RT}{nF} \\ln Q$\n$E = E^\\circ - \\frac{0.0592}{n} \\log Q$"},
+            {"label": "Knowns",    "content": "Identify $E^\\circ$, $n$, $Q$, and temperature"},
+            {"label": "Substitute","content": "Insert values into the matching Nernst form"},
+            {"label": "Calculate", "content": "Evaluate logarithm, then subtract correction term"},
+            {"label": "Answer",    "content": "Report cell potential $E$ in $\\text{V}$"},
+        ],
+    },
+    {
+        "lesson": "Electrolysis",
+        "unit_id": "ap-unit-9",
+        "lesson_index": 5,
+        "steps": [
+            {"label": "Concept ID",       "content": "External voltage drives nonspontaneous redox change"},
+            {"label": "Relation",         "content": "Cathode: reduction; anode: oxidation in electrolytic cells"},
+            {"label": "Evidence / Claim", "content": "Use electron flow and ion movement to assign products"},
+            {"label": "Conclusion",       "content": "Write half-reactions and overall balanced electrolysis reaction"},
+        ],
+    },
+    {
+        "lesson": "Faraday's Law",
+        "unit_id": "ap-unit-9",
+        "lesson_index": 6,
+        "steps": [
+            {"label": "Goal / Setup",       "content": "Relate deposited mass to charge passed"},
+            {"label": "Conversion Factors", "content": "Use $m = \\frac{M \\cdot I \\cdot t}{n \\cdot F}$"},
+            {"label": "Dimensional Setup",  "content": "Chain $I \\times t \\rightarrow \\text{ C} \\rightarrow \\text{ mol e}^-$"},
+            {"label": "Calculate",          "content": "Substitute symbols, then solve for unknown"},
+            {"label": "Answer",             "content": "Report value with correct units and sig figs"},
         ],
     },
 

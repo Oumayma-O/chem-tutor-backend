@@ -6,6 +6,7 @@ Architecture:
   seed_data/units.py    — STANDARD_UNITS, AP_UNITS, UNIT_BRIDGE_MAP
   seed_data/phases.py   — STANDARD_PHASES, AP_PHASES
   seed_data/lookup.py   — GRADES, INTERESTS, KEEP_COURSE_NAMES
+  seed_data/lesson_standards.py — LESSON_STANDARDS (junction seed)
   seed_data/problem_few_shots.py — FEW_SHOT_DATA
 
 Usage:
@@ -25,13 +26,24 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_asyn
 
 from app.core.config import get_settings
 from app.infrastructure.database.models import (
-    Course, FewShotExample, Grade, Interest, Lesson, Phase, Unit, UnitLesson,
+    Course,
+    FewShotExample,
+    Grade,
+    Interest,
+    Lesson,
+    LessonStandard,
+    Phase,
+    Standard,
+    Unit,
+    UnitLesson,
 )
 from scripts.seed_data.problem_few_shots import FEW_SHOT_DATA
 from scripts.seed_data.lessons import MASTER_LESSONS
 from scripts.seed_data.reference_cards import REFERENCE_CARDS
 from scripts.seed_data.lookup import GRADES, INTERESTS, KEEP_COURSE_NAMES
 from scripts.seed_data.phases import AP_PHASES, STANDARD_PHASES
+from scripts.seed_data.lesson_standards import LESSON_STANDARDS
+from scripts.seed_data.standards import STANDARDS_SEED
 from scripts.seed_data.units import AP_UNITS, STANDARD_UNITS
 
 settings = get_settings()
@@ -234,6 +246,88 @@ async def _seed_phases(
     await session.flush()
 
 
+# ── Standards ─────────────────────────────────────────────────────────────────
+
+async def _seed_standards(async_session) -> None:
+    print("\n─── Standards ───")
+
+    # Ensure title and category columns exist (idempotent — safe to run on existing DBs)
+    async with async_session() as session:
+        await session.execute(text(
+            "ALTER TABLE standards "
+            "ADD COLUMN IF NOT EXISTS title VARCHAR(300) NOT NULL DEFAULT ''"
+        ))
+        await session.execute(text(
+            "ALTER TABLE standards "
+            "ADD COLUMN IF NOT EXISTS category VARCHAR(200)"
+        ))
+        await session.execute(text(
+            "ALTER TABLE standards "
+            "ADD COLUMN IF NOT EXISTS is_core BOOLEAN NOT NULL DEFAULT true"
+        ))
+        await session.commit()
+
+    inserted = updated = 0
+    async with async_session() as session:
+        for entry in STANDARDS_SEED:
+            src = entry["source"]
+            existing = await session.scalar(
+                select(Standard).where(Standard.code == entry["code"])
+            )
+            is_core = entry.get("is_core", True)
+            if existing is None:
+                session.add(Standard(
+                    code=entry["code"],
+                    framework=src,
+                    title=entry["title"],
+                    description=entry.get("description"),
+                    category=entry.get("category"),
+                    is_core=is_core,
+                ))
+                inserted += 1
+            else:
+                existing.framework = src
+                existing.title = entry["title"]
+                existing.description = entry.get("description")
+                existing.category = entry.get("category")
+                existing.is_core = is_core
+                updated += 1
+        await session.commit()
+
+    print(f"  {inserted} inserted, {updated} updated")
+
+
+async def _seed_lesson_standards(async_session) -> None:
+    print("\n─── Lesson ↔ Standard links ───")
+    inserted = skipped = 0
+    async with async_session() as session:
+        for lesson_slug, standard_code in LESSON_STANDARDS:
+            lesson = await session.scalar(
+                select(Lesson).where(Lesson.slug == lesson_slug)
+            )
+            standard = await session.scalar(
+                select(Standard).where(Standard.code == standard_code)
+            )
+            if lesson is None or standard is None:
+                skipped += 1
+                if lesson is None:
+                    print(f"  SKIP (lesson not found): {lesson_slug}")
+                else:
+                    print(f"  SKIP (standard not found): {standard_code}")
+                continue
+            exists = await session.scalar(
+                select(LessonStandard).where(
+                    LessonStandard.lesson_id == lesson.id,
+                    LessonStandard.standard_id == standard.id,
+                )
+            )
+            if not exists:
+                session.add(LessonStandard(lesson_id=lesson.id, standard_id=standard.id))
+                inserted += 1
+        await session.commit()
+    print(f"  {inserted} inserted, {skipped} skipped")
+
+
 # ── Few-shot examples ─────────────────────────────────────────────────────────
 
 def _fs_normalize_steps(steps: list[dict]) -> list[dict]:
@@ -245,8 +339,9 @@ def _fs_normalize_steps(steps: list[dict]) -> list[dict]:
             "label": s["label"],
             "type": s["type"],
             "instruction": s["instruction"],
-            "correctAnswer": s.get("correctAnswer"),
         }
+        if (ca := s.get("correctAnswer")) is not None:
+            step["correctAnswer"] = ca
         if skill_used := s.get("skillUsed"):
             step["skillUsed"] = skill_used
         if explanation := s.get("explanation"):
@@ -254,8 +349,8 @@ def _fs_normalize_steps(steps: list[dict]) -> list[dict]:
         # Preserve widget-specific fields
         if eq := s.get("equationParts"):
             step["equationParts"] = eq
-        if lv := s.get("labeledValues"):
-            step["labeledValues"] = lv
+        if fields := (s.get("input_fields") or s.get("inputFields") or s.get("labeledValues")):
+            step["input_fields"] = fields
         if cp := s.get("comparisonParts"):
             step["comparisonParts"] = cp
         normalized.append(step)
@@ -331,8 +426,9 @@ async def _seed_reference_cards(async_session) -> None:
         for card in REFERENCE_CARDS:
             lesson = await session.scalar(
                 select(Lesson)
-                .where(Lesson.unit_id == card["unit_id"])
-                .where(Lesson.lesson_index == card["lesson_index"])
+                .join(UnitLesson, UnitLesson.lesson_id == Lesson.id)
+                .where(UnitLesson.unit_id == card["unit_id"])
+                .where(UnitLesson.lesson_order == card["lesson_index"])
             )
             if lesson is None:
                 print(f"  ⚠  No lesson for {card['unit_id']} index {card['lesson_index']} — skipped")
@@ -398,6 +494,8 @@ async def main() -> None:
         async with session.begin():
             await seed(session)
 
+    await _seed_standards(async_session)
+    await _seed_lesson_standards(async_session)
     await _seed_few_shots(async_session)
     await _seed_reference_cards(async_session)
     await eng.dispose()
