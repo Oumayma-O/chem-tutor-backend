@@ -204,6 +204,60 @@ def test_truncate_long_floats() -> None:
     assert "1.23456e-3" in out4["v"]
 
 
+def test_normalize_interleaves_global_wrapped_mixed_prose_math() -> None:
+    """One $…$ around statement + isotopes: English 'and'/'for' must not be math (Cuand)."""
+    d = _minimal_problem_dict()
+    d["statement"] = (
+        r"$A sample of naturally occurring copper contains two isotopes, "
+        r"^{63}\mathrm{Cu} and ^{65}\mathrm{Cu}. The abundances are 69.15\% for "
+        r"^{63}\mathrm{Cu} and 30.85\% for ^{65}\mathrm{Cu}. What is the average "
+        r"atomic mass of copper in amu?$"
+    )
+    out = normalize_and_validate_problem(d)
+    s = out["statement"]
+    assert "Cuand" not in s
+    assert " and" in s  # space before "and"; next char may be $ (math chunk)
+    assert r"^{63}\mathrm{Cu}" in s
+    assert r"\%" in s or "%" in s
+
+
+def test_normalize_interleaves_multiparagraph_global_wrapped() -> None:
+    """$…$ with \\n\\n: strip outer wrap, split \\text{} prose, interleave math segments."""
+    d = _minimal_problem_dict()
+    d["statement"] = (
+        r"$\text{First paragraph.}"
+        + "\n\n"
+        + r"^{63}\mathrm{Cu} and ^{65}\mathrm{Cu}. What is the mass?$"
+    )
+    out = normalize_and_validate_problem(d)
+    s = out["statement"]
+    assert "First paragraph." in s
+    assert "\n\n" in s
+    assert " and" in s
+    assert "Cuand" not in s
+
+
+def test_recover_cr_eaten_rightarrow_and_rho() -> None:
+    """\r (CR 0x0D) eaten from \\rightarrow and \\rho — parity with frontend normalizeLatexEscapes."""
+    from app.utils.markdown_sanitizer import normalize_strings
+    # \r + "ightarrow" → \rightarrow
+    broken_arr = "A \x0dightarrow B"
+    out = normalize_strings({"v": broken_arr})
+    assert "\\rightarrow" in out["v"]
+    # \r + "ho" → \rho
+    broken_rho = "$\\alpha + \x0dho$"
+    out2 = normalize_strings({"v": broken_rho})
+    assert "\\rho" in out2["v"]
+
+
+def test_recover_bs_eaten_beta() -> None:
+    """\b (BS 0x08) eaten from \\beta — parity with frontend normalizeLatexEscapes."""
+    from app.utils.markdown_sanitizer import normalize_strings
+    broken = "$\\alpha + \x08eta$"
+    out = normalize_strings({"v": broken})
+    assert "\\beta" in out["v"]
+
+
 def test_fix_bare_words_in_math() -> None:
     """Bare English word sequences inside $...$ are wrapped in \\text{}."""
     from app.utils.markdown_sanitizer import normalize_strings
