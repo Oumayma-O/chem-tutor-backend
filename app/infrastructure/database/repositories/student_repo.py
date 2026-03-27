@@ -75,6 +75,12 @@ class GradeRepository(BaseRepository[Grade]):
         )
         return result.scalars().all()
 
+    async def get_by_name(self, name: str) -> Grade | None:
+        result = await self._session.execute(
+            select(Grade).where(Grade.name.ilike(name.strip()))
+        )
+        return result.scalar_one_or_none()
+
 
 class CourseRepository(BaseRepository[Course]):
     def __init__(self, session: AsyncSession) -> None:
@@ -85,6 +91,12 @@ class CourseRepository(BaseRepository[Course]):
             select(Course).order_by(Course.sort_order)
         )
         return result.scalars().all()
+
+    async def get_by_name(self, name: str) -> Course | None:
+        result = await self._session.execute(
+            select(Course).where(Course.name.ilike(name.strip()))
+        )
+        return result.scalar_one_or_none()
 
 
 class InterestRepository(BaseRepository[Interest]):

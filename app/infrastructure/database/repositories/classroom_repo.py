@@ -1,6 +1,6 @@
 """Repository for classrooms and classroom-student membership."""
 
-import random
+import secrets
 import string
 import uuid
 from typing import Sequence
@@ -16,7 +16,7 @@ from app.infrastructure.database.repositories.base import BaseRepository
 def _generate_code(length: int = 6) -> str:
     """Generate a random alphanumeric join code."""
     chars = string.ascii_uppercase + string.digits
-    return "".join(random.choices(chars, k=length))
+    return "".join(secrets.choice(chars) for _ in range(length))
 
 
 class ClassroomRepository(BaseRepository[Classroom]):
@@ -63,7 +63,7 @@ class ClassroomRepository(BaseRepository[Classroom]):
         result = await self._session.execute(
             select(Classroom)
             .join(ClassroomStudent, ClassroomStudent.classroom_id == Classroom.id)
-            .where(ClassroomStudent.student_id == student_id, Classroom.is_active == True)
+            .where(ClassroomStudent.student_id == student_id, Classroom.is_active)
             .order_by(Classroom.created_at.desc())
         )
         return result.scalars().all()

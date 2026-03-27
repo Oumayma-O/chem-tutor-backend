@@ -7,11 +7,12 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.api.v1.authz import AuthContext, get_auth_context, require_self
 from app.domain.schemas.tutor import ProblemDeliveryResponse, ProblemOutput
-from app.core.config import get_settings
 from app.infrastructure.database.connection import get_db
 from app.infrastructure.database.repositories.playlist_repo import UserLessonPlaylistRepository
-from app.services.ai.problem_generation.service import enforce_step_types
+from app.services.ai.problem_generation.step_types import enforce_step_types
+from app.services.problem_delivery.limits import max_problems_for_level
 from app.utils.markdown_sanitizer import normalize_strings
 
 router = APIRouter()
@@ -30,6 +31,7 @@ class NavigateProblemRequest(BaseModel):
 async def navigate_problem(
     req: NavigateProblemRequest,
     db: AsyncSession = Depends(get_db),
+    auth: AuthContext = Depends(get_auth_context),
 ) -> ProblemDeliveryResponse:
     """
     Move backward (prev) or forward (next) through a student's already-seen problems.
@@ -41,6 +43,7 @@ async def navigate_problem(
     Returns 404 if no playlist exists yet.
     Returns 400 if already at the boundary.
     """
+    require_self(req.user_id, auth)
     repo = UserLessonPlaylistRepository(db)
     playlist = await repo.get(
         req.user_id, req.unit_id, req.lesson_index, req.level, req.difficulty
@@ -53,8 +56,7 @@ async def navigate_problem(
         )
 
     total = len(playlist.problems)
-    _s = get_settings()
-    max_p = {1: _s.l1_max_problems, 2: _s.l2_max_problems, 3: _s.l3_max_problems}.get(req.level, _s.l2_max_problems)
+    max_p = max_problems_for_level(req.level)
     ci = playlist.current_index
 
     if req.direction == "prev":

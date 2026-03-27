@@ -15,6 +15,8 @@ import uuid
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.api.v1.authz import AuthContext, get_auth_context, require_role, require_self
+from app.api.v1.router_utils import map_unexpected_errors
 from app.core.logging import get_logger
 from app.domain.schemas.classrooms import (
     ClassroomCreate,
@@ -38,10 +40,19 @@ router = APIRouter(prefix="/classrooms")
 # ── Teacher: create / manage classrooms ───────────────────────
 
 @router.post("", response_model=ClassroomOut, status_code=status.HTTP_201_CREATED)
+@map_unexpected_errors(
+    logger=logger,
+    event="create_classroom_failed",
+    status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+    detail="Failed to create classroom.",
+)
 async def create_classroom(
     req: ClassroomCreate,
     db: AsyncSession = Depends(get_db),
+    auth: AuthContext = Depends(get_auth_context),
 ) -> ClassroomOut:
+    require_role(auth, "teacher")
+    require_self(req.teacher_id, auth)
     repo = ClassroomRepository(db)
     classroom = Classroom(
         name=req.name,
@@ -66,7 +77,10 @@ async def create_classroom(
 async def list_teacher_classrooms(
     teacher_id: uuid.UUID,
     db: AsyncSession = Depends(get_db),
+    auth: AuthContext = Depends(get_auth_context),
 ) -> list[ClassroomListItem]:
+    require_role(auth, "teacher")
+    require_self(teacher_id, auth)
     repo = ClassroomRepository(db)
     classrooms = await repo.get_by_teacher(teacher_id)
     return [
@@ -86,11 +100,14 @@ async def list_teacher_classrooms(
 async def get_classroom(
     classroom_id: uuid.UUID,
     db: AsyncSession = Depends(get_db),
+    auth: AuthContext = Depends(get_auth_context),
 ) -> ClassroomOut:
+    require_role(auth, "teacher")
     repo = ClassroomRepository(db)
     classroom = await repo.get_by_id_with_students(classroom_id)
     if classroom is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Classroom not found.")
+    require_self(classroom.teacher_id, auth)
     return ClassroomOut(
         id=classroom.id,
         name=classroom.name,
@@ -106,10 +123,18 @@ async def get_classroom(
 # ── Student: join / list classrooms ───────────────────────────
 
 @router.post("/join", response_model=JoinClassroomResponse)
+@map_unexpected_errors(
+    logger=logger,
+    event="join_classroom_failed",
+    status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+    detail="Failed to join classroom.",
+)
 async def join_classroom(
     req: JoinClassroomRequest,
     db: AsyncSession = Depends(get_db),
+    auth: AuthContext = Depends(get_auth_context),
 ) -> JoinClassroomResponse:
+    require_self(req.student_id, auth)
     classroom_repo = ClassroomRepository(db)
     student_repo = ClassroomStudentRepository(db)
 
@@ -121,7 +146,11 @@ async def join_classroom(
         )
 
     await student_repo.enroll(classroom.id, req.student_id)
-    logger.info("student_joined_classroom", student=str(req.student_id), classroom=str(classroom.id))
+    logger.info(
+        "student_joined_classroom",
+        student=str(req.student_id),
+        classroom=str(classroom.id),
+    )
 
     return JoinClassroomResponse(
         classroom_id=classroom.id,
@@ -134,7 +163,9 @@ async def join_classroom(
 async def list_student_classrooms(
     student_id: uuid.UUID,
     db: AsyncSession = Depends(get_db),
+    auth: AuthContext = Depends(get_auth_context),
 ) -> list[ClassroomListItem]:
+    require_self(student_id, auth)
     repo = ClassroomRepository(db)
     classrooms = await repo.get_student_classrooms(student_id)
     return [
@@ -154,7 +185,13 @@ async def list_student_classrooms(
 async def list_classroom_students(
     classroom_id: uuid.UUID,
     db: AsyncSession = Depends(get_db),
+    auth: AuthContext = Depends(get_auth_context),
 ) -> list[ClassroomStudentOut]:
+    require_role(auth, "teacher")
+    classroom = await ClassroomRepository(db).get_by_id_with_students(classroom_id)
+    if classroom is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Classroom not found.")
+    require_self(classroom.teacher_id, auth)
     repo = ClassroomStudentRepository(db)
     members = await repo.get_class_students(classroom_id)
     return [

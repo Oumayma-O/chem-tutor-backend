@@ -63,7 +63,6 @@ async def create_phase(
         sort_order=req.sort_order,
         color=req.color,
     ))
-    await db.commit()
     return PhaseOut.model_validate(phase)
 
 
@@ -78,7 +77,6 @@ async def update_phase(
     if phase is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Phase not found.")
     phase = await repo.update(phase, **req.model_dump(exclude_none=True))
-    await db.commit()
     return PhaseOut.model_validate(phase)
 
 
@@ -92,7 +90,6 @@ async def delete_phase(
     if phase is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Phase not found.")
     await repo.delete(phase)
-    await db.commit()
 
 
 # ── Curriculum fetch ──────────────────────────────────────────
@@ -148,7 +145,6 @@ async def upsert_overrides(
             is_hidden=item.is_hidden,
         )
         results.append(override)
-    await db.commit()
     return [
         OverrideOut(
             id=str(o.id),
@@ -176,7 +172,6 @@ async def delete_override(
     deleted = await repo.delete_override(classroom_id=classroom_id, unit_id=unit_id)
     if not deleted:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Override not found.")
-    await db.commit()
 
 
 @router.post("/curriculum/sync", response_model=SyncResult)
@@ -195,6 +190,5 @@ async def sync_curriculum(
         classroom_id=classroom_id,
         course_id=course_id,
     )
-    await db.commit()
     logger.info("curriculum_synced", classroom_id=str(classroom_id), added=added)
     return SyncResult(added=added, unchanged=unchanged)

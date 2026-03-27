@@ -1,100 +1,35 @@
 from contextlib import asynccontextmanager
 
-import structlog
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
+from app.api.v1.routers import (
+    analytics,
+    auth,
+    classrooms,
+    mastery,
+    phases,
+    problems,
+    students,
+    units,
+)
 from app.core.config import get_settings
 from app.core.logging import configure_logging, get_logger
 from app.infrastructure.database.connection import engine, run_migrations
-from app.api.v1.routers import mastery, analytics, phases
-from app.api.v1.routers import units, classrooms, students, problems
-from app.api.v1.routers import auth
 
 configure_logging()
 logger = get_logger(__name__)
 settings = get_settings()
 
-
-async def _patch_schema() -> None:
-    """
-    One-time column rename: execution_time_ms (int) → execution_time_s (float).
-    Safe to run every startup — skips if old column no longer exists.
-    """
-    from sqlalchemy import text
-    async with engine.begin() as conn:
-        result = await conn.execute(text(
-            "SELECT column_name FROM information_schema.columns "
-            "WHERE table_name='generation_logs' AND column_name='execution_time_ms'"
-        ))
-        if result.fetchone():
-            await conn.execute(text(
-                "ALTER TABLE generation_logs RENAME COLUMN execution_time_ms TO execution_time_s"
-            ))
-            await conn.execute(text(
-                "ALTER TABLE generation_logs "
-                "ALTER COLUMN execution_time_s TYPE FLOAT USING execution_time_s::float"
-            ))
-            logger.info("schema_patched", change="execution_time_ms→execution_time_s")
-
-
-async def _patch_prompt_version_column() -> None:
-    """
-    Widen prompt_versions.version from VARCHAR(20) to VARCHAR(50) if needed.
-    Safe to run every startup — no-op if already 50.
-    """
-    from sqlalchemy import text
-    async with engine.begin() as conn:
-        result = await conn.execute(text(
-            "SELECT character_maximum_length FROM information_schema.columns "
-            "WHERE table_schema = 'public' AND table_name = 'prompt_versions' AND column_name = 'version'"
-        ))
-        row = result.fetchone()
-        if row and row[0] is not None and row[0] < 50:
-            await conn.execute(text(
-                "ALTER TABLE prompt_versions ALTER COLUMN version TYPE VARCHAR(50)"
-            ))
-            logger.info("schema_patched", change="prompt_versions.version→VARCHAR(50)")
-        # Also widen generation_logs.prompt_version if still 20
-        result2 = await conn.execute(text(
-            "SELECT character_maximum_length FROM information_schema.columns "
-            "WHERE table_schema = 'public' AND table_name = 'generation_logs' AND column_name = 'prompt_version'"
-        ))
-        row2 = result2.fetchone()
-        if row2 and row2[0] is not None and row2[0] < 50:
-            await conn.execute(text(
-                "ALTER TABLE generation_logs ALTER COLUMN prompt_version TYPE VARCHAR(50)"
-            ))
-            logger.info("schema_patched", change="generation_logs.prompt_version→VARCHAR(50)")
-
-
-async def _seed_prompt_version() -> None:
-    """
-    Upsert the current PROMPT_VERSION into prompt_versions.
-    Bumping the constant in prompts.py + restarting the server
-    automatically archives the new template with a timestamp.
-    """
-    from app.infrastructure.database.connection import AsyncSessionFactory
-    from app.infrastructure.database.models import PromptVersion
-    from app.services.ai.problem_generation.prompts import PROMPT_VERSION, GENERATE_PROBLEM_SYSTEM
-    async with AsyncSessionFactory() as session:
-        existing = await session.get(PromptVersion, PROMPT_VERSION)
-        if not existing:
-            session.add(PromptVersion(version=PROMPT_VERSION, template=GENERATE_PROBLEM_SYSTEM))
-            await session.commit()
-            logger.info("prompt_version_saved", version=PROMPT_VERSION)
-        else:
-            logger.info("prompt_version_exists", version=PROMPT_VERSION)
+if "*" in settings.allowed_origins:
+    raise ValueError("Wildcard origins are not allowed; configure explicit ALLOWED_ORIGINS.")
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     logger.info("startup", environment=settings.environment, provider=settings.default_ai_provider)
     await run_migrations()
-    await _patch_schema()
-    await _patch_prompt_version_column()
-    await _seed_prompt_version()
     yield
     logger.info("shutdown")
     await engine.dispose()
@@ -112,7 +47,7 @@ app = FastAPI(
 # ── CORS ─────────────────────────────────────────────────────
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"] if not settings.is_production else settings.allowed_origins,
+    allow_origins=settings.allowed_origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

@@ -1,6 +1,4 @@
 """Repository for units, lessons, standards, and curriculum documents."""
-
-import uuid
 from typing import Sequence
 
 from sqlalchemy import select
@@ -29,7 +27,7 @@ class UnitRepository(BaseRepository[Unit]):
     ) -> Sequence[Unit]:
         q = (
             select(Unit)
-            .where(Unit.is_active == True)
+            .where(Unit.is_active)
             .options(
                 selectinload(Unit.unit_lessons).selectinload(UnitLesson.lesson),
                 selectinload(Unit.course),
@@ -74,18 +72,14 @@ class LessonRepository(BaseRepository[Lesson]):
         result = await self._session.execute(
             select(Lesson)
             .join(UnitLesson, UnitLesson.lesson_id == Lesson.id)
-            .where(UnitLesson.unit_id == unit_id, Lesson.is_active == True)
+            .where(UnitLesson.unit_id == unit_id, Lesson.is_active)
             .options(selectinload(Lesson.standards).selectinload(LessonStandard.standard))
             .order_by(UnitLesson.lesson_order)
         )
         return result.scalars().all()
 
     async def get_by_index(self, unit_id: str, lesson_index: int) -> Lesson | None:
-        """
-        Resolve lesson by (unit_id, lesson_order) via the unit_lessons junction.
-        Falls back to canonical (unit_id, lesson_index) for backward compatibility.
-        """
-        # Primary: look up by lesson_order in unit_lessons
+        """Resolve lesson by position (lesson_order) in the unit_lessons junction."""
         result = await self._session.execute(
             select(Lesson)
             .join(UnitLesson, UnitLesson.lesson_id == Lesson.id)
@@ -93,15 +87,6 @@ class LessonRepository(BaseRepository[Lesson]):
                 UnitLesson.unit_id == unit_id,
                 UnitLesson.lesson_order == lesson_index,
             )
-            .options(selectinload(Lesson.standards).selectinload(LessonStandard.standard))
-        )
-        lesson = result.scalar_one_or_none()
-        if lesson is not None:
-            return lesson
-        # Fallback: canonical unit_id + lesson_index (mastery tracking key)
-        result = await self._session.execute(
-            select(Lesson)
-            .where(Lesson.unit_id == unit_id, Lesson.lesson_index == lesson_index)
             .options(selectinload(Lesson.standards).selectinload(LessonStandard.standard))
         )
         return result.scalar_one_or_none()
@@ -114,7 +99,6 @@ class LessonRepository(BaseRepository[Lesson]):
         """Persist a generated reference card onto an already-loaded lesson row."""
         lesson.reference_card_json = card_data
         await self._session.flush()
-        await self._session.commit()
 
 
 
@@ -129,11 +113,21 @@ class StandardRepository(BaseRepository[Standard]):
         )
         return result.scalar_one_or_none()
 
-    async def get_or_create(self, code: str, framework: str, description: str | None = None) -> Standard:
+    async def get_or_create(
+        self,
+        code: str,
+        framework: str,
+        description: str | None = None,
+    ) -> Standard:
         existing = await self.get_by_code(code)
         if existing:
             return existing
-        new = Standard(code=code, framework=framework, description=description)
+        new = Standard(
+            code=code,
+            framework=framework,
+            description=description,
+            is_core=False,
+        )
         self._session.add(new)
         await self._session.flush()
         return new

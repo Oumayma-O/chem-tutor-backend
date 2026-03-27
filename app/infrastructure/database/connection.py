@@ -1,3 +1,7 @@
+from contextlib import asynccontextmanager
+from typing import AsyncGenerator
+
+from sqlalchemy import text
 from sqlalchemy.ext.asyncio import (
     AsyncEngine,
     AsyncSession,
@@ -37,6 +41,23 @@ class Base(DeclarativeBase):
     pass
 
 
+# ── Reusable context manager for background tasks ─────────────
+@asynccontextmanager
+async def fresh_session() -> AsyncGenerator[AsyncSession, None]:
+    """
+    Open a fresh DB session for background tasks (fire-and-forget coroutines).
+    Auto-commits on success; rolls back on exception.
+    Use instead of duplicating the AsyncSessionFactory pattern in every task.
+    """
+    async with AsyncSessionFactory() as session:
+        try:
+            yield session
+            await session.commit()
+        except Exception:
+            await session.rollback()
+            raise
+
+
 # ── Dependency for FastAPI routes ─────────────────────────────
 async def get_db() -> AsyncSession:  # type: ignore[return]
     async with AsyncSessionFactory() as session:
@@ -48,51 +69,18 @@ async def get_db() -> AsyncSession:  # type: ignore[return]
             raise
 
 
-# ── Run Alembic migrations on startup ────────────────────────
+# ── Migration readiness check ─────────────────────────────────
 async def run_migrations() -> None:
     """
-    Startup table setup.
-
-    Strategy:
-      1. Try Alembic 'upgrade head' (uses alembic/versions/ migration files).
-      2. If no migration files exist yet (fresh install / dev), fall back to
-         SQLAlchemy create_all — creates all tables defined in models.py.
-         This is safe to call repeatedly (CREATE TABLE IF NOT EXISTS).
-
-    For production deployments, always run:
-        alembic revision --autogenerate -m "description"
-        alembic upgrade head
-    before starting the container.
+    Ensure Alembic migrations have been applied before app startup.
+    This performs a read-only check and never mutates schema at runtime.
     """
-    import asyncio
-    import os
-    from alembic.config import Config
-    from alembic import command
-
-    # Check whether any migration files exist
-    versions_dir = os.path.join(os.path.dirname(__file__), "..", "..", "..", "alembic", "versions")
-    versions_dir = os.path.normpath(versions_dir)
-    has_migrations = (
-        os.path.isdir(versions_dir)
-        and any(f.endswith(".py") for f in os.listdir(versions_dir))
-    )
-
-    # Always use create_all (idempotent: CREATE TABLE IF NOT EXISTS).
-    # Alembic migrations are applied via CLI (`alembic upgrade head`)
-    # before deployment — running them inside uvicorn's async loop causes
-    # deadlocks because alembic env.py calls asyncio.run() from a thread.
-    logger.info("running_create_all")
-    import app.infrastructure.database.models  # noqa: F401 — registers all ORM models
-    import asyncio
-    for attempt in range(1, 6):
+    async with engine.begin() as conn:
         try:
-            async with engine.begin() as conn:
-                await conn.run_sync(Base.metadata.create_all)
-            logger.info("create_all_complete")
-            return
+            await conn.execute(text("SELECT version_num FROM alembic_version LIMIT 1"))
         except Exception as exc:
-            if attempt == 5:
-                raise
-            wait = attempt * 3
-            logger.warning("create_all_retry", attempt=attempt, wait_s=wait, error=str(exc))
-            await asyncio.sleep(wait)
+            raise RuntimeError(
+                "Database is not migration-ready. "
+                "Run `alembic upgrade head` before starting the API."
+            ) from exc
+    logger.info("migration_check_ok")

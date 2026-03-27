@@ -14,6 +14,7 @@ import uuid
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.api.v1.authz import AuthContext, get_auth_context, require_self
 from app.core.logging import get_logger
 from app.domain.schemas.students import (
     CourseOut,
@@ -66,7 +67,9 @@ async def list_interests(db: AsyncSession = Depends(get_db)) -> list[InterestOut
 async def upsert_profile(
     req: UserProfileCreate,
     db: AsyncSession = Depends(get_db),
+    auth: AuthContext = Depends(get_auth_context),
 ) -> UserProfileOut:
+    require_self(req.user_id, auth)
     repo = UserProfileRepository(db)
 
     profile = UserProfile(
@@ -89,7 +92,9 @@ async def update_profile(
     user_id: uuid.UUID,
     req: UserProfileUpdate,
     db: AsyncSession = Depends(get_db),
+    auth: AuthContext = Depends(get_auth_context),
 ) -> UserProfileOut:
+    require_self(user_id, auth)
     repo = UserProfileRepository(db)
     profile = await repo.get_by_id(user_id)
     if profile is None:
@@ -113,7 +118,9 @@ async def update_profile(
 async def get_profile(
     user_id: uuid.UUID,
     db: AsyncSession = Depends(get_db),
+    auth: AuthContext = Depends(get_auth_context),
 ) -> UserProfileOut:
+    require_self(user_id, auth)
     return await _build_profile_out(user_id, db)
 
 
@@ -121,12 +128,14 @@ async def get_profile(
 async def get_student_context(
     user_id: uuid.UUID,
     db: AsyncSession = Depends(get_db),
+    auth: AuthContext = Depends(get_auth_context),
 ) -> StudentContextOut:
     """
     Returns the AI-ready context for a student:
     grade_level, course, interests (slugs for context_tag), interest_labels.
     Used by the frontend when calling /tutor/generate-problem.
     """
+    require_self(user_id, auth)
     repo = UserProfileRepository(db)
     profile = await repo.get_by_id(user_id)
     if profile is None:

@@ -4,6 +4,9 @@ Deterministic Markdown/LaTeX sanitizer for LLM-generated problem JSON.
 Pipeline: LLM → structured JSON → normalize_and_validate_problem() → safe for React/KaTeX.
 
 Fixes applied to every string:
+- Globally wrapped ``$...$``: if the entire field is one inline math span with no inner ``$``,
+  interleave plain English (e.g. "and", "for") outside math and keep ``^{}``, ``\\mathrm{}``, etc.
+  inside ``$...$`` (parity with frontend ``fixGloballyWrappedStatement`` / ``interleaveMathInSegment``).
 - Calculator-style equations (no $): Ea = 8.314 * ln(8.10e-3) → $E_a = ... \\times \\ln(... \\times 10^{-3} ...)$ 
 - Mis-written units: \\backslash\\text{cdotK} → \\cdot \\text{K} (LLM confusion vs \\cdot)
 - Kelvin after \\cdot: \\cdotK / \\cdot K → \\cdot \\text{K} (KaTeX rejects \\cdotK as one command)
@@ -20,6 +23,206 @@ Fixes applied to every string:
 
 import re
 from typing import Any
+
+
+# ── Globally wrapped $…$ → interleave prose + math (matches frontend mathDisplay.tsx) ──
+# LLM wraps an entire statement in one $…$; English words ("and", "for") become math italics
+# with no spaces ("Cuand"). Split into $latex$ + plain prose at word boundaries.
+
+# Only flush on strong connectors between formulas — not "in", "of", "the" (e.g. "copper in amu").
+_PROSE_WORD_AFTER_MATH = re.compile(r"^(and|or|for)\b", re.IGNORECASE)
+
+# Same word list, unanchored — gate for "should we split this global $…$ at all?"
+_PROSE_WORD_IN_TEXT = re.compile(
+    r"\b(and|or|for|are|is|the|of|in|to|use|each|before|after|what|which|contains|sample|abundances|naturally|occurring|mass|decimal|calculating|percentage|answer|formula|convert|average|atomic|isotopes|copper|abundant|with|from|that|this|these|those|when|where|how|will|has|have|had|was|were|not|can|may|must|should|could|would|using|given|find|calculate|compute|determine|express|show|write|solve|note|assume|consider|suppose|let|both|either|nearest|per|via|following|above|below|between|among|within|during|while|until|since|because|therefore|thus|such|same|other|another|different|similar|equal|greater|less|than|more|most|least|all|some|none|any|every|only|also|even|still|again|first|second|third|last|next|previous|approximately|about|around|roughly|exactly|nearly|almost|always|never|sometimes|often|usually|typically|normally|commonly|frequently|rarely|perhaps|possibly|probably|likely|unlikely|certainly|definitely|surely|indeed|actually|really|very|quite|rather|fairly|pretty|too|two|three|four|five|six|seven|eight|nine|ten|hundred|thousand|percent|percentage|problem|question|example|solution|reaction|equation|constant|temperature|pressure|volume|molecule|atoms|molar|acid|base|gas|liquid|solid|aqueous|equilibrium|stoichiometry|yield|limiting|excess|reactant|product|initial|final|change|ratio|proportion|mean|median|range|graph|data|table|figure|value|values|units|unit|state|standard|conditions)\b",
+    re.IGNORECASE,
+)
+
+
+def _skip_balanced_braces(s: str, i: int) -> int:
+    if i >= len(s) or s[i] != "{":
+        return i
+    depth = 0
+    k = i
+    while k < len(s):
+        if s[k] == "{":
+            depth += 1
+        elif s[k] == "}":
+            depth -= 1
+            if depth == 0:
+                return k + 1
+        k += 1
+    return len(s)
+
+
+def _skip_optional_square_brackets(s: str, i: int) -> int:
+    if i >= len(s) or s[i] != "[":
+        return i
+    depth = 1
+    k = i + 1
+    while k < len(s) and depth > 0:
+        if s[k] == "[":
+            depth += 1
+        elif s[k] == "]":
+            depth -= 1
+        k += 1
+    return k
+
+
+def _consume_one_latex_atom(s: str, i: int) -> int:
+    if i >= len(s):
+        return i
+    if s[i] in "^_":
+        k = i + 1
+        if k < len(s) and s[k] == "{":
+            return _skip_balanced_braces(s, k)
+        if k < len(s):
+            return k + 1
+        return i + 1
+    if s[i] != "\\":
+        return i
+    j = i + 1
+    if j >= len(s):
+        return i
+    if s[j].isalpha():
+        while j < len(s) and s[j].isalpha():
+            j += 1
+    else:
+        j += 1
+    k = j
+    if k < len(s) and s[k] == "*":
+        k += 1
+    while k < len(s) and s[k] == "[":
+        k = _skip_optional_square_brackets(s, k)
+    while k < len(s) and s[k] == "{":
+        k = _skip_balanced_braces(s, k)
+    return k
+
+
+def _consume_latex_run(s: str, start: int) -> int:
+    i = start
+    while i < len(s):
+        nxt = _consume_one_latex_atom(s, i)
+        if nxt == i:
+            break
+        i = nxt
+    return i
+
+
+def _interleave_math_in_segment(s: str) -> str:
+    """Split mingled LaTeX + English inside one segment (no nested $…$)."""
+    if not s.strip() or not re.search(r"\\|[_^]", s):
+        return s
+    out: list[str] = []
+    math_buf: list[str] = []
+
+    def flush_math() -> None:
+        if math_buf:
+            out.append("$" + "".join(math_buf) + "$")
+            math_buf.clear()
+
+    i = 0
+    while i < len(s):
+        if s[i].isspace():
+            j = i
+            while j < len(s) and s[j].isspace():
+                j += 1
+            ws = s[i:j]
+            after = s[j:]
+            m = _PROSE_WORD_AFTER_MATH.match(after)
+            if m:
+                flush_math()
+                out.append(ws)
+                out.append(m.group(0))
+                i = j + len(m.group(0))
+                continue
+            math_buf.append(ws)
+            i = j
+            continue
+        if s[i] in "\\^_":
+            end = _consume_latex_run(s, i)
+            if end == i:
+                flush_math()
+                out.append(s[i])
+                i += 1
+                continue
+            math_buf.append(s[i:end])
+            i = end
+            continue
+        j = i
+        while j < len(s) and not s[j].isspace() and s[j] not in "\\^_":
+            j += 1
+        plain = s[i:j]
+        if math_buf and re.fullmatch(r"[+\-*/=]", plain):
+            math_buf.append(plain)
+            i = j
+            continue
+        if re.fullmatch(r"\d+\.?\d*", plain) and j < len(s) and s[j] == "\\":
+            after_cmd = _consume_one_latex_atom(s, j)
+            cmd = s[j:after_cmd]
+            if cmd == "\\%":
+                math_buf.append(plain + cmd)
+                i = after_cmd
+                continue
+        flush_math()
+        out.append(plain)
+        i = j
+    flush_math()
+    return "".join(out)
+
+
+def _fix_globally_wrapped_statement(text: str) -> str:
+    """
+    Undo LLM mistake: entire statement in one $…$ (optionally with \\n\\n).
+    Pull English words out of math mode; keep formulas in $…$.
+    Safe no-op when inner already has $ (already split) or no LaTeX.
+    """
+    t = text.strip()
+    if not t.startswith("$") or not t.endswith("$") or t.startswith("$$"):
+        return text
+    inner = t[1:-1]
+    if "$" in inner:
+        return text
+    # Mingled LLM mistake: \mathrm{…} + English ("and", "for") — not bare ^{n} or \times-only math.
+    # Require \mathrm so normal hints/units (\text{K}, \cdot) are not split.
+    if not re.search(r"\\mathrm", inner):
+        return text
+    if not _PROSE_WORD_IN_TEXT.search(inner):
+        return text
+
+    if "\n\n" not in inner:
+        return _interleave_math_in_segment(inner)
+
+    def process_para(para: str) -> str:
+        segs: list[tuple[str, str]] = []
+        last_idx = 0
+        for m in re.finditer(r"\\text\{([^{}]*)\}", para):
+            if m.start() > last_idx:
+                segs.append(("math", para[last_idx : m.start()]))
+            segs.append(("prose", m.group(1)))
+            last_idx = m.end()
+        if last_idx < len(para):
+            segs.append(("math", para[last_idx:]))
+
+        parts: list[str] = []
+        for kind, content in segs:
+            if kind == "prose":
+                parts.append(content)
+                continue
+            s = content
+            if not s.strip():
+                parts.append(s)
+                continue
+            if not re.search(r"\\mathrm", s):
+                parts.append(s)
+                continue
+            if not _PROSE_WORD_IN_TEXT.search(s):
+                parts.append(s)
+                continue
+            parts.append(_interleave_math_in_segment(s))
+        return "".join(parts)
+
+    return "\n\n".join(process_para(p) for p in inner.split("\n\n"))
 
 
 # ── String-level fixes ─────────────────────────────────────────────────────
@@ -120,10 +323,16 @@ _RE_TAB_LATEX = re.compile(
 )
 # \f (FORM FEED) prefixes: \frac, \forall
 _RE_FF_LATEX = re.compile(r"\x0c(rac|orall)(?=[^a-zA-Z]|$)")
+# \r (CR) prefixes: \rightarrow, \rho
+_RE_CR_LATEX = re.compile(r"\x0d(ightarrow|ho)(?=[^a-zA-Z]|$)")
+# \b (BS) prefixes: \beta
+_RE_BS_LATEX = re.compile(r"\x08(eta)(?=[^a-zA-Z]|$)")
 
 def _recover_tab_corrupted_latex(s: str) -> str:
     s = _RE_TAB_LATEX.sub(r"\\t\1", s)
     s = _RE_FF_LATEX.sub(r"\\f\1", s)
+    s = _RE_CR_LATEX.sub(r"\\r\1", s)
+    s = _RE_BS_LATEX.sub(r"\\b\1", s)
     return s
 
 
@@ -138,12 +347,41 @@ def _strip_illegal_chars(s: str) -> str:
 
 
 # Normalize \( and \) to $ (inline math)
-# Collapse $$...$$ → $...$ (display math renders oversized/centered in the UI)
-_RE_DISPLAY_MATH = re.compile(r"\$\$([^$]*?)\$\$", re.DOTALL)
+# Collapse $$...$$ → $...$ (display math renders oversized/centered in the UI).
+# Use [\s\S] so a stray $ inside display math (e.g. 4p$^4) is included and stripped.
+_RE_STRAY_DOLLAR = re.compile(r"(?<!\\)\$")
+_RE_DISPLAY_MATH = re.compile(r"\$\$([\s\S]*?)\$\$", re.DOTALL)
+
+
+def _strip_stray_dollars_in_math_inner(inner: str) -> str:
+    return _RE_STRAY_DOLLAR.sub("", inner)
+
+
+def _normalize_mz_notation_artifacts(s: str) -> str:
+    """
+    Recover mass-spectrometry m/z tokens when escape sequences are mangled:
+    - m\\u002Fz  -> m/z
+    - m\\/z      -> m/z
+    - mð02Fz     -> m/z (mojibake variant observed in generated text)
+    """
+    s = re.sub(r"\\u002[fF]", "/", s)
+    s = re.sub(r"\\x2[fF]", "/", s)
+    s = re.sub(r"\\/", "/", s)
+    s = re.sub(r"m\s*[uU]002[fF]\s*z", "m/z", s)
+    s = re.sub(r"m\s*[ðÐ]0?2[fF]\s*z", "m/z", s)
+    return s
+
+
 def _normalize_math_wrappers(s: str) -> str:
     s = s.replace("\\(", "$").replace("\\)", "$")
-    s = _RE_DISPLAY_MATH.sub(r"$\1$", s)
-    # Collapse any remaining orphaned $$ (e.g. trailing "...$$.") → $
+    s = re.sub(r"^\s*\$\$\$", "$$", s)
+    s = re.sub(r"\$\$\$\s*$", "$$", s)
+    prev = None
+    while prev != s:
+        prev = s
+        s = _RE_DISPLAY_MATH.sub(
+            lambda m: f"${_strip_stray_dollars_in_math_inner(m.group(1).strip())}$", s
+        )
     s = s.replace("$$", "$")
     return s
 
@@ -376,7 +614,7 @@ def _normalize_string(s: str, *, for_hint: bool = False) -> str:
     """
     if not isinstance(s, str) or not s:
         return s
-    s = _recover_tab_corrupted_latex(s)
+    s = _normalize_mz_notation_artifacts(_recover_tab_corrupted_latex(s))
     s = _strip_illegal_chars(s)
     s = _fix_dollar_split_exponents(s)
     s = _fix_cdot_unit_garbage(s)
@@ -388,14 +626,46 @@ def _normalize_string(s: str, *, for_hint: bool = False) -> str:
     if not for_hint:
         s = _wrap_bare_sub_super(s)
         s = _wrap_bare_latex(s)
+    # Early fallback: one global $…$ with mixed prose + LaTeX → split (frontend mathDisplay parity).
+    s = _fix_globally_wrapped_statement(s)
     s = _upgrade_calculator_style_math(s)
     s = _convert_slashes_to_fractions(s)
     s = _fix_bare_words_in_math(s)
+    if for_hint:
+        s = _normalize_hint_latex_text_wrappers(s)
     s = _truncate_long_floats(s)
     return s
 
 
 # ── Recursive walk ─────────────────────────────────────────────────────────
+
+_RE_INLINE_MATH_SEGMENT = re.compile(r"(\$[^$]*\$)")
+
+
+def _normalize_hint_latex_text_wrappers(s: str) -> str:
+    """
+    Hints are primarily prose. If the model emits \\text{...} / \\mathrm{...}
+    outside math delimiters, markdown drops the backslash and shows noisy braces.
+    Convert those wrappers to plain prose outside $...$ blocks.
+    """
+    if not s or ("\\" not in s and "{" not in s):
+        return s
+
+    def _unwrap_or_keep(m: re.Match[str]) -> str:
+        inner = m.group(1)
+        # Keep compact unit-ish tokens (e.g. \text{K}, \text{mol}) intact.
+        if re.fullmatch(r"[A-Za-z]{1,5}", inner):
+            return m.group(0)
+        return inner
+
+    def _normalize_plain(seg: str) -> str:
+        out = seg
+        out = re.sub(r"\\text\{([^{}]*)\}", _unwrap_or_keep, out)
+        out = re.sub(r"\\mathrm\{([^{}]*)\}", _unwrap_or_keep, out)
+        return out
+
+    parts = _RE_INLINE_MATH_SEGMENT.split(s)
+    return "".join(part if i % 2 == 1 else _normalize_plain(part) for i, part in enumerate(parts))
 
 def _recursive_normalize(obj: Any, *, for_hint: bool = False) -> Any:
     """Recursively process dict/list and normalize every string value."""

@@ -100,9 +100,6 @@ class Lesson(Base):
     __tablename__ = "lessons"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
-    unit_id: Mapped[str] = mapped_column(
-        String(100), ForeignKey("units.id", ondelete="CASCADE"), nullable=False
-    )
     title: Mapped[str] = mapped_column(String(200), nullable=False)
     description: Mapped[str] = mapped_column(Text, nullable=False, default="")
     lesson_index: Mapped[int] = mapped_column(Integer, nullable=False)
@@ -126,15 +123,13 @@ class Lesson(Base):
     # Cached reference card — generated once by LLM, NULL = not yet generated
     reference_card_json: Mapped[dict | None] = mapped_column(JSONB, nullable=True, default=None)
 
-    sort_order: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     is_active: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
 
     unit_lessons: Mapped[list["UnitLesson"]] = relationship(back_populates="lesson")
     standards: Mapped[list["LessonStandard"]] = relationship(back_populates="lesson")
 
     __table_args__ = (
-        UniqueConstraint("unit_id", "lesson_index", name="uq_lesson_unit_index"),
-        Index("ix_lessons_unit", "unit_id"),
+        Index("ix_lessons_index", "lesson_index"),
     )
 
 
@@ -165,7 +160,10 @@ class Standard(Base):
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     code: Mapped[str] = mapped_column(String(50), nullable=False, unique=True)
     framework: Mapped[str] = mapped_column(String(50), nullable=False)
+    title: Mapped[str] = mapped_column(String(300), nullable=False, default="")
     description: Mapped[str | None] = mapped_column(Text, nullable=True)
+    category: Mapped[str | None] = mapped_column(String(200), nullable=True)
+    is_core: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
 
     lessons: Mapped[list["LessonStandard"]] = relationship(back_populates="standard")
 

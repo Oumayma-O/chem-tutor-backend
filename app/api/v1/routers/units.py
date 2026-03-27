@@ -19,7 +19,7 @@ from app.domain.schemas.units import (
     UnitOut,
 )
 from app.infrastructure.database.connection import get_db
-from app.infrastructure.database.models import Lesson, LessonStandard, Standard, Unit
+from app.infrastructure.database.models import Lesson, LessonStandard, Standard, Unit, UnitLesson
 from app.infrastructure.database.repositories.unit_repo import (
     LessonRepository,
     StandardRepository,
@@ -78,7 +78,10 @@ async def get_unit(
             StandardOut(
                 code=ls.standard.code,
                 framework=ls.standard.framework,
+                title=ls.standard.title or None,
                 description=ls.standard.description,
+                category=ls.standard.category,
+                is_core=ls.standard.is_core,
             )
             for ls in (l.standards or [])
             if ls.standard
@@ -86,7 +89,7 @@ async def get_unit(
         lessons_out.append(
             LessonOut(
                 id=l.id,
-                unit_id=l.unit_id,
+                unit_id=unit.id,
                 title=l.title,
                 description=l.description,
                 lesson_index=ul.lesson_order,
@@ -142,9 +145,8 @@ async def create_unit(
     )
     await unit_repo.create(unit)
 
-    for l in req.lessons:
+    for order, l in enumerate(req.lessons):
         lesson = Lesson(
-            unit_id=req.id,
             title=l.title,
             description=l.description,
             lesson_index=l.lesson_index,
@@ -157,6 +159,8 @@ async def create_unit(
         )
         db.add(lesson)
         await db.flush()
+
+        db.add(UnitLesson(unit_id=req.id, lesson_id=lesson.id, lesson_order=order))
 
         for code in l.standard_codes:
             framework = code.split(" ")[0] if " " in code else "OTHER"

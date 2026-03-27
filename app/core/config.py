@@ -8,6 +8,22 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 # Resolve .env relative to this file's location so it works regardless of CWD
 _ENV_FILE = Path(__file__).resolve().parent.parent.parent / ".env"
 
+_DEFAULT_PROD_ORIGINS = ["https://chem-tutor-frontend.vercel.app"]
+_DEFAULT_DEV_LOCAL_ORIGINS = [
+    "http://localhost:3000",
+    "http://127.0.0.1:3000",
+    "http://localhost:5173",
+    "http://127.0.0.1:5173",
+    "http://localhost:8080",
+    "http://127.0.0.1:8080",
+]
+
+
+def _default_allowed_origins() -> list[str]:
+    # Keep config as source-of-truth: dev defaults include local frontend origins.
+    # Deployments can still override via ALLOWED_ORIGINS env var.
+    return [*_DEFAULT_PROD_ORIGINS, *_DEFAULT_DEV_LOCAL_ORIGINS]
+
 
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(
@@ -22,7 +38,7 @@ class Settings(BaseSettings):
     log_level: str = "info"
     api_v1_prefix: str = "/api/v1"
     allowed_origins: list[str] = Field(
-        default_factory=lambda: ["https://chem-tutor-frontend.vercel.app"],
+        default_factory=_default_allowed_origins,
         description="CORS allowed origins (set ALLOWED_ORIGINS as JSON array on Render)",
     )
 
@@ -33,19 +49,22 @@ class Settings(BaseSettings):
 
     # ── AI Providers ─────────────────────────────────────────
     # Default (powerful) provider — problem generation
-    default_ai_provider: Literal["openai", "anthropic", "gemini"] = "openai"
+    default_ai_provider: Literal["openai", "anthropic", "gemini", "mistral"] = "openai"
     openai_api_key: str = ""
     openai_model: str = ""
     anthropic_api_key: str = ""
     anthropic_model: str = ""
     google_api_key: str = ""
     gemini_model: str = ""
+    mistral_api_key: str = ""
+    mistral_model: str = "mistral-large-latest"
 
     # Fast (lightweight) provider — hints, validation
-    fast_ai_provider: Literal["openai", "anthropic", "gemini"] = "openai"
+    fast_ai_provider: Literal["openai", "anthropic", "gemini", "mistral"] = "openai"
     fast_openai_model: str = ""
     fast_anthropic_model: str = ""
     fast_gemini_model: str = ""
+    fast_mistral_model: str = "mistral-small-latest"
 
     # ── Mastery ──────────────────────────────────────────────
     mastery_window: int = 5

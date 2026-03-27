@@ -10,10 +10,11 @@ Generation rules:
 Business logic lives in ProblemDeliveryService.
 """
 
-from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query, status
+from fastapi import APIRouter, BackgroundTasks, Depends, Query, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.config import get_settings
+from app.api.v1.authz import AuthContext, get_auth_context, require_self
+from app.api.v1.router_utils import map_unexpected_errors
 from app.core.logging import get_logger
 from app.domain.schemas.tutor import GenerateProblemRequest, ProblemDeliveryResponse, ProblemOutput
 from app.infrastructure.database.connection import get_db
@@ -21,7 +22,7 @@ from app.services.ai.problem_generation.service import (
     ProblemGenerationService,
     get_problem_generation_service,
 )
-from app.services.problem_delivery_service import ProblemDeliveryService
+from app.services.problem_delivery import ProblemDeliveryService
 
 logger = get_logger(__name__)
 router = APIRouter()
@@ -35,6 +36,12 @@ def _delivery(
 
 
 @router.get("/worked-example", response_model=ProblemOutput)
+@map_unexpected_errors(
+    logger=logger,
+    event="worked_example_failed",
+    status_code=status.HTTP_502_BAD_GATEWAY,
+    detail="Failed to generate worked example. Please try again.",
+)
 async def get_worked_example(
     background_tasks: BackgroundTasks,
     unit_id: str = Query(...),
@@ -45,21 +52,21 @@ async def get_worked_example(
     Level 1 fully worked example for the lesson side panel.
     Cache-first; generates and caches on miss.
     """
-    try:
-        return await service.deliver_worked_example(unit_id, lesson_index, background_tasks)
-    except Exception as exc:
-        logger.error("worked_example_failed", error=str(exc))
-        raise HTTPException(
-            status_code=status.HTTP_502_BAD_GATEWAY,
-            detail="Failed to generate worked example. Please try again.",
-        )
+    return await service.deliver_worked_example(unit_id, lesson_index, background_tasks)
 
 
 @router.post("/generate", response_model=ProblemDeliveryResponse)
+@map_unexpected_errors(
+    logger=logger,
+    event="problem_generation_failed",
+    status_code=status.HTTP_502_BAD_GATEWAY,
+    detail="Failed to generate problem. Please try again.",
+)
 async def generate_problem(
     req: GenerateProblemRequest,
     background_tasks: BackgroundTasks,
     service: ProblemDeliveryService = Depends(_delivery),
+    auth: AuthContext = Depends(get_auth_context),
 ) -> ProblemDeliveryResponse:
     """
     Deliver a problem at the requested level.
@@ -68,17 +75,7 @@ async def generate_problem(
     returns navigation metadata.
     When user_id is absent: anonymous / preview mode, no tracking.
     """
-    try:
-        return await service.deliver(req, background_tasks)
-    except Exception as exc:
-        import traceback
-        logger.error(
-            "problem_generation_failed",
-            error=str(exc),
-            traceback=traceback.format_exc(),
-        )
-        detail = "Failed to generate problem. Please try again."
-        if get_settings().environment == "development":
-            detail += f" Backend: {type(exc).__name__}: {str(exc)[:200]}"
-        raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail=detail)
+    if req.user_id is not None:
+        require_self(req.user_id, auth)
+    return await service.deliver(req, background_tasks)
 
