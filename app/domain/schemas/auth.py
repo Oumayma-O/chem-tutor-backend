@@ -1,11 +1,12 @@
 """Auth schemas — register, login, token, current user."""
 
 from typing import Optional
-from pydantic import BaseModel, EmailStr, field_validator
+
+from pydantic import BaseModel, EmailStr, Field, field_validator
 
 
 class RegisterRequest(BaseModel):
-    email: str
+    email: EmailStr
     password: str
     role: str  # "student" | "teacher"
     name: str
@@ -31,7 +32,7 @@ class RegisterRequest(BaseModel):
 
 
 class LoginRequest(BaseModel):
-    email: str
+    email: EmailStr
     password: str
 
 
@@ -58,6 +59,6 @@ class MeResponse(BaseModel):
     grade_level: Optional[str] = None
     grade: Optional[str] = None
     course: Optional[str] = None
-    interests: list[str] = []
+    interests: list[str] = Field(default_factory=list)
     classroom_name: Optional[str] = None
     classroom_code: Optional[str] = None

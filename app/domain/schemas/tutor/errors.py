@@ -46,5 +46,5 @@ class ClassifyErrorsRequest(BaseModel):
 
 class ErrorClassificationOutput(BaseModel):
     errors: list[StepError]
-    insight: str
+    insight: str = ""
     safety_flag: bool = False

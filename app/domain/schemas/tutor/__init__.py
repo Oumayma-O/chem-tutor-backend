@@ -20,12 +20,17 @@ from app.domain.schemas.tutor.hints import GenerateHintRequest, HintOutput
 from app.domain.schemas.tutor.insights import ClassInsightsOutput, GenerateInsightsRequest
 from app.domain.schemas.tutor.problems import (
     GenerateProblemRequest,
+    InputField,
     LabeledValue,
     ProblemDeliveryResponse,
     ProblemOutput,
     ProblemStep,
 )
-from app.domain.schemas.tutor.validation import ValidateAnswerRequest, ValidationOutput
+from app.domain.schemas.tutor.validation import (
+    LlmEquivalenceJudgment,
+    ValidateAnswerRequest,
+    ValidationOutput,
+)
 
 __all__ = [
     "ClassifyErrorsRequest",
@@ -38,7 +43,9 @@ __all__ = [
     "GenerateInsightsRequest",
     "GenerateProblemRequest",
     "HintOutput",
+    "InputField",
     "LabeledValue",
+    "LlmEquivalenceJudgment",
     "ProblemDeliveryResponse",
     "ProblemOutput",
     "ProblemStep",

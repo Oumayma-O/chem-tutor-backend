@@ -1,6 +1,6 @@
 """Answer validation schemas."""
 
-from pydantic import BaseModel
+from pydantic import AliasChoices, BaseModel, Field, field_validator
 
 
 class ValidateAnswerRequest(BaseModel):
@@ -9,6 +9,7 @@ class ValidateAnswerRequest(BaseModel):
     step_label: str
     step_type: str | None = None
     problem_context: str | None = None
+    step_instruction: str | None = None
 
 
 class ValidationOutput(BaseModel):
@@ -18,3 +19,26 @@ class ValidationOutput(BaseModel):
     correct_value: str | None = None
     unit_correct: bool | None = None
     validation_method: str | None = None
+
+
+class LlmEquivalenceJudgment(BaseModel):
+    """Structured LLM output for Phase 2 (equivalence + short diagnostic feedback)."""
+
+    is_actually_correct: bool
+    feedback: str | None = Field(
+        default=None,
+        validation_alias=AliasChoices("feedback", "hint"),
+    )
+
+    @field_validator("feedback", mode="before")
+    @classmethod
+    def _cap_feedback_words(cls, v: str | None) -> str | None:
+        if v is None:
+            return None
+        t = str(v).strip()
+        if not t:
+            return None
+        words = t.split()
+        if len(words) <= 20:
+            return t
+        return " ".join(words[:20])

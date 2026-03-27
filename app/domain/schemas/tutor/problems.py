@@ -1,17 +1,46 @@
 """Problem generation schemas."""
 
 import uuid
-from typing import Literal
+from typing import Any, Literal
+
 from pydantic import AliasChoices, BaseModel, Field, model_validator
 
 
-class LabeledValue(BaseModel):
+def _coerce_step_dict_wire_input_fields(step: Any) -> Any:
+    """Normalize legacy step keys so only ``input_fields`` remains (API wire format)."""
+    if not isinstance(step, dict):
+        return step
+    out = dict(step)
+    current = out.get("input_fields")
+    alt = out.pop("inputFields", None)
+    legacy = out.pop("labeledValues", None)
+    if current is None:
+        if alt is not None:
+            out["input_fields"] = alt
+        elif legacy is not None:
+            out["input_fields"] = legacy
+    return out
+
+
+def _coerce_problem_output_dict_before(data: Any) -> Any:
+    if not isinstance(data, dict):
+        return data
+    steps = data.get("steps")
+    if not isinstance(steps, list):
+        return data
+    out = dict(data)
+    out["steps"] = [_coerce_step_dict_wire_input_fields(s) for s in steps]
+    return out
+
+
+class InputField(BaseModel):
     """
-    A labeled sub-part of a multi-value step answer.
-    Used by type="variable_id" steps whenever a step's answer has multiple
-    distinct labeled pieces (not limited to identifying 'known' variables).
+    One input field within a multi_input step.
+    `label` is displayed next to the input box; `value` is the correct answer;
+    `unit` is an optional unit suffix.
+    Accepts legacy `variable` key for backward-compat with cached DB data.
     """
-    variable: str
+    label: str = Field(validation_alias=AliasChoices("label", "variable"))
     value: str
     unit: str
 
@@ -22,29 +51,46 @@ class ProblemStep(BaseModel):
     """
     One step in a chemistry problem.
 
+    Naming: ``type`` is the step *widget kind* (how the UI behaves). ``inputFields`` / ``input_fields``
+    is the *payload* for that widget when ``type`` is ``multi_input`` — same idea as ``equationParts``
+    for ``drag_drop`` and ``comparisonParts`` for ``comparison``.
+
     Widget types (chosen based on what the student is doing, not just the level):
       "given"       — read-only teaching step (always shown)
       "interactive" — single micro-input text box
       "drag_drop"   — assemble an equation/formula by arranging parts
-      "variable_id" — student identifies/inputs multiple labeled sub-values
+      "multi_input" — student inputs multiple distinct labeled values (replaces "variable_id")
+      "variable_id" — legacy alias for "multi_input"; accepted for backward compat
       "comparison"  — student compares two things with <, >, or =
     """
     id: str = ""  # LLM often omits; service fills with problem_id + step_number if empty
     step_number: int = Field(validation_alias="stepNumber")
-    type: Literal["given", "interactive", "drag_drop", "variable_id", "comparison"]
+    type: Literal["given", "interactive", "drag_drop", "multi_input", "variable_id", "comparison"]
     label: str
     instruction: str
     explanation: str | None = Field(
         default=None,
         description=(
             "Max 20 words. One-sentence show-your-work trace explaining how correctAnswer was found. "
-            "Displayed in Level 1 (worked example) and on wrong answers in L2/L3."
+            "Generated for ALL steps. Displayed automatically for 'given' steps; used for hint "
+            "generation context on 'interactive' steps."
+        ),
+    )
+    key_rule: str | None = Field(
+        default=None,
+        validation_alias="keyRule",
+        description=(
+            "The single most relevant rule, formula, or principle for this step. "
+            "Used by hint generation — keeps hints focused without requiring full lesson context."
         ),
     )
     skill_used: str | None = Field(default=None, validation_alias="skillUsed")
     correct_answer: str | None = Field(default=None, validation_alias="correctAnswer")
     equation_parts: list[str] | None = Field(default=None, validation_alias="equationParts")
-    labeled_values: list[LabeledValue] | None = Field(default=None, validation_alias="labeledValues")
+    input_fields: list[InputField] | None = Field(
+        default=None,
+        validation_alias=AliasChoices("inputFields", "labeledValues"),
+    )
     comparison_parts: list[str] | None = Field(default=None, validation_alias="comparisonParts")
 
     # No "hint" field: hints are generated on demand via POST /problems/hint.
@@ -56,13 +102,13 @@ class ProblemStep(BaseModel):
         if self.type == "drag_drop":
             if not self.equation_parts:
                 raise ValueError('type="drag_drop" requires non-empty "equationParts".')
-            if self.labeled_values or self.comparison_parts:
-                raise ValueError('type="drag_drop" must not include "labeledValues" or "comparisonParts".')
-        elif self.type == "variable_id":
-            if not self.labeled_values:
-                raise ValueError('type="variable_id" requires non-empty "labeledValues".')
+            if self.input_fields or self.comparison_parts:
+                raise ValueError('type="drag_drop" must not include "inputFields" or "comparisonParts".')
+        elif self.type in ("multi_input", "variable_id"):
+            if not self.input_fields:
+                raise ValueError('type="multi_input" requires non-empty "inputFields".')
             if self.equation_parts or self.comparison_parts:
-                raise ValueError('type="variable_id" must not include "equationParts" or "comparisonParts".')
+                raise ValueError('type="multi_input" must not include "equationParts" or "comparisonParts".')
         elif self.type == "comparison":
             if not self.comparison_parts or len(self.comparison_parts) != 2:
                 raise ValueError('type="comparison" requires exactly 2 items in "comparisonParts".')
@@ -70,8 +116,8 @@ class ProblemStep(BaseModel):
                 raise ValueError('type="comparison": both "comparisonParts" strings must be non-empty.')
             if self.correct_answer not in ("<", ">", "="):
                 raise ValueError('type="comparison" requires "correctAnswer" to be "<", ">", or "=".')
-            if self.equation_parts or self.labeled_values:
-                raise ValueError('type="comparison" must not include "equationParts" or "labeledValues".')
+            if self.equation_parts or self.input_fields:
+                raise ValueError('type="comparison" must not include "equationParts" or "inputFields".')
         return self
 
 
@@ -90,6 +136,16 @@ class ProblemOutput(BaseModel):
     steps: list[ProblemStep] = Field(min_length=3, max_length=6)
 
     model_config = {"populate_by_name": True}
+
+    @model_validator(mode="before")
+    @classmethod
+    def _wire_normalize_step_input_fields(cls, data: Any) -> Any:
+        """Accept legacy ``inputFields`` / ``labeledValues``; strip them before model fields run."""
+        return _coerce_problem_output_dict_before(data)
+
+
+# Backward-compatible schema alias for legacy imports.
+LabeledValue = InputField
 
 
 class GenerateProblemRequest(BaseModel):

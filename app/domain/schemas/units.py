@@ -6,7 +6,10 @@ from pydantic import BaseModel, Field
 class StandardOut(BaseModel):
     code: str
     framework: str
+    title: str | None = None
     description: str | None = None
+    category: str | None = None
+    is_core: bool = True
 
 
 class LessonOut(BaseModel):
