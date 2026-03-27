@@ -338,6 +338,16 @@ class MasteryService:
         )
         return l2, l3
 
+    async def get_in_progress_attempt(
+        self,
+        user_id: uuid.UUID,
+        unit_id: str,
+        lesson_index: int,
+        level: int,
+    ):
+        """Return the latest incomplete attempt for a lesson/level slot, or None."""
+        return await self._attempts.get_in_progress(user_id, unit_id, lesson_index, level)
+
     async def is_at_risk(self, user_id: uuid.UUID, unit_id: str) -> bool:
         """Returns True if the student is struggling across the unit."""
         records = await self._mastery.get_all_for_user(user_id)

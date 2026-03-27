@@ -24,7 +24,12 @@ reasoningPattern for thinkingEntries:
   Procedural | Conceptual | Units | Arithmetic | Substitution | Symbolic
 
 Intervention types:
-  worked_example | faded_example | full_problem | micro_hint | concept_refresher | arithmetic_drill | unit_drill"""
+  worked_example | faded_example | full_problem | micro_hint | concept_refresher | arithmetic_drill | unit_drill
+
+Structured output must always include:
+- errors: one entry per incorrect step (step_id, error_category, description, severity, …).
+- insight: one concise sentence (≤25 words) tying the mistakes together; required when errors is non-empty.
+- safety_flag: false unless the transcript is unsafe."""
 
 GENERATE_CLASS_INSIGHTS_SYSTEM = """You are an educational data analyst.
 Given aggregated class misconception and error data, produce 3-5 actionable,

@@ -1,25 +1,17 @@
 """ExitTicketService — end-of-session comprehension check generator."""
 
-from tenacity import retry, retry_if_exception_type, stop_after_attempt, wait_exponential
-
 from app.core.logging import get_logger
 from app.domain.schemas.tutor import ExitTicketOutput
-from app.services.ai.llm import generate_structured
 from app.services.ai.exit_ticket import prompts
-from app.services.ai.lesson_guidance import build_lesson_guidance_block
+from app.services.ai.shared.lesson_guidance import build_lesson_guidance_block
+from app.services.ai.shared.llm import generate_structured
+from app.services.ai.shared.retries import llm_retry
 
 logger = get_logger(__name__)
 
-_retry = retry(
-    retry=retry_if_exception_type((TimeoutError, ConnectionError, Exception)),
-    stop=stop_after_attempt(3),
-    wait=wait_exponential(multiplier=1, min=1, max=10),
-    reraise=True,
-)
-
 
 class ExitTicketService:
-    @_retry
+    @llm_retry
     async def generate(
         self,
         lesson_name: str,

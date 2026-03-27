@@ -27,6 +27,7 @@ def get_llm(fast: bool = False, temperature: float = 0.3) -> BaseChatModel:
         "openai":    s.fast_openai_model    if fast else s.openai_model,
         "anthropic": s.fast_anthropic_model if fast else s.anthropic_model,
         "gemini":    s.fast_gemini_model    if fast else s.gemini_model,
+        "mistral":   s.fast_mistral_model   if fast else s.mistral_model,
     }[provider]
 
     if provider == "openai":
@@ -36,6 +37,10 @@ def get_llm(fast: bool = False, temperature: float = 0.3) -> BaseChatModel:
     if provider == "anthropic":
         from langchain_anthropic import ChatAnthropic
         return ChatAnthropic(model=model, api_key=s.anthropic_api_key, temperature=temperature)
+
+    if provider == "mistral":
+        from langchain_mistralai import ChatMistralAI
+        return ChatMistralAI(model=model, api_key=s.mistral_api_key, temperature=temperature)
 
     from langchain_google_genai import ChatGoogleGenerativeAI
     return ChatGoogleGenerativeAI(model=model, google_api_key=s.google_api_key, temperature=temperature)

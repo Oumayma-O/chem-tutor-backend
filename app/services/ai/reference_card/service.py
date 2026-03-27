@@ -12,7 +12,7 @@ Retries up to MAX_ATTEMPTS times if validation fails.
 
 from app.core.logging import get_logger
 from app.domain.schemas.tutor.problems import ReferenceCardOutput
-from app.services.ai.llm import generate_structured
+from app.services.ai.shared.llm import generate_structured
 from app.services.ai.reference_card.prompts import build_reference_card_system
 from app.utils.markdown_sanitizer import normalize_strings, validate_math_strings
 

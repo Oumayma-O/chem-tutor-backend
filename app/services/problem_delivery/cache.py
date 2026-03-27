@@ -16,14 +16,12 @@ from datetime import datetime, timedelta
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.config import get_settings
 from app.core.logging import get_logger
 from app.domain.schemas.tutor import ProblemOutput
 from app.infrastructure.database.repositories.problem_cache_repo import ProblemCacheRepository
 from app.utils.markdown_sanitizer import normalize_strings
 
 logger = get_logger(__name__)
-settings = get_settings()
 
 # Minimum cached worked examples per (unit, lesson, difficulty, context_tag) slot
 CACHE_MIN_PER_SLOT = 3
@@ -113,7 +111,7 @@ class ProblemCacheService:
             difficulty=problem.difficulty,
             level=level,
             context_tag=problem.context_tag,
-            problem_data=problem.model_dump(by_alias=True),
+            problem_data=problem.model_dump(mode="json", by_alias=False),
             expires_at=expires_at,
         )
         logger.info(
@@ -147,7 +145,3 @@ class ProblemCacheService:
             context_tag=context_tag,
         )
         return count < CACHE_MIN_PER_SLOT
-
-
-def get_problem_cache_service(db: AsyncSession) -> ProblemCacheService:
-    return ProblemCacheService(db)

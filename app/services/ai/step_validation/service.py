@@ -1,25 +1,47 @@
 """
-StepValidationService — fast-first validation pipeline.
+StepValidationService — hybrid validation pipeline.
 
-Pipeline: string normalise → numeric eval → unit check → LLM fallback.
+Phase 1: fast local checks (numeric tolerance or normalised string equality).
+Phase 2: if Phase 1 is not confidently correct, call a fast LLM for equivalence + short hint.
 """
-
-from tenacity import retry, retry_if_exception_type, stop_after_attempt, wait_exponential
 
 from app.core.logging import get_logger
 from app.domain.schemas.tutor import ValidationOutput
-from app.services.ai.llm import generate_structured
-from app.services.ai.step_validation import prompts
-from app.utils.math_eval import extract_unit, numeric_equivalent, unit_equivalent
+from app.services.ai.step_validation.checkers import check_multi_input, check_string
+from app.services.ai.step_validation.completeness import (
+    first_missing_segment_message,
+    partial_multisegment_feedback,
+    prefer_partial_multisegment_feedback,
+)
+from app.services.ai.step_validation.llm_equivalence import llm_equivalence_verify
+from app.services.ai.step_validation.local_hybrid import run_phase1_local
+from app.utils.math_eval import extract_unit, unit_equivalent
 
 logger = get_logger(__name__)
 
-_retry = retry(
-    retry=retry_if_exception_type((TimeoutError, ConnectionError, Exception)),
-    stop=stop_after_attempt(3),
-    wait=wait_exponential(multiplier=1, min=1, max=10),
-    reraise=True,
-)
+
+def _apply_hard_requirements(
+    out: ValidationOutput,
+    student_answer: str,
+    correct_answer: str,
+) -> ValidationOutput:
+    """Multi-segment canonical answers and units cannot be waived by local shortcuts or the LLM."""
+    if not out.is_correct:
+        return out
+    if msg := first_missing_segment_message(student_answer, correct_answer):
+        return ValidationOutput(
+            is_correct=False,
+            feedback=msg,
+            validation_method="local_incomplete_segments",
+        )
+    if extract_unit(correct_answer) and not unit_equivalent(student_answer, correct_answer):
+        return ValidationOutput(
+            is_correct=False,
+            feedback="Include the unit that goes with your value.",
+            unit_correct=False,
+            validation_method="local_unit_required",
+        )
+    return out
 
 
 class StepValidationService:
@@ -30,6 +52,7 @@ class StepValidationService:
         step_label: str,
         step_type: str | None = "interactive",
         problem_context: str | None = "",
+        step_instruction: str | None = None,
     ) -> ValidationOutput:
         student_answer = (student_answer or "").strip()
         correct_answer = (correct_answer or "").strip()
@@ -38,102 +61,49 @@ class StepValidationService:
             return ValidationOutput(is_correct=False, feedback="Please enter an answer.", validation_method="local_empty")
 
         if step_type == "drag_drop":
-            return _check_string(student_answer, correct_answer, "drag_drop")
+            return check_string(student_answer, correct_answer, "drag_drop")
 
-        if step_type == "variable_id":
-            return _check_variable_id(student_answer, correct_answer)
+        if step_type in {"multi_input", "variable_id"}:
+            return check_multi_input(student_answer, correct_answer)
 
-        # Final "Answer" / "Final Answer" steps: strict 1% tolerance + unit check.
-        # All intermediate steps: looser 5% tolerance, no unit penalty
-        # (students often omit units mid-calculation and that's fine).
+        if msg := partial_multisegment_feedback(student_answer, correct_answer):
+            return ValidationOutput(
+                is_correct=False,
+                feedback=msg,
+                validation_method="local_incomplete_segments",
+            )
+
         is_final_step = "answer" in step_label.strip().lower()
-        rtol = 0.01 if is_final_step else 0.05
-        numeric_result = numeric_equivalent(student_answer, correct_answer, rtol=rtol)
+        # Intermediate steps: ~2% relative tolerance; final numeric steps: 1%.
+        rtol = 0.01 if is_final_step else 0.02
 
-        if numeric_result is True:
-            if not is_final_step or unit_equivalent(student_answer, correct_answer):
-                return ValidationOutput(
-                    is_correct=True,
-                    student_value=_try_float(student_answer),
-                    correct_value=_try_float(correct_answer),
-                    unit_correct=True,
-                    validation_method="local_numeric",
-                )
-            su = extract_unit(student_answer)
-            return ValidationOutput(
-                is_correct=False,
-                feedback=f"Number is correct but check your units — you wrote '{su or '(none)'}'.",
-                student_value=_try_float(student_answer),
-                correct_value=_try_float(correct_answer),
-                unit_correct=False,
-                validation_method="local_numeric_unit_fail",
-            )
-
-        if numeric_result is False:
-            return ValidationOutput(
-                is_correct=False,
-                student_value=_try_float(student_answer),
-                correct_value=_try_float(correct_answer),
-                validation_method="local_numeric",
-            )
+        phase1 = run_phase1_local(
+            student_answer,
+            correct_answer,
+            rtol=rtol,
+        )
+        if phase1.immediate_return and phase1.output is not None:
+            out = prefer_partial_multisegment_feedback(phase1.output, student_answer, correct_answer)
+            return _apply_hard_requirements(out, student_answer, correct_answer)
 
         try:
-            return await self._llm_validate(student_answer, correct_answer, step_label, problem_context or "")
-        except Exception as exc:
-            logger.warning("llm_validate_failed_fallback", error=str(exc))
-            return _check_string(student_answer, correct_answer, "string_fallback")
-
-    @_retry
-    async def _llm_validate(
-        self, student_answer: str, correct_answer: str, step_label: str, problem_context: str
-    ) -> ValidationOutput:
-        messages = [
-            {"role": "system", "content": prompts.VALIDATE_ANSWER_SYSTEM.format(
-                step_label=step_label, problem_context=problem_context
-            )},
-            {"role": "user", "content": f'Student: "{student_answer}"\nCorrect: "{correct_answer}"\nAre these equivalent?'},
-        ]
-        out: ValidationOutput | None = await generate_structured(messages, ValidationOutput, temperature=0.0, fast=True)
-        if out is None:
-            raise ValueError("LLM returned no structured output for validation")
-        out.validation_method = "llm"
-        return out
-
-
-def _normalise(s: str) -> str:
-    return s.strip().lower().replace(" ", "").replace("×", "*").replace("·", "*").replace("−", "-").replace("–", "-")
-
-
-def _check_string(student: str, correct: str, method: str) -> ValidationOutput:
-    return ValidationOutput(is_correct=_normalise(student) == _normalise(correct), validation_method=method)
-
-
-def _check_variable_id(student: str, correct: str) -> ValidationOutput:
-    def parse_pairs(s: str) -> dict[str, str]:
-        return {k.lower(): v.lower() for part in s.replace(" ", "").split(",") if "=" in part for k, _, v in [part.partition("=")]}
-
-    s_pairs, c_pairs = parse_pairs(student), parse_pairs(correct)
-    if not s_pairs or not c_pairs:
-        return _check_string(student, correct, "variable_id_fallback")
-
-    for var, cval in c_pairs.items():
-        sval = s_pairs.get(var)
-        if sval is None:
-            return ValidationOutput(is_correct=False, feedback=f"Variable '{var}' is missing.", validation_method="variable_id")
-        if numeric_equivalent(sval, cval) is False:
-            return ValidationOutput(is_correct=False, feedback=f"Check the value for '{var}'.", validation_method="variable_id")
-        if not unit_equivalent(sval, cval):
-            return ValidationOutput(is_correct=False, feedback=f"Check the unit for '{var}'.", unit_correct=False, validation_method="variable_id")
-
-    return ValidationOutput(is_correct=True, validation_method="variable_id")
-
-
-def _try_float(s: str) -> str | None:
-    """Parse numeric string; return as str (matches ValidationOutput.student_value type)."""
-    try:
-        return str(float(s.strip()))
-    except ValueError:
-        return None
+            out = await llm_equivalence_verify(
+                student_answer,
+                correct_answer,
+                step_label=step_label,
+                step_instruction=step_instruction or "",
+                problem_context=problem_context or "",
+            )
+            out = prefer_partial_multisegment_feedback(out, student_answer, correct_answer)
+            return _apply_hard_requirements(out, student_answer, correct_answer)
+        except (TimeoutError, ConnectionError, ValueError) as exc:
+            logger.warning("llm_equivalence_fallback", error=str(exc))
+            out = prefer_partial_multisegment_feedback(
+                check_string(student_answer, correct_answer, "string_fallback"),
+                student_answer,
+                correct_answer,
+            )
+            return _apply_hard_requirements(out, student_answer, correct_answer)
 
 
 def get_step_validation_service() -> StepValidationService:

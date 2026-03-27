@@ -65,7 +65,7 @@ NOTATION:
   WRONG:   "$1s^2$ $2s^2$ $2p^6$" — fragmented per subshell, breaks rendering
   WRONG:   "1s^{{2}} 2s^{{2}} 2p^{{6}}" — bare text without delimiters
 
-BANNED CALCULATOR SYNTAX (any formula the student READS — statement, instruction, explanation, labeledValues value/unit):
+BANNED CALCULATOR SYNTAX (any formula the student READS — statement, instruction, explanation, inputFields value/unit):
 - NEVER plain-text math: ASCII * for multiply, ln( ) without $...$, or scientific "e" notation (8.10e-3, 1.2E+5).
   WRONG: Ea = 8.314 * ln(8.10e-3/1.20e-3) / (1/298.15 - 1/318.15)  ← renders as ugly monospace, not KaTeX.
 - Use $...$ with $\\\\times$, $10^{{-3}}$, and $\\\\ln(...)$ (or $\\\\ln\\\\left(...\\\\right)$ for clarity).

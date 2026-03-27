@@ -16,4 +16,6 @@ def build_lesson_guidance_block(lesson_context: dict | None) -> str:
         lines.append(f"KEY RULES: {'; '.join(key_rules)}")
     if misconceptions := lesson_context.get("misconceptions"):
         lines.append(f"COMMON MISCONCEPTIONS TO AVOID: {'; '.join(misconceptions)}")
+    if standards := lesson_context.get("standards"):
+        lines.append(f"ALIGNED STANDARDS: {'; '.join(standards)}")
     return "\n".join(lines)

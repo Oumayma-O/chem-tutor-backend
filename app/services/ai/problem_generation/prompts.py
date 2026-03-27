@@ -32,9 +32,11 @@ def _format_one_example(example: dict, index: int) -> str:
         explanation = s.get("explanation", "")
         if s.get("equationParts"):
             answer = " | ".join(s["equationParts"])
-        elif s.get("labeledValues"):
+        elif s.get("inputFields") or s.get("labeledValues"):
+            fields = s.get("inputFields") or s.get("labeledValues")
             answer = "; ".join(
-                f'{v["variable"]}={v["value"]} {v["unit"]}' for v in s["labeledValues"]
+                f'{v.get("label") or v.get("variable")}={v.get("value", "")} {v.get("unit", "")}'
+                for v in fields
             )
         elif s.get("comparisonParts"):
             answer = f'{s["comparisonParts"][0]} {s.get("correctAnswer", "?")} {s["comparisonParts"][1]}'
@@ -82,20 +84,21 @@ Current Mode: LEVEL {level} ({'WORKED' if level == 1 else 'FADED' if level == 2 
 ### STEP TYPES & WIDGET SELECTION ###
 You MUST choose the `type` for each step based on what the student is doing:
 
-1. type="variable_id"
+1. type="multi_input"
    - WHEN: A step requires identifying or entering MULTIPLE labeled values
      (e.g. extracting several Knowns, two abundances, multiple masses).
-   - Populate "labeledValues" (array of {{variable, value, unit}}). Leave "correctAnswer" null.
-   - "variable" MUST be a plain readable label (no $ or LaTeX) — the UI renders it at normal size.
+   - Populate "inputFields" (array of {{label, value, unit}}). Leave "correctAnswer" null.
+   - "label" MUST be a plain readable label (no $ or LaTeX) — the UI renders it at normal size.
      "value" and "unit" may contain math wrapped in $...$:
      CORRECT: variable="Initial Concentration", value="$0.80$", unit="M"
      CORRECT: variable="Formula", value="$\\mathrm{{C_6H_{{12}}O_6}}$", unit=""
      WRONG:   variable="$[A]_0$" (LaTeX in variable causes oversized KaTeX rendering)
      WRONG:   variable="[A]0", value="\\mathrm{{C_6H_{{12}}O_6}}" (bare LaTeX without $)
-   - In Level 2, if a variable_id step falls in position 1 or 2 (i.e., it is "given"),
-     set type="given" AND still populate "labeledValues". The UI displays labeled values for "given"
-     steps too. NEVER collapse multiple labeled values into a comma-separated "correctAnswer" string
-     (e.g. WRONG: correctAnswer="32.00, 2.02"; CORRECT: labeledValues with variable/value/unit per item).
+   - In Level 2, if a multi_input step falls in position 1 or 2 (i.e., it is "given"),
+     set type="given" AND still populate "inputFields". The UI displays these fields for "given"
+     steps too. NEVER collapse multiple inputs into a comma-separated or semicolon-separated "correctAnswer" string
+     (e.g. WRONG: correctAnswer="32.00, 2.02"; CORRECT: inputFields with label/value/unit per item).
+   - When a step asks for multiple distinct answers (e.g., "rate law AND overall order"), you MUST use type="multi_input".
 
 2. type="comparison"
    - WHEN: A step asks the student to MATHEMATICALLY compare two numeric quantities or expressions
@@ -125,7 +128,7 @@ You MUST choose the `type` for each step based on what the student is doing:
      * Level 1: ALL standard steps → "given".
      * Level 2: Step 1 and 2 → "given". Remaining → "interactive".
      * Level 3: ALL standard steps → "interactive".
-   - If the step is given or interactive but no special type (drag and drop or comparison or labeledValues) → Must include a brief "correctAnswer" (number, symbol, or short word).
+   - If the step is given or interactive but no special type (drag and drop or comparison or inputFields) → Must include a brief "correctAnswer" (number, symbol, or short word).
 """
 
 
@@ -157,7 +160,7 @@ For each step, set "label" to exactly ONE of the blueprint labels above, in orde
    CORRECT: $\\mathrm{{HCl}}$ and $\\mathrm{{NaOH}}$ mixture | water and calorimeter
    WRONG: $\\mathrm{{HCl}} + \\mathrm{{NaOH}} \\text{{ mixture}}$ or $\\text{{water + calorimeter}}$
    If a value is purely an English phrase (e.g. "water", "beaker and room air"), do NOT wrap it in LaTeX.
-4. labeledValues: "variable" = plain string (e.g. "System", "Surroundings"). "value" = mix only when needed: "$\\mathrm{{X}}$ in water" not "$\\mathrm{{X}} \\text{{ in water}}$".
+4. inputFields: "label" = plain string (e.g. "System", "Surroundings"). "value" = mix only when needed: "$\\mathrm{{X}}$ in water" not "$\\mathrm{{X}} \\text{{ in water}}$".
 5. Statement paragraphs: Separate with \\n\\n. NEVER one block.
 6. Isotopes: $^{{32}}_{{16}}\\mathrm{{S}}^{{2-}}$. Scientific notation: ALWAYS $6.022 \\times 10^{{23}}$ (never "e" or "E" notation in statement, instruction, or explanation).
    Substitute / equation lines: NEVER dump calculator text ($*$ , 8.10e-3, bare ln()). Put the full substituted expression in ONE $...$ using $\\\\times$, $10^{{-n}}$, $\\\\ln(...)$, and subscripts ($E_a$ not Ea).
@@ -177,7 +180,7 @@ You are generating interactive steps for a compact student UI. Each step has THR
 2. "correctAnswer" (MICRO-INPUT ONLY): Brief single-value student input.
    - Valid: "63.62", "Cu", "4Al + 3O2 -> 2Al2O3", "<", "O2"
    - NEVER put explanations or sentences here.
-   - If type="variable_id" or "drag_drop" → "correctAnswer" MUST be null.
+   - If type="multi_input" or "drag_drop" → "correctAnswer" MUST be null.
    - If type="comparison" → "correctAnswer" MUST be exactly "<", ">", or "=".
    - Calculation setup steps (e.g. "Dimensional Setup"): correctAnswer MUST use plain keyboard math
      only — no LaTeX, no fractions, no \\text{{}} inside the answer box.
@@ -201,6 +204,10 @@ CONSTRAINTS:
 - Statement: embed all numeric values with symbols and units in the narrative.
 - Statement paragraphs: ALWAYS use \\n\\n to separate logical sections. NEVER write the statement as one block.
   Structure → ¶1: scenario/context. ¶2: given data/constants. ¶3: the question.
+- Statement field format: MUST be plain prose with inline $...$ for math. NEVER wrap the entire statement in one $...$  block — \\n\\n inside $...$ breaks KaTeX rendering.
+  WRONG: "$A \\\\text{{ sample of copper...}}\\n\\n\\\\text{{ What is the mass?}}$"
+  CORRECT: "A sample of $^{{63}}\\\\mathrm{{Cu}}$ has an isotopic mass of $62.93 \\\\text{{ amu}}$.\\n\\nWhat is the average atomic mass?"
+  Rule: English words stay OUTSIDE $...$. Only symbols, numbers, formulas, and units go INSIDE $...$.
 - NO IMAGES/GRAPHS: Do NOT reference visual graphs, charts, spectral diagrams, or mass spectra images.
   All data must be provided as text/numbers within the statement. The UI cannot render images.
 - Sig figs must be handled correctly in the final step answer.
@@ -214,3 +221,52 @@ CONSTRAINTS:
 
 Unit: {unit_id}"""
 )
+
+
+# ── Prompt assembly ──────────────────────────────────────────────────────────
+
+from app.services.ai.shared.lesson_guidance import build_lesson_guidance_block  # noqa: E402
+
+
+def build_system_prompt(
+    *,
+    resolved_blueprint: str,
+    lesson_name: str,
+    unit_id: str,
+    level: int,
+    difficulty: str,
+    step_count: int,
+    interests: list[str] | None,
+    grade_level: str | None,
+    focus_areas: list[str] | None,
+    problem_style: str | None,
+    lesson_context: dict | None,
+    db_examples: list[dict],
+) -> str:
+    config = BLUEPRINT_CONFIG.get(resolved_blueprint, BLUEPRINT_CONFIG["solver"])
+    labels_block = " | ".join(config["labels"])
+    blueprint_logic = config["logic"]
+    interest_slug = (interests[0] if interests else "general chemistry").strip() or "general chemistry"
+    skill_list = collect_skills_from_lesson_objectives(lesson_context, resolved_blueprint)
+
+    return GENERATE_PROBLEM_SYSTEM.format(
+        blueprint=resolved_blueprint,
+        labels_block=labels_block,
+        blueprint_logic=blueprint_logic,
+        level_block=get_level_block(level, step_count),
+        step_count=step_count,
+        interest_slug=interest_slug,
+        difficulty=difficulty,
+        lesson_name=lesson_name,
+        unit_id=unit_id,
+        focus_areas_block=f"FOCUS AREAS: {', '.join(focus_areas)}" if focus_areas else "",
+        problem_style_block=f"PROBLEM STYLE: {problem_style}" if problem_style else "",
+        interest_block=(
+            f"The student is interested in: {', '.join(interests)}. "
+            f'Set context_tag to "{interests[0]}".' if interests else ""
+        ),
+        grade_block=f"Student grade level: {grade_level}." if grade_level else "",
+        skills_block=build_skills_block(skill_list),
+        lesson_guidance_block=build_lesson_guidance_block(lesson_context),
+    ) + get_few_shot_block(db_examples)
+
