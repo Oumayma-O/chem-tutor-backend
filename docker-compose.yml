@@ -9,6 +9,7 @@ services:
     command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
     volumes:
       - ./app:/app/app          # bind mount — changes sync instantly, no docker compose watch needed
+      - ./scripts:/app/scripts  # bind mount — seed script changes sync without rebuild
     develop:
       watch:
         - action: sync          # sync code → uvicorn --reload picks it up

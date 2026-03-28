@@ -120,7 +120,6 @@ async def seed(session: AsyncSession) -> None:
                 misconceptions=data.get("misconceptions", []),
                 blueprint=data.get("blueprint", "solver"),
                 required_tools=data.get("required_tools", []),
-                unit_id=data["canonical_unit"],
                 lesson_index=data["canonical_index"],
                 extension_of=ext_of,
                 has_simulation=has_sim,
