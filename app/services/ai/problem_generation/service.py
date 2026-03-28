@@ -5,8 +5,9 @@ Problem generation: LLM → validate/sanitize → ProblemOutput.
 - Uses generate_structured from llm.py. No separate provider layer.
 """
 
-import time
 import uuid
+
+from app.services.ai.shared.timing import perf_now, since
 from typing import TYPE_CHECKING, Literal
 
 from app.core.config import get_settings
@@ -95,7 +96,7 @@ class ProblemGenerationService:
 
         last_error: ValueError | None = None
         problem: ProblemOutput | None = None
-        t0 = time.perf_counter()
+        t0 = perf_now()
 
         for attempt in range(MAX_GENERATION_ATTEMPTS):
             raw = await generate_structured(messages, ProblemOutput, temperature=DEFAULT_TEMPERATURE)
@@ -112,7 +113,7 @@ class ProblemGenerationService:
             problem = ProblemOutput.model_validate(problem_dict)
             break
 
-        elapsed_s = round(time.perf_counter() - t0, 3)
+        elapsed_s = since(t0, decimals=3)
         if problem is None:
             raise ValueError(
                 f"Failed to generate valid LaTeX after {MAX_GENERATION_ATTEMPTS} attempts. Last error: {last_error!s}"

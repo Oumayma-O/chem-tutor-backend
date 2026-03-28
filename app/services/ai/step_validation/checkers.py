@@ -1,22 +1,8 @@
 """Local (non-LLM) answer comparison helpers."""
 
 from app.domain.schemas.tutor import ValidationOutput
+from app.services.ai.step_validation._text_norm import normalise
 from app.utils.math_eval import numeric_equivalent, unit_equivalent
-
-
-def normalise(s: str) -> str:
-    return (
-        s.strip()
-        .lower()
-        .replace("$", "")       # strip LaTeX math delimiters
-        .replace("{", "")       # strip LaTeX grouping braces (10^{11} → 10^11)
-        .replace("}", "")
-        .replace(" ", "")
-        .replace("×", "*")
-        .replace("·", "*")
-        .replace("−", "-")
-        .replace("–", "-")
-    )
 
 
 def check_string(student: str, correct: str, method: str) -> ValidationOutput:

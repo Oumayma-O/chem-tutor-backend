@@ -5,6 +5,7 @@ from __future__ import annotations
 from app.domain.schemas.tutor import LlmEquivalenceJudgment, ValidationOutput
 from app.services.ai.shared.llm import generate_structured
 from app.services.ai.shared.retries import llm_retry
+from app.services.ai.shared.timing import perf_now, since
 from app.services.ai.step_validation.few_shots import select_examples
 from app.services.ai.step_validation.prompts import EQUIVALENCE_SYSTEM
 
@@ -38,21 +39,25 @@ async def llm_equivalence_verify(
             ),
         },
     ]
+    t0 = perf_now()
     raw: LlmEquivalenceJudgment | None = await generate_structured(
         messages,
         LlmEquivalenceJudgment,
         temperature=0.0,
         fast=True,
     )
+    processing_s = since(t0)
+
     if raw is None:
         raise ValueError("LLM returned no structured output for equivalence verification")
 
     if raw.is_actually_correct:
-        return ValidationOutput(is_correct=True, validation_method="llm_equivalence")
+        return ValidationOutput(is_correct=True, validation_method="llm_equivalence", processing_s=processing_s)
 
     return ValidationOutput(
         is_correct=False,
         feedback=raw.feedback or "Double-check your work and try again.",
         validation_method="llm_equivalence",
+        processing_s=processing_s,
     )
 

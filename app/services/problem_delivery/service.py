@@ -2,10 +2,10 @@
 
 from __future__ import annotations
 
-import time
 import uuid as _uuid
 
 from fastapi import BackgroundTasks
+from app.services.ai.shared.timing import perf_now, since
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.logging import get_logger
@@ -121,7 +121,7 @@ class ProblemDeliveryService:
                     req.lesson_index,
                 )
             blueprint = getattr(lesson_obj, "blueprint", None) or "solver"
-            t0 = time.perf_counter()
+            t0 = perf_now()
             problem = await self._gen.generate(
                 unit_id=req.unit_id,
                 lesson_index=req.lesson_index,
@@ -136,7 +136,7 @@ class ProblemDeliveryService:
                 blueprint=blueprint,
                 db=self._db,
             )
-            elapsed_s = round(time.perf_counter() - t0, 3)
+            elapsed_s = since(t0, decimals=3)
             if exclude and problem.id in exclude:
                 problem.id = f"{problem.id}-{_uuid.uuid4().hex[:8]}"
                 logger.info("problem_id_deduplicated", new_id=problem.id)

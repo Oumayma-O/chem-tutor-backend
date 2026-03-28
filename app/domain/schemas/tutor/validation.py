@@ -19,6 +19,7 @@ class ValidationOutput(BaseModel):
     correct_value: str | None = None
     unit_correct: bool | None = None
     validation_method: str | None = None
+    processing_s: float | None = None  # LLM call duration in seconds (None = resolved locally)
 
 
 class LlmEquivalenceJudgment(BaseModel):

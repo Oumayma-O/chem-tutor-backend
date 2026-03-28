@@ -29,3 +29,4 @@ class GenerateHintRequest(BaseModel):
 class HintOutput(BaseModel):
     hint: str
     hint_level: int = Field(default=1, ge=1, le=3)
+    processing_s: float | None = None  # LLM call duration in seconds

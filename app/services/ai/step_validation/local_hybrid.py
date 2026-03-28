@@ -116,12 +116,15 @@ def run_phase1_local(
         )
 
     if ne is False:
-        # When the correct answer carries a unit, a numeric mismatch may just be a
-        # SI prefix or unit-system difference (e.g. "121 × 10⁻³ kg" == "121 g").
-        # Local arithmetic cannot convert units, so hand off to the LLM.
-        if extract_unit(correct_answer):
+        # If the student and correct answers carry DIFFERENT units, the mismatch may be
+        # a valid SI prefix or unit-system conversion (e.g. "121 × 10⁻³ kg" == "121 g"
+        # or "48800 J/mol" == "48.8 kJ/mol"). Local arithmetic cannot convert units,
+        # so hand off to the LLM only in that case.
+        student_unit = extract_unit(student_answer)
+        correct_unit = extract_unit(correct_answer)
+        if correct_unit and student_unit != correct_unit:
             return Phase1Result(False, None)
-        # No unit involved — deterministic numeric mismatch, no need for LLM.
+        # Same unit (or no unit) — deterministic numeric mismatch, no need for LLM.
         return Phase1Result(
             True,
             ValidationOutput(

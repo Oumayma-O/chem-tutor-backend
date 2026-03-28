@@ -6,6 +6,7 @@ from app.core.logging import get_logger
 from app.domain.schemas.tutor import HintOutput
 from app.services.ai.shared.llm import generate_structured
 from app.services.ai.shared.retries import llm_retry
+from app.services.ai.shared.timing import perf_now, since
 from app.services.ai.hint_generation import prompts
 from app.services.ai.hint_generation.validation_context import (
     resolve_validation_feedback_for_hint,
@@ -98,7 +99,9 @@ class HintGenerationService:
                 ),
             },
         ]
+        t0 = perf_now()
         hint: HintOutput = await generate_structured(messages, HintOutput, temperature=0.5, fast=True)
+        hint.processing_s = since(t0)
         hint.hint = normalize_hint_text(hint.hint)
         hint.hint = _enforce_hint_constraints(hint.hint)
         logger.debug("hint_generated", step=step_label, level=hint_level)

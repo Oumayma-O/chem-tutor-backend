@@ -15,7 +15,7 @@ from app.services.ai.step_validation.completeness import (
 )
 from app.services.ai.step_validation.llm_equivalence import llm_equivalence_verify
 from app.services.ai.step_validation.local_hybrid import run_phase1_local
-from app.utils.math_eval import extract_unit, unit_equivalent
+from app.utils.math_eval import extract_unit
 
 logger = get_logger(__name__)
 
@@ -34,7 +34,12 @@ def _apply_hard_requirements(
             feedback=msg,
             validation_method="local_incomplete_segments",
         )
-    if extract_unit(correct_answer) and not unit_equivalent(student_answer, correct_answer):
+    # Only block when the student omitted a unit entirely.
+    # If they provided a different unit (e.g. kg vs g), the LLM has already
+    # evaluated the conversion — don't override with a hard unit string check.
+    correct_unit = extract_unit(correct_answer)
+    student_unit = extract_unit(student_answer)
+    if correct_unit and not student_unit:
         return ValidationOutput(
             is_correct=False,
             feedback="Include the unit that goes with your value.",
@@ -77,33 +82,35 @@ class StepValidationService:
         # Intermediate steps: ~2% relative tolerance; final numeric steps: 1%.
         rtol = 0.01 if is_final_step else 0.02
 
-        phase1 = run_phase1_local(
-            student_answer,
-            correct_answer,
-            rtol=rtol,
-        )
+        phase1 = run_phase1_local(student_answer, correct_answer, rtol=rtol)
         if phase1.immediate_return and phase1.output is not None:
             out = prefer_partial_multisegment_feedback(phase1.output, student_answer, correct_answer)
             return _apply_hard_requirements(out, student_answer, correct_answer)
 
+        out = await self._run_phase2(student_answer, correct_answer, step_label, step_instruction, problem_context)
+        out = prefer_partial_multisegment_feedback(out, student_answer, correct_answer)
+        return _apply_hard_requirements(out, student_answer, correct_answer)
+
+    async def _run_phase2(
+        self,
+        student_answer: str,
+        correct_answer: str,
+        step_label: str,
+        step_instruction: str | None,
+        problem_context: str | None,
+    ) -> ValidationOutput:
+        """Phase 2: LLM equivalence verification with string-match fallback on error."""
         try:
-            out = await llm_equivalence_verify(
+            return await llm_equivalence_verify(
                 student_answer,
                 correct_answer,
                 step_label=step_label,
                 step_instruction=step_instruction or "",
                 problem_context=problem_context or "",
             )
-            out = prefer_partial_multisegment_feedback(out, student_answer, correct_answer)
-            return _apply_hard_requirements(out, student_answer, correct_answer)
         except (TimeoutError, ConnectionError, ValueError) as exc:
             logger.warning("llm_equivalence_fallback", error=str(exc))
-            out = prefer_partial_multisegment_feedback(
-                check_string(student_answer, correct_answer, "string_fallback"),
-                student_answer,
-                correct_answer,
-            )
-            return _apply_hard_requirements(out, student_answer, correct_answer)
+            return check_string(student_answer, correct_answer, "string_fallback")
 
 
 def get_step_validation_service() -> StepValidationService:

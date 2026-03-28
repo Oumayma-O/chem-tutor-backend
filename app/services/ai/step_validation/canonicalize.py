@@ -4,22 +4,10 @@ from __future__ import annotations
 
 import re
 
+from app.services.ai.step_validation._text_norm import normalise as _norm
+
 _RE_ARROW = re.compile(r"(?:->|→|=>|⟶)")
 _RE_NUM = re.compile(r"^[+\-]?\d+(?:\.\d+)?$")
-
-
-def _norm(s: str) -> str:
-    return (
-        (s or "")
-        .strip()
-        .lower()
-        .replace(" ", "")
-        .replace("×", "*")
-        .replace("·", "*")
-        .replace("−", "-")
-        .replace("–", "-")
-        .replace("**", "^")
-    )
 
 
 def _insert_implicit_mul(s: str) -> str:
