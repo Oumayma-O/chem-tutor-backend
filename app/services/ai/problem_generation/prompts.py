@@ -122,9 +122,15 @@ You MUST choose the `type` for each step based on what the student is doing:
 
 4. type="interactive"
    - WHEN: A standard single-value micro-input step (none of the above apply).
-   - Always use type="interactive" for single-answer steps regardless of level.
-     The server controls which steps are pre-filled (scaffolded) based on level — never set type="given".
+   - Use for single-answer steps: calculations, identifications, final answers.
    - Must include a brief "correctAnswer" (number, symbol, or short word).
+
+### IS_GIVEN (SCAFFOLDING FLAG) — YOU MUST SET THIS ###
+Set "is_given" on every step based on the current level:
+  Level 1 (WORKED): ALL steps → "is_given": true  (student sees full solution)
+  Level 2 (FADED):  Steps 1–2 → "is_given": true; remaining → "is_given": false
+  Level 3 (INDEPENDENT): ALL steps → "is_given": false  (student solves independently)
+DO NOT omit "is_given". The server uses your value directly.
 """
 
 
