@@ -330,14 +330,28 @@ async def _seed_lesson_standards(async_session) -> None:
 
 # ── Few-shot examples ─────────────────────────────────────────────────────────
 
-def _fs_normalize_steps(steps: list[dict]) -> list[dict]:
-    """Normalize curated few-shot steps into API-facing structure, preserving all widget fields."""
+def _fs_normalize_steps(steps: list[dict], level: int) -> list[dict]:
+    """Normalize curated few-shot steps into API-facing structure, preserving all widget fields.
+
+    ``is_given`` is computed from level + step position (same rules as enforce_step_types):
+      level 1 → all steps is_given=True
+      level 2 → steps 0 and 1 is_given=True, rest False
+      level 3 → all steps is_given=False
+    """
     normalized: list[dict] = []
     for i, s in enumerate(steps):
+        if level == 1:
+            is_given = True
+        elif level == 2:
+            is_given = i < 2
+        else:
+            is_given = False
+
         step = {
             "stepNumber": i + 1,
             "label": s["label"],
             "type": s["type"],
+            "is_given": is_given,
             "instruction": s["instruction"],
         }
         if (ca := s.get("correctAnswer")) is not None:
@@ -375,48 +389,53 @@ async def _seed_few_shots(async_session) -> None:
         ))
         await session.commit()
 
-    # ── Insert all examples, assigning variant_index per slot ─────────────────
+    # ── Insert all examples at all 3 levels ───────────────────────────────────
+    # Each problem is stored at levels 1, 2, and 3 so the same worked example
+    # is available regardless of which level the student is on.  enforce_step_types
+    # overwrites is_given at delivery; we still store a self-consistent snapshot.
     # variant_index increments for each additional problem with the same
-    # (unit_id, lesson_index, difficulty, strategy) key so all variants are kept.
+    # (unit_id, lesson_index, difficulty, level, strategy) key.
     variant_counter: dict[tuple, int] = {}
     inserted = 0
 
     async with async_session() as session:
         for unit_id, lesson_index, difficulty, blueprint, ex in FEW_SHOT_DATA:
-            slot_key = (unit_id, lesson_index, difficulty, blueprint)
-            variant_counter[slot_key] = variant_counter.get(slot_key, 0) + 1
-            variant_index = variant_counter[slot_key]
+            for level in (1, 2, 3):
+                slot_key = (unit_id, lesson_index, difficulty, level, blueprint)
+                variant_counter[slot_key] = variant_counter.get(slot_key, 0) + 1
+                variant_index = variant_counter[slot_key]
 
-            normalized_json = {
-                "title": ex["title"],
-                "statement": ex["statement"],
-                "steps": _fs_normalize_steps(ex["steps"]),
-            }
+                normalized_json = {
+                    "title": ex["title"],
+                    "statement": ex["statement"],
+                    "steps": _fs_normalize_steps(ex["steps"], level=level),
+                }
 
-            await session.execute(text("""
-                INSERT INTO few_shot_examples
-                    (unit_id, lesson_index, difficulty, level, strategy,
-                     variant_index, example_json, is_active, promoted, created_at)
-                VALUES
-                    (:unit_id, :lesson_index, :difficulty, 1, :strategy,
-                     :variant_index, cast(:example_json as jsonb), true, false, now())
-                ON CONFLICT (unit_id, lesson_index, difficulty, level, strategy, variant_index)
-                DO UPDATE SET
-                    example_json = EXCLUDED.example_json,
-                    is_active    = EXCLUDED.is_active
-            """).bindparams(
-                unit_id=unit_id,
-                lesson_index=lesson_index,
-                difficulty=difficulty,
-                strategy=blueprint,
-                variant_index=variant_index,
-                example_json=__import__("json").dumps(normalized_json),
-            ))
-            inserted += 1
+                await session.execute(text("""
+                    INSERT INTO few_shot_examples
+                        (unit_id, lesson_index, difficulty, level, strategy,
+                         variant_index, example_json, is_active, promoted, created_at)
+                    VALUES
+                        (:unit_id, :lesson_index, :difficulty, :level, :strategy,
+                         :variant_index, cast(:example_json as jsonb), true, false, now())
+                    ON CONFLICT (unit_id, lesson_index, difficulty, level, strategy, variant_index)
+                    DO UPDATE SET
+                        example_json = EXCLUDED.example_json,
+                        is_active    = EXCLUDED.is_active
+                """).bindparams(
+                    unit_id=unit_id,
+                    lesson_index=lesson_index,
+                    difficulty=difficulty,
+                    level=level,
+                    strategy=blueprint,
+                    variant_index=variant_index,
+                    example_json=__import__("json").dumps(normalized_json),
+                ))
+                inserted += 1
 
         await session.commit()
 
-    print(f"  {inserted} upserted")
+    print(f"  {inserted} upserted (each problem × 3 levels)")
 
 
 async def _seed_reference_cards(async_session) -> None:
