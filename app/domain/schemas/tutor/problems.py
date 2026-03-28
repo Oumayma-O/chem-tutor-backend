@@ -56,24 +56,26 @@ class ProblemStep(BaseModel):
     for ``drag_drop`` and ``comparisonParts`` for ``comparison``.
 
     Widget types (chosen based on what the student is doing, not just the level):
-      "given"       — read-only teaching step (always shown)
       "interactive" — single micro-input text box
       "drag_drop"   — assemble an equation/formula by arranging parts
-      "multi_input" — student inputs multiple distinct labeled values (replaces "variable_id")
-      "variable_id" — legacy alias for "multi_input"; accepted for backward compat
+      "multi_input" — student inputs multiple distinct labeled values
       "comparison"  — student compares two things with <, >, or =
+
+    ``is_given`` is server-computed from level + step position; never set by the LLM or client.
+    When True the step renders as a read-only teaching/scaffolding step.
     """
     id: str = ""  # LLM often omits; service fills with problem_id + step_number if empty
     step_number: int = Field(validation_alias="stepNumber")
-    type: Literal["given", "interactive", "drag_drop", "multi_input", "variable_id", "comparison"]
+    type: Literal["interactive", "drag_drop", "multi_input", "comparison"]
+    is_given: bool = False  # server-computed; never set by LLM or client
     label: str
     instruction: str
     explanation: str | None = Field(
         default=None,
         description=(
             "Max 20 words. One-sentence show-your-work trace explaining how correctAnswer was found. "
-            "Generated for ALL steps. Displayed automatically for 'given' steps; used for hint "
-            "generation context on 'interactive' steps."
+            "Generated for ALL steps. Displayed automatically when is_given=True; used for hint "
+            "generation context on interactive steps."
         ),
     )
     key_rule: str | None = Field(
@@ -104,7 +106,7 @@ class ProblemStep(BaseModel):
                 raise ValueError('type="drag_drop" requires non-empty "equationParts".')
             if self.input_fields or self.comparison_parts:
                 raise ValueError('type="drag_drop" must not include "inputFields" or "comparisonParts".')
-        elif self.type in ("multi_input", "variable_id"):
+        elif self.type == "multi_input":
             if not self.input_fields:
                 raise ValueError('type="multi_input" requires non-empty "inputFields".')
             if self.equation_parts or self.comparison_parts:

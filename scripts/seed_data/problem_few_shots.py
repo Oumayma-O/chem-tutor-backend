@@ -31,7 +31,7 @@ FEW_SHOT_DATA: list[tuple[str, int, str, str, dict]] = [
             "steps": [
                 {
                     "label": "Inventory / Rules",
-                    "type": "given",
+                    "type": "interactive",
                     "instruction": "Write the unbalanced skeleton equation.",
                     "explanation": "Al is aluminum; $\\mathrm{O_2}$ is diatomic oxygen; product is $\\mathrm{Al_2O_3}$.",
                     "correctAnswer": "$\\mathrm{Al} + \\mathrm{O_2} \\rightarrow \\mathrm{Al_2O_3}$",
@@ -39,7 +39,7 @@ FEW_SHOT_DATA: list[tuple[str, int, str, str, dict]] = [
                 },
                 {
                     "label": "Draft",
-                    "type": "given",
+                    "type": "interactive",
                     "instruction": "Find the LCM for oxygen atoms on both sides.",
                     "explanation": "LCM of $2$ ($\\mathrm{O_2}$) and $3$ ($\\mathrm{Al_2O_3}$) is $2 \\times 3 = 6$.",
                     "correctAnswer": "6",
@@ -47,7 +47,7 @@ FEW_SHOT_DATA: list[tuple[str, int, str, str, dict]] = [
                 },
                 {
                     "label": "Refine",
-                    "type": "given",
+                    "type": "interactive",
                     "instruction": "Place coefficients to reach 6 oxygen atoms.",
                     "explanation": "Put $3$ in front of $\\mathrm{O_2}$ and $2$ in front of $\\mathrm{Al_2O_3}$.",
                     "correctAnswer": "$\\mathrm{Al} + 3\\mathrm{O_2} \\rightarrow 2\\mathrm{Al_2O_3}$",
@@ -55,7 +55,7 @@ FEW_SHOT_DATA: list[tuple[str, int, str, str, dict]] = [
                 },
                 {
                     "label": "Final Answer",
-                    "type": "given",
+                    "type": "interactive",
                     "instruction": "Balance aluminum and write the complete equation.",
                     "explanation": "Two $\\mathrm{Al_2O_3}$ molecules require $4$ Al atoms, so place $4$ in front of Al.",
                     "correctAnswer": "$4\\mathrm{Al} + 3\\mathrm{O_2} \\rightarrow 2\\mathrm{Al_2O_3}$",
@@ -80,7 +80,7 @@ FEW_SHOT_DATA: list[tuple[str, int, str, str, dict]] = [
             "steps": [
                 {
                     "label": "Data Extraction",
-                    "type": "given",
+                    "type": "interactive",
                     "instruction": "Identify the mass of the most abundant isotope.",
                     "explanation": "The highest percentage ($69.0\\%$) corresponds to the $63.0 \\text{ amu}$ isotope.",
                     "correctAnswer": "63.0",
@@ -134,7 +134,7 @@ FEW_SHOT_DATA: list[tuple[str, int, str, str, dict]] = [
             "steps": [
                 {
                     "label": "Goal / Setup",
-                    "type": "given",
+                    "type": "interactive",
                     "instruction": "Calculate moles of $\\mathrm{H_2}$ available.",
                     "explanation": "$10.0 \\text{ g} \\div 2.02 \\text{ g/mol} = 4.95 \\text{ mol}$.",
                     "correctAnswer": "4.95",
@@ -142,7 +142,7 @@ FEW_SHOT_DATA: list[tuple[str, int, str, str, dict]] = [
                 },
                 {
                     "label": "Conversion Factors",
-                    "type": "given",
+                    "type": "interactive",
                     "instruction": "Calculate moles of $\\mathrm{O_2}$ available.",
                     "explanation": "$64.0 \\text{ g} \\div 32.00 \\text{ g/mol} = 2.00 \\text{ mol}$.",
                     "correctAnswer": "2.00",
@@ -253,7 +253,7 @@ FEW_SHOT_DATA: list[tuple[str, int, str, str, dict]] = [
             "steps": [
                 {
                     "label": "Goal / Setup",
-                    "type": "given",
+                    "type": "interactive",
                     "instruction": "Identify the starting value and the target unit.",
                     "explanation": "You are converting $0.375 \\text{ mol}$ into grams using the molar mass.",
                     "correctAnswer": "0.375 mol to g",
@@ -261,7 +261,7 @@ FEW_SHOT_DATA: list[tuple[str, int, str, str, dict]] = [
                 },
                 {
                     "label": "Conversion Factors",
-                    "type": "given",
+                    "type": "interactive",
                     "instruction": "Calculate the molar mass of calcium chloride.",
                     "explanation": "$\\mathrm{Ca} + 2(\\mathrm{Cl}) = 40.08 + 2(35.45) = 110.98 \\text{ g/mol}$.",
                     "correctAnswer": "$110.98 \\text{ g/mol}$",
@@ -269,7 +269,7 @@ FEW_SHOT_DATA: list[tuple[str, int, str, str, dict]] = [
                 },
                 {
                     "label": "Dimensional Setup",
-                    "type": "given",
+                    "type": "interactive",
                     "instruction": "Set up the conversion to cancel moles.",
                     "explanation": "Multiply starting moles by molar mass so the $\\text{mol}$ units cancel out.",
                     "correctAnswer": "0.375 * 110.98",
@@ -277,7 +277,7 @@ FEW_SHOT_DATA: list[tuple[str, int, str, str, dict]] = [
                 },
                 {
                     "label": "Calculate",
-                    "type": "given",
+                    "type": "interactive",
                     "instruction": "Calculate the unrounded sample mass.",
                     "explanation": "$0.375 \\times 110.98 = 41.6175$.",
                     "correctAnswer": "41.6175",
@@ -285,7 +285,7 @@ FEW_SHOT_DATA: list[tuple[str, int, str, str, dict]] = [
                 },
                 {
                     "label": "Answer",
-                    "type": "given",
+                    "type": "interactive",
                     "instruction": "Report the final mass with correct significant figures.",
                     "explanation": "Round to $3$ sig figs because $0.375 \\text{ mol}$ has $3$ sig figs.",
                     "correctAnswer": "$41.6 \\text{ g}$",
@@ -310,7 +310,7 @@ FEW_SHOT_DATA: list[tuple[str, int, str, str, dict]] = [
             "steps": [
                 {
                     "label": "Goal / Setup",
-                    "type": "given",
+                    "type": "interactive",
                     "instruction": "Identify the starting value and target unit.",
                     "explanation": "We need to convert the given $2.50 \\text{ mol}$ into grams ($\\text{g}$).",
                     "correctAnswer": "2.50 mol to g",
@@ -318,7 +318,7 @@ FEW_SHOT_DATA: list[tuple[str, int, str, str, dict]] = [
                 },
                 {
                     "label": "Conversion Factors",
-                    "type": "given",
+                    "type": "interactive",
                     "instruction": "Find the molar mass of $\\mathrm{MgCl_2}$.",
                     "explanation": "$\\mathrm{Mg} + 2(\\mathrm{Cl}) = 24.31 + 2(35.45) = 95.21 \\text{ g/mol}$.",
                     "correctAnswer": "$95.21 \\text{ g/mol}$",
@@ -326,7 +326,7 @@ FEW_SHOT_DATA: list[tuple[str, int, str, str, dict]] = [
                 },
                 {
                     "label": "Dimensional Setup",
-                    "type": "given",
+                    "type": "interactive",
                     "instruction": "Set up the math to convert moles to grams.",
                     "explanation": "Multiply the given moles by the molar mass so the units cancel.",
                     "correctAnswer": "2.50 * 95.21",
@@ -334,7 +334,7 @@ FEW_SHOT_DATA: list[tuple[str, int, str, str, dict]] = [
                 },
                 {
                     "label": "Calculate",
-                    "type": "given",
+                    "type": "interactive",
                     "instruction": "Calculate the unrounded mass.",
                     "explanation": "Compute the product: $2.50 \\times 95.21 = 238.025$.",
                     "correctAnswer": "238.025",
@@ -342,7 +342,7 @@ FEW_SHOT_DATA: list[tuple[str, int, str, str, dict]] = [
                 },
                 {
                     "label": "Answer",
-                    "type": "given",
+                    "type": "interactive",
                     "instruction": "Report the final mass with correct significant figures and unit.",
                     "explanation": "Round to $3$ significant figures because the given $2.50 \\text{ mol}$ has $3$ sig figs.",
                     "correctAnswer": "$238 \\text{ g}$",
@@ -367,7 +367,7 @@ FEW_SHOT_DATA: list[tuple[str, int, str, str, dict]] = [
             "steps": [
                 {
                     "label": "Goal / Setup",
-                    "type": "given",
+                    "type": "interactive",
                     "instruction": "Identify the starting value and target unit.",
                     "explanation": "We need to convert the given $2.35 \\text{ mol}$ into grams ($\\text{g}$).",
                     "correctAnswer": "2.35 mol to g",
@@ -375,7 +375,7 @@ FEW_SHOT_DATA: list[tuple[str, int, str, str, dict]] = [
                 },
                 {
                     "label": "Conversion Factors",
-                    "type": "given",
+                    "type": "interactive",
                     "instruction": "Identify the molar mass of copper.",
                     "explanation": "The molar mass is given directly in the problem text as $63.55 \\text{ g/mol}$.",
                     "correctAnswer": "$63.55 \\text{ g/mol}$",
@@ -426,7 +426,7 @@ FEW_SHOT_DATA: list[tuple[str, int, str, str, dict]] = [
             "steps": [
                 {
                     "label": "Concept ID",
-                    "type": "given",
+                    "type": "interactive",
                     "instruction": "Identify the system and the surroundings.",
                     "explanation": "The chemical process of the salt dissolving is the system; the solvent (water) is the surroundings.",
                     "correctAnswer": "System: $\\mathrm{NH_4NO_3}$, Surr: Water",
@@ -434,7 +434,7 @@ FEW_SHOT_DATA: list[tuple[str, int, str, str, dict]] = [
                 },
                 {
                     "label": "Relation",
-                    "type": "given",
+                    "type": "interactive",
                     "instruction": "Determine the direction of heat flow.",
                     "explanation": "Water temperature decreases, so thermal energy leaves the water and enters the dissolving salt.",
                     "correctAnswer": "From water to $\\mathrm{NH_4NO_3}$",
@@ -442,7 +442,7 @@ FEW_SHOT_DATA: list[tuple[str, int, str, str, dict]] = [
                 },
                 {
                     "label": "Evidence / Claim",
-                    "type": "given",
+                    "type": "interactive",
                     "instruction": "Classify the process as endothermic or exothermic.",
                     "explanation": "Processes that absorb heat from their surroundings are classified as endothermic.",
                     "correctAnswer": "Endothermic",
@@ -450,7 +450,7 @@ FEW_SHOT_DATA: list[tuple[str, int, str, str, dict]] = [
                 },
                 {
                     "label": "Conclusion",
-                    "type": "given",
+                    "type": "interactive",
                     "instruction": "Compare $q_{\\text{system}}$ and $q_{\\text{surr}}$.",
                     "explanation": "Conservation of energy: heat gained by the system equals heat lost by the surroundings.",
                     "correctAnswer": "$q_{\\text{system}} = -q_{\\text{surr}}$",
@@ -474,7 +474,7 @@ FEW_SHOT_DATA: list[tuple[str, int, str, str, dict]] = [
             "steps": [
                 {
                     "label": "Concept ID",
-                    "type": "given",
+                    "type": "interactive",
                     "instruction": "Identify the principle governing atomic radius across a period.",
                     "explanation": "Across a period, proton count increases while shielding is constant, raising effective nuclear charge.",
                     "correctAnswer": "Effective Nuclear Charge",
@@ -525,7 +525,7 @@ FEW_SHOT_DATA: list[tuple[str, int, str, str, dict]] = [
             "steps": [
                 {
                     "label": "Concept ID",
-                    "type": "given",
+                    "type": "interactive",
                     "instruction": "Identify the system and surroundings.",
                     "explanation": "The dissolving salt is the system; the solution (water) acts as the surroundings.",
                     "correctAnswer": "System: NH4NO3, Surr: Water",
@@ -533,7 +533,7 @@ FEW_SHOT_DATA: list[tuple[str, int, str, str, dict]] = [
                 },
                 {
                     "label": "Relation",
-                    "type": "given",
+                    "type": "interactive",
                     "instruction": "Compare initial and final temperatures.",
                     "explanation": "Since $19.5^\\circ\\text{C} < 25.0^\\circ\\text{C}$, the surroundings cooled down.",
                     "correctAnswer": "19.5 < 25.0",
@@ -688,7 +688,7 @@ FEW_SHOT_DATA: list[tuple[str, int, str, str, dict]] = [
             "steps": [
                 {
                     "label": "Goal / Setup",
-                    "type": "given",
+                    "type": "interactive",
                     "instruction": "Identify the starting value and target unit.",
                     "explanation": "We need to convert the given mass ($11.1 \\text{ g}$) into particles, called formula units.",
                     "correctAnswer": "11.1 g to formula units",
@@ -696,7 +696,7 @@ FEW_SHOT_DATA: list[tuple[str, int, str, str, dict]] = [
                 },
                 {
                     "label": "Conversion Factors",
-                    "type": "given",
+                    "type": "interactive",
                     "instruction": "Find the molar mass of calcium chloride.",
                     "explanation": "$\\mathrm{Ca} + 2(\\mathrm{Cl}) = 40.08 + 2(35.45) = 110.98 \\text{ g/mol}$.",
                     "correctAnswer": "110.98",
@@ -704,7 +704,7 @@ FEW_SHOT_DATA: list[tuple[str, int, str, str, dict]] = [
                 },
                 {
                     "label": "Dimensional Setup",
-                    "type": "given",
+                    "type": "interactive",
                     "instruction": "Set up the two-step conversion.",
                     "explanation": "Divide by molar mass to get moles, then multiply by Avogadro's number ($6.022 \\times 10^{23}$).",
                     "correctAnswer": "(11.1 / 110.98) × 6.022×10²³",
@@ -712,7 +712,7 @@ FEW_SHOT_DATA: list[tuple[str, int, str, str, dict]] = [
                 },
                 {
                     "label": "Calculate",
-                    "type": "given",
+                    "type": "interactive",
                     "instruction": "Calculate the unrounded number of formula units.",
                     "explanation": "Divide mass by molar mass to get moles, then multiply by Avogadro's number.",
                     "correctAnswer": "6.0238 × 10²²",
@@ -720,7 +720,7 @@ FEW_SHOT_DATA: list[tuple[str, int, str, str, dict]] = [
                 },
                 {
                     "label": "Answer",
-                    "type": "given",
+                    "type": "interactive",
                     "instruction": "Report the final answer in scientific notation.",
                     "explanation": "Round to 3 significant figures because the starting mass ($11.1 \\text{ g}$) has 3 sig figs.",
                     "correctAnswer": "6.02 × 10²²",
@@ -764,7 +764,7 @@ FEW_SHOT_DATA: list[tuple[str, int, str, str, dict]] = [
                 },
                 {
                     "label": "Feature ID",
-                    "type": "given",
+                    "type": "interactive",
                     "instruction": "Identify the order in $\\mathrm{X}$.",
                     "explanation": "From Experiments 1 and 2, doubling $[\\mathrm{X}]$ quadruples the rate, so order is $2$.",
                     "correctAnswer": "2",
@@ -772,7 +772,7 @@ FEW_SHOT_DATA: list[tuple[str, int, str, str, dict]] = [
                 },
                 {
                     "label": "Apply Concept",
-                    "type": "given",
+                    "type": "interactive",
                     "instruction": "Identify the order in $\\mathrm{Y}$.",
                     "explanation": "From Experiments 1 and 3, doubling $[\\mathrm{Y}]$ doubles the rate, so order is $1$.",
                     "correctAnswer": "1",
@@ -880,7 +880,7 @@ FEW_SHOT_DATA: list[tuple[str, int, str, str, dict]] = [
                 },
                 {
                     "label": "Relation",
-                    "type": "given",
+                    "type": "interactive",
                     "instruction": "Name the specific safety equipment required for this exposure.",
                     "explanation": "Chemical contact near or in the eyes requires immediate flushing with a specialized station.",
                     "correctAnswer": "eyewash station",
@@ -933,7 +933,7 @@ FEW_SHOT_DATA: list[tuple[str, int, str, str, dict]] = [
                 },
                 {
                     "label": "Relation",
-                    "type": "given",
+                    "type": "interactive",
                     "instruction": "State the safety rule being violated.",
                     "explanation": "Safety equipment must be worn correctly to provide actual protection.",
                     "correctAnswer": "always wear safety goggles over the eyes",
@@ -941,7 +941,7 @@ FEW_SHOT_DATA: list[tuple[str, int, str, str, dict]] = [
                 },
                 {
                     "label": "Evidence / Claim",
-                    "type": "given",
+                    "type": "interactive",
                     "instruction": "State the risk of this unsafe behavior.",
                     "explanation": "A splash from a corrosive base can cause permanent eye damage if unprotected.",
                     "correctAnswer": "chemical splash to the eyes",
@@ -949,7 +949,7 @@ FEW_SHOT_DATA: list[tuple[str, int, str, str, dict]] = [
                 },
                 {
                     "label": "Conclusion",
-                    "type": "given",
+                    "type": "interactive",
                     "instruction": "Give the safest immediate action.",
                     "explanation": "The student must secure their protective equipment before continuing the experiment.",
                     "correctAnswer": "stop pouring and put goggles over eyes",
@@ -986,7 +986,7 @@ FEW_SHOT_DATA: list[tuple[str, int, str, str, dict]] = [
                 },
                 {
                     "label": "Relation",
-                    "type": "given",
+                    "type": "interactive",
                     "instruction": "State the safety rule regarding chemical waste.",
                     "explanation": "Chemicals cannot be discarded in standard drains unless explicitly permitted.",
                     "correctAnswer": "dispose of chemicals according to lab instructions",
@@ -1164,7 +1164,7 @@ FEW_SHOT_DATA: list[tuple[str, int, str, str, dict]] = [
                 },
                 {
                     "label": "Refine",
-                    "type": "given",
+                    "type": "interactive",
                     "instruction": "Count the valence electrons.",
                     "explanation": "Valence electrons occupy the highest principal level $n=4$: $4s^{2}$ and $4p^{4}$ contribute $2+4=6$.",
                     "skillUsed": "Identify valence electrons from configurations",
@@ -1261,7 +1261,7 @@ FEW_SHOT_DATA: list[tuple[str, int, str, str, dict]] = [
             "steps": [
                 {
                     "label": "Inventory / Rules",
-                    "type": "given",
+                    "type": "interactive",
                     "instruction": "Identify the core noble gas and remaining electrons.",
                     "explanation": "Subtract the core electrons from the total: $20 - 18 = 2$ electrons beyond $\\mathrm{Ar}$.",
                     "skillUsed": "Write noble gas abbreviated electron configurations",
@@ -1351,7 +1351,7 @@ FEW_SHOT_DATA: list[tuple[str, int, str, str, dict]] = [
                 },
                 {
                     "label": "Substitute",
-                    "type": "given",
+                    "type": "interactive",
                     "instruction": "Substitute the values into the Arrhenius equation.",
                     "explanation": (
                         "$\\ln\\left(\\frac{8.20 \\times 10^{-3}}{2.50 \\times 10^{-3}}\\right) = "
@@ -1365,7 +1365,7 @@ FEW_SHOT_DATA: list[tuple[str, int, str, str, dict]] = [
                 },
                 {
                     "label": "Calculate",
-                    "type": "given",
+                    "type": "interactive",
                     "instruction": "Solve for the activation energy.",
                     "explanation": (
                         "Rearranging gives:\n\n"
@@ -1378,7 +1378,7 @@ FEW_SHOT_DATA: list[tuple[str, int, str, str, dict]] = [
                 },
                 {
                     "label": "Answer",
-                    "type": "given",
+                    "type": "interactive",
                     "instruction": "Express the activation energy in kJ/mol.",
                     "explanation": (
                         "Converting to kilojoules:\n\n$E_a = 54.4\\,\\text{kJ/mol}$ (3 significant figures)."
@@ -1441,7 +1441,7 @@ FEW_SHOT_DATA: list[tuple[str, int, str, str, dict]] = [
                 },
                 {
                     "label": "Substitute",
-                    "type": "given",
+                    "type": "interactive",
                     "instruction": "Substitute the values into the equation.",
                     "explanation": (
                         "$\\ln\\left(\\frac{4.80 \\times 10^{-4}}{1.20 \\times 10^{-4}}\\right) = "
@@ -1455,7 +1455,7 @@ FEW_SHOT_DATA: list[tuple[str, int, str, str, dict]] = [
                 },
                 {
                     "label": "Calculate",
-                    "type": "given",
+                    "type": "interactive",
                     "instruction": "Solve for the activation energy.",
                     "explanation": (
                         "First compute the ratio:\n\n"
@@ -1469,7 +1469,7 @@ FEW_SHOT_DATA: list[tuple[str, int, str, str, dict]] = [
                 },
                 {
                     "label": "Answer",
-                    "type": "given",
+                    "type": "interactive",
                     "instruction": "Express the activation energy in kJ/mol.",
                     "explanation": (
                         "Convert to kilojoules:\n\n$E_a = 72.0\\,\\text{kJ/mol}$ (3 significant figures)."
@@ -1528,7 +1528,7 @@ FEW_SHOT_DATA: list[tuple[str, int, str, str, dict]] = [
                 },
                 {
                     "label": "Feature ID",
-                    "type": "given",
+                    "type": "interactive",
                     "instruction": "Identify the order in X.",
                     "explanation": "From Exp 1 to 2, $[\\text{X}]$ doubles and rate doubles, so exponent is 1.",
                     "correctAnswer": "1",
@@ -1536,7 +1536,7 @@ FEW_SHOT_DATA: list[tuple[str, int, str, str, dict]] = [
                 },
                 {
                     "label": "Apply Concept",
-                    "type": "given",
+                    "type": "interactive",
                     "instruction": "Identify the order in Y.",
                     "explanation": "From Exp 1 to 3, $[\\text{Y}]$ doubles and rate quadruples, so exponent is 2.",
                     "correctAnswer": "2",
@@ -1602,7 +1602,7 @@ FEW_SHOT_DATA: list[tuple[str, int, str, str, dict]] = [
                 },
                 {
                     "label": "Feature ID",
-                    "type": "given",
+                    "type": "interactive",
                     "instruction": "Identify the order with respect to NO.",
                     "explanation": "From Exp 1 to 2, doubling $[\\text{NO}]$ quadruples rate, so exponent is 2.",
                     "correctAnswer": "2",
@@ -1665,7 +1665,7 @@ FEW_SHOT_DATA: list[tuple[str, int, str, str, dict]] = [
                 },
                 {
                     "label": "Feature ID",
-                    "type": "given",
+                    "type": "interactive",
                     "instruction": "Determine the reaction order with respect to P.",
                     "explanation": "Doubling [P] at constant [Q] quadruples rate, so $2^n=4$ and $n=2$.",
                     "correctAnswer": "2",
@@ -1673,7 +1673,7 @@ FEW_SHOT_DATA: list[tuple[str, int, str, str, dict]] = [
                 },
                 {
                     "label": "Apply Concept",
-                    "type": "given",
+                    "type": "interactive",
                     "instruction": "Determine the reaction order with respect to Q.",
                     "explanation": "From Exp 1 to 3, [Q] doubles while [P] is fixed and rate quadruples, so order is 2.",
                     "correctAnswer": "2",
@@ -1681,7 +1681,7 @@ FEW_SHOT_DATA: list[tuple[str, int, str, str, dict]] = [
                 },
                 {
                     "label": "Conclusion",
-                    "type": "given",
+                    "type": "interactive",
                     "instruction": "Calculate the overall reaction order.",
                     "explanation": "Overall order is the sum of exponents: $2+2=4$.",
                     "correctAnswer": "4",
@@ -1723,7 +1723,7 @@ FEW_SHOT_DATA: list[tuple[str, int, str, str, dict]] = [
                 },
                 {
                     "label": "Conversion Factors",
-                    "type": "given",
+                    "type": "interactive",
                     "instruction": "Convert time into seconds.",
                     "explanation": "Use $18.0 \\text{ min} \\times 60 = 1080 \\text{ s}$ before applying $Q = It$.",
                     "skillUsed": "Apply Faraday's constant (F = 96,485 C/mol)",
@@ -1731,7 +1731,7 @@ FEW_SHOT_DATA: list[tuple[str, int, str, str, dict]] = [
                 },
                 {
                     "label": "Dimensional Setup",
-                    "type": "given",
+                    "type": "interactive",
                     "instruction": "Set up the mass calculation expression.",
                     "explanation": "Apply $m = \\frac{M \\cdot I \\cdot t}{n \\cdot F} = \\frac{107.87 \\times 2.85 \\times 1080}{1 \\times 96485}$.",
                     "skillUsed": "Calculate mass deposited or volume of gas produced during electrolysis",
@@ -1739,7 +1739,7 @@ FEW_SHOT_DATA: list[tuple[str, int, str, str, dict]] = [
                 },
                 {
                     "label": "Calculate",
-                    "type": "given",
+                    "type": "interactive",
                     "instruction": "Compute the unrounded deposited mass.",
                     "explanation": "Evaluating gives $\\frac{332023.96}{96485} = 3.4411 \\text{ g}$.",
                     "skillUsed": "Apply Faraday's constant (F = 96,485 C/mol)",
@@ -1747,7 +1747,7 @@ FEW_SHOT_DATA: list[tuple[str, int, str, str, dict]] = [
                 },
                 {
                     "label": "Answer",
-                    "type": "given",
+                    "type": "interactive",
                     "instruction": "Report the final mass with sig figs.",
                     "explanation": "Round to 3 sig figs: both $2.85 \\text{ A}$ and $18.0 \\text{ min}$ have 3 significant figures.",
                     "skillUsed": "Calculate mass deposited or volume of gas produced during electrolysis",
@@ -1866,7 +1866,7 @@ FEW_SHOT_DATA: list[tuple[str, int, str, str, dict]] = [
                 },
                 {
                     "label": "Conversion Factors",
-                    "type": "given",
+                    "type": "interactive",
                     "instruction": "Convert time to seconds.",
                     "explanation": "Faraday's Law requires charge in coulombs, so convert minutes → seconds first.",
                     "skillUsed": "Apply Faraday's constant (F = 96,485 C/mol)",
@@ -1874,7 +1874,7 @@ FEW_SHOT_DATA: list[tuple[str, int, str, str, dict]] = [
                 },
                 {
                     "label": "Conceptual Setup",
-                    "type": "given",
+                    "type": "interactive",
                     "instruction": "Write the full reasoning pathway.",
                     "explanation": "Instead of jumping to the formula, think: current → charge → moles e⁻ → moles H₂ → mass.",
                     "skillUsed": "Calculate mass deposited or volume of gas produced during electrolysis",
@@ -1882,7 +1882,7 @@ FEW_SHOT_DATA: list[tuple[str, int, str, str, dict]] = [
                 },
                 {
                     "label": "Dimensional Setup",
-                    "type": "given",
+                    "type": "interactive",
                     "instruction": "Construct the expression for mass.",
                     "explanation": "Use $m = \\frac{M \\cdot I \\cdot t}{n \\cdot F}$ but now with $n=2$.",
                     "skillUsed": "Apply Faraday's constant (F = 96,485 C/mol)",
@@ -1890,7 +1890,7 @@ FEW_SHOT_DATA: list[tuple[str, int, str, str, dict]] = [
                 },
                 {
                     "label": "Answer",
-                    "type": "given",
+                    "type": "interactive",
                     "instruction": "Report final mass with correct sig figs.",
                     "explanation": "Be careful — small molar mass + division by 2 → very small mass.",
                     "skillUsed": "Calculate mass deposited or volume of gas produced during electrolysis",
@@ -1954,7 +1954,7 @@ FEW_SHOT_DATA: list[tuple[str, int, str, str, dict]] = [
                 },
                 {
                     "label": "Interpretation Before Calculation",
-                    "type": "given",
+                    "type": "interactive",
                     "instruction": "Predict the sign of $E^\\circ$.",
                     "explanation": "Since $K < 1$, $\\ln K$ is negative → $E^\\circ$ must be negative.",
                     "skillUsed": "Interconvert ΔG°, K, and E° for electrochemical and thermodynamic problems",
@@ -2003,7 +2003,7 @@ FEW_SHOT_DATA: list[tuple[str, int, str, str, dict]] = [
                 },
                 {
                     "label": "Molar Mass",
-                    "type": "given",
+                    "type": "interactive",
                     "instruction": "Determine molar mass of $\\mathrm{Cl_2}$.",
                     "explanation": "Each Cl is 35.45 g/mol → multiply by 2.",
                     "skillUsed": "Calculate molar mass of compounds",
@@ -2027,7 +2027,7 @@ FEW_SHOT_DATA: list[tuple[str, int, str, str, dict]] = [
                 },
                 {
                     "label": "Final Answer + Insight",
-                    "type": "given",
+                    "type": "interactive",
                     "instruction": "State the number of molecules.",
                     "explanation": (
                         "≈ $3.01 \\times 10^{23}$ molecules.\n"
@@ -2069,7 +2069,7 @@ FEW_SHOT_DATA: list[tuple[str, int, str, str, dict]] = [
                 },
                 {
                     "label": "Conversion Plan",
-                    "type": "given",
+                    "type": "interactive",
                     "instruction": "Determine the pathway.",
                     "explanation": "Particles → moles of compound → moles of oxygen → mass of oxygen.",
                     "skillUsed": "Stoichiometric relationships within compounds",
@@ -2093,7 +2093,7 @@ FEW_SHOT_DATA: list[tuple[str, int, str, str, dict]] = [
                 },
                 {
                     "label": "Final Answer + Insight",
-                    "type": "given",
+                    "type": "interactive",
                     "instruction": "Convert to grams and report the final mass.",
                     "explanation": (
                         "Moles O ≈ 6.00 mol → mass = $6.00 \\times 16.00 = 96.0$ g.\n"

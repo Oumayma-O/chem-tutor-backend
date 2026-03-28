@@ -94,9 +94,7 @@ You MUST choose the `type` for each step based on what the student is doing:
      CORRECT: variable="Formula", value="$\\mathrm{{C_6H_{{12}}O_6}}$", unit=""
      WRONG:   variable="$[A]_0$" (LaTeX in variable causes oversized KaTeX rendering)
      WRONG:   variable="[A]0", value="\\mathrm{{C_6H_{{12}}O_6}}" (bare LaTeX without $)
-   - In Level 2, if a multi_input step falls in position 1 or 2 (i.e., it is "given"),
-     set type="given" AND still populate "inputFields". The UI displays these fields for "given"
-     steps too. NEVER collapse multiple inputs into a comma-separated or semicolon-separated "correctAnswer" string
+   - NEVER collapse multiple inputs into a comma-separated or semicolon-separated "correctAnswer" string
      (e.g. WRONG: correctAnswer="32.00, 2.02"; CORRECT: inputFields with label/value/unit per item).
    - When a step asks for multiple distinct answers (e.g., "rate law AND overall order"), you MUST use type="multi_input".
 
@@ -122,13 +120,11 @@ You MUST choose the `type` for each step based on what the student is doing:
      If the step involves numeric substitution or arithmetic, use type="interactive" instead.
    - Populate "equationParts" with tokens in the CORRECT order. Leave "correctAnswer" null.
 
-4. type="given" or type="interactive"
+4. type="interactive"
    - WHEN: A standard single-value micro-input step (none of the above apply).
-   - Level rules:
-     * Level 1: ALL standard steps → "given".
-     * Level 2: Step 1 and 2 → "given". Remaining → "interactive".
-     * Level 3: ALL standard steps → "interactive".
-   - If the step is given or interactive but no special type (drag and drop or comparison or inputFields) → Must include a brief "correctAnswer" (number, symbol, or short word).
+   - Always use type="interactive" for single-answer steps regardless of level.
+     The server controls which steps are pre-filled (scaffolded) based on level — never set type="given".
+   - Must include a brief "correctAnswer" (number, symbol, or short word).
 """
 
 

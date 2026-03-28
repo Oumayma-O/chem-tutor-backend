@@ -29,11 +29,6 @@ def check_multi_input(student: str, correct: str) -> ValidationOutput:
     return ValidationOutput(is_correct=True, validation_method="multi_input")
 
 
-# Backward-compatible alias for legacy step_type name.
-def check_variable_id(student: str, correct: str) -> ValidationOutput:
-    return check_multi_input(student, correct)
-
-
 def try_float(s: str) -> str | None:
     """Parse numeric string; return as str (matches ValidationOutput.student_value type)."""
     try:

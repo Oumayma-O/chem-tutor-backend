@@ -68,7 +68,7 @@ class StepValidationService:
         if step_type == "drag_drop":
             return check_string(student_answer, correct_answer, "drag_drop")
 
-        if step_type in {"multi_input", "variable_id"}:
+        if step_type == "multi_input":
             return check_multi_input(student_answer, correct_answer)
 
         if msg := partial_multisegment_feedback(student_answer, correct_answer):

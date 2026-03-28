@@ -290,7 +290,7 @@ def _minimal_problem_dict() -> dict:
             {
                 "id": "step-1",
                 "step_number": 1,
-                "type": "given",
+                "type": "interactive",
                 "label": "Step 1",
                 "instruction": "Do it",
                 "explanation": None,
