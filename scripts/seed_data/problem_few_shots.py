@@ -279,12 +279,12 @@ FEW_SHOT_DATA: list[tuple[str, int, str, str, dict]] = [
         "medium",
         "solver",
         {
-            "title": "Zero-Order Decay: Drug Elimination",
+            "title": "Zero-Order Decomposition of a Cleaning Solution",
             "statement": (
-                "A drug degrades in the bloodstream following zero-order kinetics. "
-                "The initial concentration is $0.80 \\text{ M}$ and the rate constant "
-                "$k = 0.020 \\text{ M/s}$.\n\n"
-                "What is the concentration after $20 \\text{ s}$?"
+                "A cleaning solution decomposes by zero-order kinetics while sitting in storage. "
+                "The initial concentration is $1.25 \\text{ M}$ and the rate constant "
+                "is $k = 0.015 \\text{ M/s}$.\n\n"
+                "What is the concentration of the solution after $30 \\text{ s}$?"
             ),
             "level": 2,
             "steps": [
@@ -294,7 +294,7 @@ FEW_SHOT_DATA: list[tuple[str, int, str, str, dict]] = [
                     "type": "drag_drop",
                     "is_given": True,
                     "instruction": "Form the zero-order integrated rate law.",
-                    "explanation": "Zero-order decay is linear: concentration decreases by $kt$ from the initial value.",
+                    "explanation": "Zero-order concentration changes linearly with time: $[A]_t = [A]_0 - kt$.",
                     "equationParts": ["[A]_t", "=", "[A]_0", "-", "k", "*", "t"],
                     "skillUsed": "Select correct equation",
                 },
@@ -306,7 +306,81 @@ FEW_SHOT_DATA: list[tuple[str, int, str, str, dict]] = [
                     "instruction": "Extract the given values with units.",
                     "explanation": "List each given quantity with its label, numeric value, and unit.",
                     "inputFields": [
-                        {"label": "$[A]_0$", "value": "$0.80$", "unit": "M"},
+                        {"label": "$[A]_0$", "value": "$1.25$", "unit": "M"},
+                        {"label": "$k$", "value": "$0.015$", "unit": "M/s"},
+                        {"label": "$t$", "value": "$30$", "unit": "s"},
+                    ],
+                    "skillUsed": "Extract known values with units",
+                },
+                {
+                    "step_number": 3,
+                    "label": "Substitute",
+                    "type": "interactive",
+                    "is_given": False,
+                    "instruction": "Plug the known values into the rate law.",
+                    "explanation": "Replace $[A]_0 = 1.25$, $k = 0.015$, and $t = 30$ into $[A]_t = [A]_0 - kt$.",
+                    "correctAnswer": "1.25 - (0.015)(30)",
+                    "skillUsed": "Substitute values into equation",
+                },
+                {
+                    "step_number": 4,
+                    "label": "Calculate",
+                    "type": "interactive",
+                    "is_given": False,
+                    "instruction": "Compute the amount decomposed ($k \\times t$).",
+                    "explanation": "$0.015 \\text{ M/s} \\times 30 \\text{ s} = 0.45 \\text{ M}$ decomposed.",
+                    "correctAnswer": "0.45",
+                    "skillUsed": "Compute final answer with sig figs",
+                },
+                {
+                    "step_number": 5,
+                    "label": "Answer",
+                    "type": "interactive",
+                    "is_given": False,
+                    "instruction": "Subtract to find the final remaining concentration.",
+                    "explanation": "$1.25 \\text{ M} - 0.45 \\text{ M} = 0.80 \\text{ M}$.",
+                    "correctAnswer": "$0.80 \\text{ M}$",
+                    "skillUsed": "Compute final answer with sig figs",
+                },
+            ],
+        },
+    ),
+
+    # ── 5b. Solver: zero-order kinetics (Level 3 · Medium) ───────────────────
+    (
+        "ap-unit-5",
+        3,
+        "medium",
+        "solver",
+        {
+            "title": "Zero-Order Decay: Drug Elimination",
+            "statement": (
+                "A drug degrades in the bloodstream following zero-order kinetics. "
+                "The initial concentration is $0.95 \\text{ M}$ and the rate constant "
+                "$k = 0.020 \\text{ M/s}$.\n\n"
+                "What is the concentration after $20 \\text{ s}$?"
+            ),
+            "level": 3,
+            "steps": [
+                {
+                    "step_number": 1,
+                    "label": "Equation",
+                    "type": "drag_drop",
+                    "is_given": False,
+                    "instruction": "Form the zero-order integrated rate law.",
+                    "explanation": "Zero-order decay is linear: final concentration equals initial minus $kt$.",
+                    "equationParts": ["[A]_t", "=", "[A]_0", "-", "k", "*", "t"],
+                    "skillUsed": "Select correct equation",
+                },
+                {
+                    "step_number": 2,
+                    "label": "Knowns",
+                    "type": "multi_input",
+                    "is_given": False,
+                    "instruction": "Extract the given values with units.",
+                    "explanation": "List each given quantity with its label, numeric value, and unit.",
+                    "inputFields": [
+                        {"label": "$[A]_0$", "value": "$0.95$", "unit": "M"},
                         {"label": "$k$", "value": "$0.020$", "unit": "M/s"},
                         {"label": "$t$", "value": "$20$", "unit": "s"},
                     ],
@@ -318,8 +392,8 @@ FEW_SHOT_DATA: list[tuple[str, int, str, str, dict]] = [
                     "type": "interactive",
                     "is_given": False,
                     "instruction": "Plug the known values into the rate law.",
-                    "explanation": "Replace $[A]_0 = 0.80$, $k = 0.020$, and $t = 20$ into $[A]_t = [A]_0 - kt$.",
-                    "correctAnswer": "0.80 - (0.020)(20)",
+                    "explanation": "Replace $[A]_0 = 0.95$, $k = 0.020$, and $t = 20$ into $[A]_t = [A]_0 - kt$.",
+                    "correctAnswer": "0.95 - (0.020)(20)",
                     "skillUsed": "Substitute values into equation",
                 },
                 {
@@ -327,8 +401,8 @@ FEW_SHOT_DATA: list[tuple[str, int, str, str, dict]] = [
                     "label": "Calculate",
                     "type": "interactive",
                     "is_given": False,
-                    "instruction": "Compute the product $k \\times t$.",
-                    "explanation": "$0.020 \\text{ M/s} \\times 20 \\text{ s} = 0.40 \\text{ M}$.",
+                    "instruction": "Compute the amount eliminated ($k \\times t$).",
+                    "explanation": "$0.020 \\text{ M/s} \\times 20 \\text{ s} = 0.40 \\text{ M}$ eliminated.",
                     "correctAnswer": "0.40",
                     "skillUsed": "Compute final answer with sig figs",
                 },
@@ -337,9 +411,9 @@ FEW_SHOT_DATA: list[tuple[str, int, str, str, dict]] = [
                     "label": "Answer",
                     "type": "interactive",
                     "is_given": False,
-                    "instruction": "Calculate the final concentration.",
-                    "explanation": "$0.80 \\text{ M} - 0.40 \\text{ M} = 0.40 \\text{ M}$.",
-                    "correctAnswer": "$0.40 \\text{ M}$",
+                    "instruction": "Subtract to find the final remaining concentration.",
+                    "explanation": "$0.95 \\text{ M} - 0.40 \\text{ M} = 0.55 \\text{ M}$.",
+                    "correctAnswer": "$0.55 \\text{ M}$",
                     "skillUsed": "Compute final answer with sig figs",
                 },
             ],
@@ -829,22 +903,19 @@ FEW_SHOT_DATA: list[tuple[str, int, str, str, dict]] = [
                     "label": "Calculate",
                     "type": "interactive",
                     "is_given": False,
-                    "instruction": "Calculate $K$ from $\\Delta G^\\circ$.",
-                    "explanation": "$\\Delta G^\\circ = -65610 \\text{ J/mol}$, then $\\ln K = 26.47$, so $K = e^{26.47}$.",
-                    "correctAnswer": "$3.15 \\times 10^{11}$",
+                    "instruction": "Compute $\\Delta G^\\circ$ in J/mol.",
+                    "explanation": "$\\Delta G^\\circ = -(2)(96485)(0.34) = -65610 \\text{ J/mol} \\approx -65.6 \\text{ kJ/mol}$.",
+                    "correctAnswer": "-65610",
                     "skillUsed": "Interconvert ΔG°, K, and E° for electrochemical and thermodynamic problems",
                 },
                 {
                     "step_number": 5,
                     "label": "Answer",
-                    "type": "multi_input",
+                    "type": "interactive",
                     "is_given": False,
-                    "instruction": "State both final results.",
-                    "explanation": "Positive $E^\\circ$ gives negative $\\Delta G^\\circ$ and large $K > 1$.",
-                    "inputFields": [
-                        {"label": "$\\Delta G^\\circ$", "value": "$-65.6 \\text{ kJ/mol}$", "unit": ""},
-                        {"label": "$K$", "value": "$3.15 \\times 10^{11}$", "unit": ""},
-                    ],
+                    "instruction": "Calculate $K$ from $\\Delta G^\\circ = -RT\\ln K$.",
+                    "explanation": "$\\ln K = -\\Delta G^\\circ / RT = 65610 / (8.314 \\times 298) = 26.47$, so $K = e^{26.47} \\approx 3.15 \\times 10^{11}$.",
+                    "correctAnswer": "$3.15 \\times 10^{11}$",
                     "skillUsed": "Interconvert ΔG°, K, and E° for electrochemical and thermodynamic problems",
                 },
             ],
@@ -1128,20 +1199,20 @@ FEW_SHOT_DATA: list[tuple[str, int, str, str, dict]] = [
                     "label": "Calculate",
                     "type": "interactive",
                     "is_given": False,
-                    "instruction": "Calculate the number of formula units.",
-                    "explanation": "$11.1 / 110.98 = 0.1000 \\text{ mol}$; $0.1000 \\times 6.022 \\times 10^{23} = 6.02 \\times 10^{22}$.",
-                    "correctAnswer": "$6.02 \\times 10^{22}$",
-                    "skillUsed": "Compute final answer with sig figs",
+                    "instruction": "First, calculate the moles of $\\mathrm{CaCl_2}$.",
+                    "explanation": "$11.1 \\text{ g} \\div 110.98 \\text{ g/mol} = 0.1000 \\text{ mol}$ (intermediate step).",
+                    "correctAnswer": "0.1000",
+                    "skillUsed": "Convert between moles and grams",
                 },
                 {
                     "step_number": 5,
                     "label": "Answer",
                     "type": "interactive",
                     "is_given": False,
-                    "instruction": "Report the final answer in scientific notation with units.",
-                    "explanation": "Round to 3 significant figures because $11.1 \\text{ g}$ has 3 sig figs.",
+                    "instruction": "Multiply moles by Avogadro's number to get formula units.",
+                    "explanation": "$0.1000 \\text{ mol} \\times 6.022 \\times 10^{23} = 6.02 \\times 10^{22}$ formula units.",
                     "correctAnswer": "$6.02 \\times 10^{22}$ formula units",
-                    "skillUsed": "Compute final answer with sig figs",
+                    "skillUsed": "Convert between moles and particles",
                 },
             ],
         },

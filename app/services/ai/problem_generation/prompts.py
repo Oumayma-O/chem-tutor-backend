@@ -7,7 +7,7 @@ Single source of truth for lesson metadata: scripts/seed_data/lessons.py
 """
 
 # ── Version ────────────────────────────────────────────────────────────────
-PROMPT_VERSION = "v14-frac-rules"
+PROMPT_VERSION = "v15-no-dupe-steps"
 
 from app.services.ai.shared.latex_rules import SHARED_LATEX_RULES  # noqa: E402
 
@@ -108,7 +108,7 @@ You MUST choose the `type` for each step based on what the student is doing:
    - Populate "comparisonParts" with EXACTLY 2 NON-EMPTY descriptive strings that identify what is
      being compared. Both strings MUST contain meaningful content.
      CORRECT: comparisonParts=["KE in Container A", "KE in Container B"], correctAnswer=">"
-     CORRECT: comparisonParts=["molar mass of $\\\\mathrm{{Ar}}$", "molar mass of $\\\\mathrm{{Cl}}$"], correctAnswer="<"
+     CORRECT: comparisonParts=["molar mass of $\\mathrm{{Ar}}$", "molar mass of $\\mathrm{{Cl}}$"], correctAnswer="<"
      WRONG:   comparisonParts=["", ""] or comparisonParts=["value 1", "value 2"] (empty or generic)
    - Set "correctAnswer" to exactly one of: "<", ">", "=".
 
@@ -141,6 +141,13 @@ You are an expert Chemistry tutor generating a {difficulty} problem.
 
 Generate a {difficulty} problem for {lesson_name}.
 
+**STEP UNIQUENESS RULE**: Make each step distinct in purpose and instruction. The final step (reporting sig figs/unit/check) MUST differ meaningfully from the prior calculation step. Avoid near-identical "Calculate" → "Answer" or "Evaluate" → "Final Answer" pairs.
+
+**DISTINCT FINAL STEPS (Calculate vs Answer)**: For 5-step blueprints, steps 4 and 5 MUST have visually different `correctAnswer` values.
+- Step 4 (Calculate): ask for an intermediate result — either a sub-product of the full expression (e.g., compute k×t before subtracting, or compute ΔG° before solving for K) OR the raw unrounded decimal (e.g., 41.6175).
+- Step 5 (Answer): require a final cognitive leap — apply sig figs and attach units (e.g., 41.6 g), perform a unit conversion (e.g., J → kJ), OR compute the final value from the step-4 intermediate.
+- NEVER let step 4 and step 5 share the same number. If your chosen numbers produce identical values in both steps, change the problem values.
+
 BLUEPRINT for {blueprint}:
 - Step Labels (use EXACTLY one per step, in order): {labels_block}
 - Total Steps: {step_count}
@@ -150,13 +157,12 @@ BLUEPRINT for {blueprint}:
 
 ### LABEL RULE ###
 For each step, set "label" to exactly ONE of the blueprint labels above, in order: step 1 = first label, step 2 = second, etc. Do NOT combine labels, add alternatives, or extra text. Example: "Concept ID" not "Concept ID | Claim | ...".
-
 """
     + SHARED_LATEX_RULES
     + """
 
 ### PROBLEM-SPECIFIC FORMATTING ###
-1. Specific variables: $q_{{\\text{{system}}}}$, $q_{{\\text{{surr}}}}$.
+1. Specific variables: $q_{{\\text{{system}}}}$, $q_{{\\text{{surr}}}}$. 
 2. Temperatures: $25.0^\\circ\\text{{C}}$. Percentages: $69.17\\%$. Multiplication: $\\times$. Reactions: $\\rightarrow$.
 3. MIXED TEXT: Keep plain English OUTSIDE math. Put only symbols/formulas/numbers inside $...$.
    CORRECT: $\\mathrm{{HCl}}$ and $\\mathrm{{NaOH}}$ mixture | water and calorimeter
@@ -165,9 +171,9 @@ For each step, set "label" to exactly ONE of the blueprint labels above, in orde
 4. inputFields: "label" = plain string (e.g. "System", "Surroundings"). "value" = mix only when needed: "$\\mathrm{{X}}$ in water" not "$\\mathrm{{X}} \\text{{ in water}}$".
 5. Statement paragraphs: Separate with \\n\\n. NEVER one block.
 6. Isotopes: $^{{32}}_{{16}}\\mathrm{{S}}^{{2-}}$. Scientific notation: ALWAYS $6.022 \\times 10^{{23}}$ (never "e" or "E" notation in statement, instruction, or explanation).
-   Substitute / equation lines: NEVER dump calculator text ($*$ , 8.10e-3, bare ln()). Put the full substituted expression in ONE $...$ using $\\\\times$, $10^{{-n}}$, $\\\\ln(...)$, and subscripts ($E_a$ not Ea).
-7. THE GAS CONSTANT RULE: You MUST write the gas constant unit exactly like this: ``$\\\\text{{J/(mol}} \\\\cdot \\\\text{{K)}}$``.
-   NEVER write ``\\\\cdotK`` or a bare ``\\\\cdot K`` for kelvin. You must put a space after ``\\\\cdot`` and wrap the K in ``\\\\text{{}}``.
+   Substitute / equation lines: NEVER dump calculator text ($*$ , 8.10e-3, bare ln()). Put the full substituted expression in ONE $...$ using $\\times$, $10^{{-n}}$, $\\ln(...)$, and subscripts ($E_a$ not Ea).
+7. THE GAS CONSTANT RULE: You MUST write the gas constant unit exactly like this: "$\\text{{J/(mol}} \\cdot \\text{{K)}}$".
+   NEVER write "\\cdotK" or a bare "\\cdot K" for kelvin. You must put a space after "\\cdot" and wrap the K in "\\text{{}}".
 8. NEVER output ANSI escape codes, unicode control characters (e.g. \\u001b), or unescaped tabs.
 9. The "correctAnswer" field MUST be plain text or easily typed on a keyboard (e.g. "q_system = -q_surr", "-2299 J"). Do NOT use LaTeX in "correctAnswer".
 
@@ -196,7 +202,7 @@ You are generating interactive steps for a compact student UI. Each step has THR
      Good: "$(63.0 \\times 0.690) + (65.0 \\times 0.310) = 43.47 + 20.15 = 63.62 \\text{{ amu}}$."
    - Set to null when the step is trivial data extraction (e.g. student just reads a value off a label).
    - Set to null when the explanation would just restate the correctAnswer with no added value.
-     Bad (no value): correctAnswer="238.025", explanation="2.50 × 95.21 = 238.025." ← echoes the answer.
+     Bad (no value): correctAnswer="238.025", explanation="2.50 \\times 95.21 = 238.025." ← echoes the answer.
      Good: correctAnswer="238.025", explanation="Multiply moles by molar mass: $2.50 \\times 95.21$." ← shows the setup.
    - Bad (too long): "In order to find the neutrons you need to look at the periodic table and..."
 
@@ -207,8 +213,8 @@ CONSTRAINTS:
 - Statement paragraphs: ALWAYS use \\n\\n to separate logical sections. NEVER write the statement as one block.
   Structure → ¶1: scenario/context. ¶2: given data/constants. ¶3: the question.
 - Statement field format: MUST be plain prose with inline $...$ for math. NEVER wrap the entire statement in one $...$  block — \\n\\n inside $...$ breaks KaTeX rendering.
-  WRONG: "$A \\\\text{{ sample of copper...}}\\n\\n\\\\text{{ What is the mass?}}$"
-  CORRECT: "A sample of $^{{63}}\\\\mathrm{{Cu}}$ has an isotopic mass of $62.93 \\\\text{{ amu}}$.\\n\\nWhat is the average atomic mass?"
+  WRONG: "$A \\text{{ sample of copper...}}\\n\\n\\text{{ What is the mass?}}$"
+  CORRECT: "A sample of $^{{63}}\\mathrm{{Cu}}$ has an isotopic mass of $62.93 \\text{{ amu}}$.\\n\\nWhat is the average atomic mass?"
   Rule: English words stay OUTSIDE $...$. Only symbols, numbers, formulas, and units go INSIDE $...$.
 - NO IMAGES/GRAPHS: Do NOT reference visual graphs, charts, spectral diagrams, or mass spectra images.
   All data must be provided as text/numbers within the statement. The UI cannot render images.
