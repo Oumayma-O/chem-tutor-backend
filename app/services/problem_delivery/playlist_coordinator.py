@@ -9,7 +9,7 @@ from app.core.logging import get_logger
 from app.domain.schemas.tutor import GenerateProblemRequest, ProblemDeliveryResponse, ProblemOutput
 from app.infrastructure.database.connection import fresh_session
 from app.infrastructure.database.repositories.playlist_repo import UserLessonPlaylistRepository
-from app.services.ai.problem_generation.step_types import enforce_step_types
+from app.services.ai.shared.step_types import enforce_step_types
 from app.utils.markdown_sanitizer import normalize_strings
 
 logger = get_logger(__name__)

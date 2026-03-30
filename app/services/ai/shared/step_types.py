@@ -39,7 +39,7 @@ def enforce_step_types(problem: ProblemOutput, level: int) -> ProblemOutput:
     for i, step in enumerate(problem.steps):
         inferred = _infer_step_type(step.label, step)
 
-        # Fall back to math_input if the required payload is absent
+        # Fall back to interactive if the required payload is absent
         if inferred == "drag_drop" and not step.equation_parts:
             inferred = "interactive"
         if inferred == "multi_input" and not step.input_fields:

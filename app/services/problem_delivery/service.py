@@ -11,7 +11,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.logging import get_logger
 from app.domain.schemas.tutor import GenerateProblemRequest, ProblemDeliveryResponse, ProblemOutput
 from app.services.ai.problem_generation.service import ProblemGenerationService
-from app.services.ai.problem_generation.step_types import enforce_step_types
+from app.services.ai.shared.step_types import enforce_step_types
 from app.services.problem_delivery.cache import ProblemCacheService
 from app.services.problem_delivery.delivery_cache_adapter import backfill_cache, store_in_cache
 from app.services.problem_delivery.delivery_telemetry import DeliveryTelemetry

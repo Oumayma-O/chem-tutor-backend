@@ -11,7 +11,7 @@ from app.api.v1.authz import AuthContext, get_auth_context, require_self
 from app.domain.schemas.tutor import ProblemDeliveryResponse, ProblemOutput
 from app.infrastructure.database.connection import get_db
 from app.infrastructure.database.repositories.playlist_repo import UserLessonPlaylistRepository
-from app.services.ai.problem_generation.step_types import enforce_step_types
+from app.services.ai.shared.step_types import enforce_step_types
 from app.services.problem_delivery.limits import max_problems_for_level
 from app.utils.markdown_sanitizer import normalize_strings
 
