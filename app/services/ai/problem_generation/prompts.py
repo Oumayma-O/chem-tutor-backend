@@ -124,6 +124,10 @@ You MUST choose the `type` for each step based on what the student is doing:
    - WHEN: A standard single-value micro-input step (none of the above apply).
    - Use for single-answer steps: calculations, identifications, final answers.
    - Must include a brief "correctAnswer" (number, symbol, or short word).
+   - FORBIDDEN: If a step asks the student to find TWO OR MORE distinct physical quantities
+     (e.g., "find neutrons AND electrons", "find protons AND charge"), you MUST use type="multi_input".
+     WRONG: type="interactive", correctAnswer="18 neutrons, 18 electrons"
+     CORRECT: type="multi_input", inputFields=[{{label:"Neutrons",value:"$18$",...}},{{label:"Electrons",...}}]
 
 ### IS_GIVEN (SCAFFOLDING FLAG) — YOU MUST SET THIS ###
 Set "is_given" on every step based on the current level:

@@ -139,7 +139,75 @@ FEW_SHOT_DATA: list[tuple[str, int, str, str, dict]] = [
         },
     ),
 
-    # ── 3. Detective: isotopic abundance → element identity (Level 2 · Medium) ─
+    # ── 3. Architect: subatomic particle counts in a sulfide ion (Level 2 · Medium) ─
+    (
+        "unit-atomic-theory",
+        1,
+        "medium",
+        "architect",
+        {
+            "title": "Counting Subatomic Particles in a Sulfide Ion",
+            "statement": (
+                "A chemist is analyzing the ion $^{34}_{16}\\mathrm{S}^{2-}$ in an AP Chemistry review.\n\n"
+                "Use the isotope notation to identify the atomic number $Z = 16$, mass number $A = 34$, "
+                "and charge $2-$.\n\n"
+                "Determine the number of protons, neutrons, and electrons in this ion, "
+                "then report the total number of subatomic particles present."
+            ),
+            "level": 2,
+            "steps": [
+                {
+                    "step_number": 1,
+                    "label": "Inventory / Rules",
+                    "type": "multi_input",
+                    "is_given": True,
+                    "instruction": "List the given isotope values.",
+                    "explanation": "Read $Z = 16$, $A = 34$, and charge $2-$ directly from $^{34}_{16}\\mathrm{S}^{2-}$.",
+                    "inputFields": [
+                        {"label": "Atomic number", "value": "$16$", "unit": ""},
+                        {"label": "Mass number", "value": "$34$", "unit": ""},
+                        {"label": "Charge", "value": "$2-$", "unit": ""},
+                    ],
+                    "skillUsed": "Identify protons, neutrons, and electrons",
+                },
+                {
+                    "step_number": 2,
+                    "label": "Draft",
+                    "type": "interactive",
+                    "is_given": True,
+                    "instruction": "Find the proton count.",
+                    "explanation": "Atomic number equals protons, so $p^+ = Z = 16$.",
+                    "correctAnswer": "16",
+                    "skillUsed": "Identify protons, neutrons, and electrons",
+                },
+                {
+                    "step_number": 3,
+                    "label": "Refine",
+                    "type": "multi_input",
+                    "is_given": False,
+                    "instruction": "Find neutrons and electrons separately.",
+                    "explanation": "$n = A - Z = 34 - 16 = 18$; a $2-$ charge adds 2 electrons, so $e^- = 16 + 2 = 18$.",
+                    "inputFields": [
+                        {"label": "Neutrons", "value": "$18$", "unit": ""},
+                        {"label": "Electrons", "value": "$18$", "unit": ""},
+                    ],
+                    "skillUsed": "Determine particle counts",
+                },
+                {
+                    "step_number": 4,
+                    "label": "Final Answer",
+                    "type": "interactive",
+                    "is_given": False,
+                    "instruction": "Add all particles for the total count.",
+                    "explanation": "$p^+ + n + e^- = 16 + 18 + 18 = 52$ total subatomic particles.",
+                    "correctAnswer": "52",
+                    "skillUsed": "Determine particle counts",
+                },
+            ],
+        },
+    ),
+
+    # ── 4. Detective: isotopic abundance → element identity (Level 2 · Medium) ─
     (
         "unit-atomic-theory",
         2,

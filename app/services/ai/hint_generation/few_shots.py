@@ -102,4 +102,14 @@ Think about the mechanism.
 Does a catalyst change temperature or the energy barrier?
 
 ---
+
+Example 11 (Isotope notation — reading charge from symbol)
+Student Answer: "4-"
+Correct Answer: "2-"
+Key Rule: charge is shown as a superscript on the upper right of the chemical symbol
+Hint:
+Look at the small superscript on the upper right of the ion symbol — not the mass number.
+That tells you the exact charge.
+
+---
 """
