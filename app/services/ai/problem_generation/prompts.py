@@ -145,12 +145,7 @@ You are an expert Chemistry tutor generating a {difficulty} problem.
 
 Generate a {difficulty} problem for {lesson_name}.
 
-**STEP UNIQUENESS RULE**: Make each step distinct in purpose and instruction. The final step (reporting sig figs/unit/check) MUST differ meaningfully from the prior calculation step. Avoid near-identical "Calculate" → "Answer" or "Evaluate" → "Final Answer" pairs.
-
-**DISTINCT FINAL STEPS (Calculate vs Answer)**: For 5-step blueprints, steps 4 and 5 MUST have visually different `correctAnswer` values.
-- Step 4 (Calculate): ask for an intermediate result — either a sub-product of the full expression (e.g., compute k×t before subtracting, or compute ΔG° before solving for K) OR the raw unrounded decimal (e.g., 41.6175).
-- Step 5 (Answer): require a final cognitive leap — apply sig figs and attach units (e.g., 41.6 g), perform a unit conversion (e.g., J → kJ), OR compute the final value from the step-4 intermediate.
-- NEVER let step 4 and step 5 share the same number. If your chosen numbers produce identical values in both steps, change the problem values.
+**STEP UNIQUENESS**: Each step must differ in purpose and instruction. For 5-step blueprints, steps 4 and 5 MUST have visually different `correctAnswer` values — step 4 asks for an intermediate result (sub-product or raw unrounded decimal), step 5 requires a final cognitive leap (sig figs + units, unit conversion, or final derivation from step 4). Never let steps 4 and 5 share the same number; if your chosen values produce identical answers, change the problem values.
 
 BLUEPRINT for {blueprint}:
 - Step Labels (use EXACTLY one per step, in order): {labels_block}
@@ -167,19 +162,16 @@ For each step, set "label" to exactly ONE of the blueprint labels above, in orde
 
 ### PROBLEM-SPECIFIC FORMATTING ###
 1. Specific variables: $q_{{\\text{{system}}}}$, $q_{{\\text{{surr}}}}$. 
-2. Temperatures: $25.0^\\circ\\text{{C}}$. Percentages: $69.17\\%$. Multiplication: $\\times$. Reactions: $\\rightarrow$.
+2. Temperatures: $25.0^\\circ\\text{{C}}$. Percentages: $69.17\\%$. Reactions: $\\rightarrow$.
 3. MIXED TEXT: Keep plain English OUTSIDE math. Put only symbols/formulas/numbers inside $...$.
    CORRECT: $\\mathrm{{HCl}}$ and $\\mathrm{{NaOH}}$ mixture | water and calorimeter
    WRONG: $\\mathrm{{HCl}} + \\mathrm{{NaOH}} \\text{{ mixture}}$ or $\\text{{water + calorimeter}}$
    If a value is purely an English phrase (e.g. "water", "beaker and room air"), do NOT wrap it in LaTeX.
 4. inputFields: "label" = plain string (e.g. "System", "Surroundings"). "value" = mix only when needed: "$\\mathrm{{X}}$ in water" not "$\\mathrm{{X}} \\text{{ in water}}$".
-5. Statement paragraphs: Separate with \\n\\n. NEVER one block.
-6. Isotopes: $^{{32}}_{{16}}\\mathrm{{S}}^{{2-}}$. Scientific notation: ALWAYS $6.022 \\times 10^{{23}}$ (never "e" or "E" notation in statement, instruction, or explanation).
+5. Isotopes: $^{{32}}_{{16}}\\mathrm{{S}}^{{2-}}$. Scientific notation: ALWAYS $6.022 \\times 10^{{23}}$ (never "e" or "E" notation in statement, instruction, or explanation).
    Substitute / equation lines: NEVER dump calculator text ($*$ , 8.10e-3, bare ln()). Put the full substituted expression in ONE $...$ using $\\times$, $10^{{-n}}$, $\\ln(...)$, and subscripts ($E_a$ not Ea).
-7. THE GAS CONSTANT RULE: You MUST write the gas constant unit exactly like this: "$\\text{{J/(mol}} \\cdot \\text{{K)}}$".
-   NEVER write "\\cdotK" or a bare "\\cdot K" for kelvin. You must put a space after "\\cdot" and wrap the K in "\\text{{}}".
-8. NEVER output ANSI escape codes, unicode control characters (e.g. \\u001b), or unescaped tabs.
-9. The "correctAnswer" field MUST be plain text or easily typed on a keyboard (e.g. "q_system = -q_surr", "-2299 J"). Do NOT use LaTeX in "correctAnswer".
+6. NEVER output ANSI escape codes, unicode control characters (e.g. \\u001b), or unescaped tabs.
+7. The "correctAnswer" field MUST be plain text or easily typed on a keyboard (e.g. "q_system = -q_surr", "-2299 J"). Do NOT use LaTeX in "correctAnswer".
 
 ### CRITICAL UI CONSTRAINTS: INSTRUCTIONS AND MICRO-INPUTS ###
 You are generating interactive steps for a compact student UI. Each step has THREE distinct fields:

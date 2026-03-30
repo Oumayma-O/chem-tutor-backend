@@ -75,3 +75,13 @@ JSON ESCAPING — every LaTeX backslash MUST be doubled in JSON output:
 - CORRECT: \\\\text{{g/mol}}, \\\\frac{{m}}{{M}}, \\\\mathrm{{H_2O}}, \\\\times, \\\\rightarrow, \\\\sum
 - WRONG:   \\text{{g/mol}}, \\frac{{m}}{{M}} — \\t is parsed as TAB, \\f as form-feed; the command is lost
 - MNEMONIC: think "\\", type "\\\\" in JSON output"""
+
+# Minimal LaTeX rules for hint generation — hints are 1-2 lines, not full problems.
+# Only the rules the LLM actually needs for short inline math output.
+HINT_LATEX_RULES = """\
+### LATEX & JSON ESCAPING ###
+- Inline math only: $...$. NEVER $$...$$ or \\(\\).
+- Chemical formulas: $\\\\mathrm{{H_2O}}$. Units: $3.5\\\\text{{ g/mol}}$.
+- Multiplication: $\\\\times$. Scientific notation: $1.5 \\\\times 10^{{-3}}$.
+- JSON output: every LaTeX backslash MUST be doubled — \\\\times, \\\\mathrm, \\\\frac, \\\\text.
+"""
