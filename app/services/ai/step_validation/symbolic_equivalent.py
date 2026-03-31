@@ -17,6 +17,7 @@ _RE_SYMBOL = re.compile(r"[A-Za-z_][A-Za-z0-9_]*")
 
 def _preprocess(expr: str) -> str:
     s = (expr or "").strip()
+    s = s.replace("$", "").replace("{", "").replace("}", "")
     s = s.replace("×", "*").replace("·", "*").replace("−", "-").replace("–", "-")
     # Treat concentration-style variables like [A] as symbolic A.
     s = re.sub(r"\[([A-Za-z_][A-Za-z0-9_]*)\]", r"\1", s)

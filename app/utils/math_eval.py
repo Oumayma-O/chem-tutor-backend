@@ -205,6 +205,7 @@ def extract_unit(text: str) -> str:
     Extract the unit from a student answer string.
 
     Returns the unit string (e.g. "M", "M/s", "s") or "" if none found.
+    Intended for Phase 1 numeric paths; LaTeX-rich strings may not parse here.
     """
     _, unit = _strip_unit(text.strip())
     return unit

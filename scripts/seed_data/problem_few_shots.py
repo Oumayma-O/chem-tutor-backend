@@ -208,9 +208,10 @@ FEW_SHOT_DATA: list[tuple[str, int, str, str, dict]] = [
     ),
 
     # ── 4. Detective: isotopic abundance → element identity (Level 2 · Medium) ─
+    # Maps to mass-spectrometry lesson (detective); index 2 is atomic-mass / solver.
     (
         "unit-atomic-theory",
-        2,
+        3,
         "medium",
         "detective",
         {
@@ -340,30 +341,35 @@ FEW_SHOT_DATA: list[tuple[str, int, str, str, dict]] = [
         },
     ),
 
-    # ── 5. Solver: zero-order kinetics (Level 2 · Medium) ────────────────────
+    # ── 5. Solver: zero-order kinetics from linear [A] vs t (Level 2 · Medium) ─
+    # Substitute MUST be type=interactive (numeric tokens); never drag_drop here.
+    # lesson_index 1 = L-kinetics-zero-order (index 3 is second-order).
     (
         "ap-unit-5",
-        3,
+        1,
         "medium",
         "solver",
         {
-            "title": "Zero-Order Decomposition of a Cleaning Solution",
+            "title": "Zero-Order Decomposition: Rate Constant and Half-Life",
             "statement": (
-                "A cleaning solution decomposes by zero-order kinetics while sitting in storage. "
-                "The initial concentration is $1.25 \\text{ M}$ and the rate constant "
-                "is $k = 0.015 \\text{ M/s}$.\n\n"
-                "What is the concentration of the solution after $30 \\text{ s}$?"
+                "A chemist studies the decomposition of reactant $A$ at constant temperature. "
+                "The data produce a straight-line plot when $[A]$ is graphed versus time, "
+                "indicating zero-order behavior.\n\n"
+                "The initial concentration is $0.84 \\text{ M}$, and after $35.0 \\text{ s}$ "
+                "the concentration is $0.56 \\text{ M}$.\n\n"
+                "Determine the zero-order rate constant $k$ and then calculate the half-life "
+                "of the reaction."
             ),
             "level": 2,
             "steps": [
                 {
                     "step_number": 1,
                     "label": "Equation",
-                    "type": "drag_drop",
+                    "type": "interactive",
                     "is_given": True,
-                    "instruction": "Form the zero-order integrated rate law.",
-                    "explanation": "Zero-order concentration changes linearly with time: $[A]_t = [A]_0 - kt$.",
-                    "equationParts": ["[A]_t", "=", "[A]_0", "-", "k", "*", "t"],
+                    "instruction": "Identify the matching plot type.",
+                    "explanation": "A linear $[A]$ vs $t$ graph is the signature of zero-order kinetics.",
+                    "correctAnswer": "zero-order",
                     "skillUsed": "Select correct equation",
                 },
                 {
@@ -371,12 +377,12 @@ FEW_SHOT_DATA: list[tuple[str, int, str, str, dict]] = [
                     "label": "Knowns",
                     "type": "multi_input",
                     "is_given": True,
-                    "instruction": "Extract the given values with units.",
-                    "explanation": "List each given quantity with its label, numeric value, and unit.",
+                    "instruction": "Record the known values.",
+                    "explanation": "Extract $[A]_0$, $[A]_t$, and $t$ with units from the statement.",
                     "inputFields": [
-                        {"label": "$[A]_0$", "value": "$1.25$", "unit": "M"},
-                        {"label": "$k$", "value": "$0.015$", "unit": "M/s"},
-                        {"label": "$t$", "value": "$30$", "unit": "s"},
+                        {"label": "Initial concentration", "value": "$0.84$", "unit": "M"},
+                        {"label": "Concentration at 35.0 s", "value": "$0.56$", "unit": "M"},
+                        {"label": "Time", "value": "$35.0$", "unit": "s"},
                     ],
                     "skillUsed": "Extract known values with units",
                 },
@@ -385,9 +391,11 @@ FEW_SHOT_DATA: list[tuple[str, int, str, str, dict]] = [
                     "label": "Substitute",
                     "type": "interactive",
                     "is_given": False,
-                    "instruction": "Plug the known values into the rate law.",
-                    "explanation": "Replace $[A]_0 = 1.25$, $k = 0.015$, and $t = 30$ into $[A]_t = [A]_0 - kt$.",
-                    "correctAnswer": "1.25 - (0.015)(30)",
+                    "instruction": "Substitute into the zero-order integrated rate law.",
+                    "explanation": (
+                        "Use $[A]_t = [A]_0 - kt$ with $[A]_t = 0.56$, $[A]_0 = 0.84$, and $t = 35.0$."
+                    ),
+                    "correctAnswer": "0.56 = 0.84 - k*35.0",
                     "skillUsed": "Substitute values into equation",
                 },
                 {
@@ -395,9 +403,12 @@ FEW_SHOT_DATA: list[tuple[str, int, str, str, dict]] = [
                     "label": "Calculate",
                     "type": "interactive",
                     "is_given": False,
-                    "instruction": "Compute the amount decomposed ($k \\times t$).",
-                    "explanation": "$0.015 \\text{ M/s} \\times 30 \\text{ s} = 0.45 \\text{ M}$ decomposed.",
-                    "correctAnswer": "0.45",
+                    "instruction": "Calculate the rate constant $k$.",
+                    "explanation": (
+                        "$k = (0.84 - 0.56) / 35.0 = 0.00800 \\text{ M/s}$ "
+                        "($3$ sig figs from the data)."
+                    ),
+                    "correctAnswer": "0.00800 M/s",
                     "skillUsed": "Compute final answer with sig figs",
                 },
                 {
@@ -405,39 +416,43 @@ FEW_SHOT_DATA: list[tuple[str, int, str, str, dict]] = [
                     "label": "Answer",
                     "type": "interactive",
                     "is_given": False,
-                    "instruction": "Subtract to find the final remaining concentration.",
-                    "explanation": "$1.25 \\text{ M} - 0.45 \\text{ M} = 0.80 \\text{ M}$.",
-                    "correctAnswer": "$0.80 \\text{ M}$",
+                    "instruction": "Find the half-life for zero-order decay.",
+                    "explanation": (
+                        "For zero-order, $t_{1/2} = [A]_0 / (2k) = 0.84 / (2 \\times 0.00800) "
+                        "= 52.5 \\text{ s}$."
+                    ),
+                    "correctAnswer": "52.5 s",
                     "skillUsed": "Compute final answer with sig figs",
                 },
             ],
         },
     ),
 
-    # ── 5b. Solver: zero-order kinetics (Level 3 · Medium) ───────────────────
+    # ── 5b. Same scenario, Level 3 (independent practice) ───────────────────
     (
         "ap-unit-5",
-        3,
+        1,
         "medium",
         "solver",
         {
-            "title": "Zero-Order Decay: Drug Elimination",
+            "title": "Zero-Order Kinetics from Concentration–Time Data",
             "statement": (
-                "A drug degrades in the bloodstream following zero-order kinetics. "
-                "The initial concentration is $0.95 \\text{ M}$ and the rate constant "
-                "$k = 0.020 \\text{ M/s}$.\n\n"
-                "What is the concentration after $20 \\text{ s}$?"
+                "Reactant $B$ decomposes at constant temperature. A plot of $[B]$ versus time "
+                "is linear, so the reaction is zero-order.\n\n"
+                "At $t = 0$, $[B]_0 = 1.20 \\text{ M}$. After $40.0 \\text{ s}$, "
+                "$[B] = 0.72 \\text{ M}$.\n\n"
+                "Find $k$ and the half-life."
             ),
             "level": 3,
             "steps": [
                 {
                     "step_number": 1,
                     "label": "Equation",
-                    "type": "drag_drop",
+                    "type": "interactive",
                     "is_given": False,
-                    "instruction": "Form the zero-order integrated rate law.",
-                    "explanation": "Zero-order decay is linear: final concentration equals initial minus $kt$.",
-                    "equationParts": ["[A]_t", "=", "[A]_0", "-", "k", "*", "t"],
+                    "instruction": "What kinetic order matches a linear $[B]$ vs time plot?",
+                    "explanation": "Linear concentration vs time means zero-order integrated rate law.",
+                    "correctAnswer": "zero-order",
                     "skillUsed": "Select correct equation",
                 },
                 {
@@ -445,12 +460,12 @@ FEW_SHOT_DATA: list[tuple[str, int, str, str, dict]] = [
                     "label": "Knowns",
                     "type": "multi_input",
                     "is_given": False,
-                    "instruction": "Extract the given values with units.",
-                    "explanation": "List each given quantity with its label, numeric value, and unit.",
+                    "instruction": "List the given concentrations and time.",
+                    "explanation": "Record initial $[B]$, final $[B]$, and elapsed time with units.",
                     "inputFields": [
-                        {"label": "$[A]_0$", "value": "$0.95$", "unit": "M"},
-                        {"label": "$k$", "value": "$0.020$", "unit": "M/s"},
-                        {"label": "$t$", "value": "$20$", "unit": "s"},
+                        {"label": "Initial concentration", "value": "$1.20$", "unit": "M"},
+                        {"label": "Concentration at 40.0 s", "value": "$0.72$", "unit": "M"},
+                        {"label": "Time", "value": "$40.0$", "unit": "s"},
                     ],
                     "skillUsed": "Extract known values with units",
                 },
@@ -459,9 +474,9 @@ FEW_SHOT_DATA: list[tuple[str, int, str, str, dict]] = [
                     "label": "Substitute",
                     "type": "interactive",
                     "is_given": False,
-                    "instruction": "Plug the known values into the rate law.",
-                    "explanation": "Replace $[A]_0 = 0.95$, $k = 0.020$, and $t = 20$ into $[A]_t = [A]_0 - kt$.",
-                    "correctAnswer": "0.95 - (0.020)(20)",
+                    "instruction": "Write the substituted zero-order rate law.",
+                    "explanation": "From $[B]_t = [B]_0 - kt$: $0.72 = 1.20 - k(40.0)$.",
+                    "correctAnswer": "0.72 = 1.20 - k*40.0",
                     "skillUsed": "Substitute values into equation",
                 },
                 {
@@ -469,9 +484,9 @@ FEW_SHOT_DATA: list[tuple[str, int, str, str, dict]] = [
                     "label": "Calculate",
                     "type": "interactive",
                     "is_given": False,
-                    "instruction": "Compute the amount eliminated ($k \\times t$).",
-                    "explanation": "$0.020 \\text{ M/s} \\times 20 \\text{ s} = 0.40 \\text{ M}$ eliminated.",
-                    "correctAnswer": "0.40",
+                    "instruction": "Solve for $k$.",
+                    "explanation": "$k = (1.20 - 0.72) / 40.0 = 0.0120 \\text{ M/s}$.",
+                    "correctAnswer": "0.0120 M/s",
                     "skillUsed": "Compute final answer with sig figs",
                 },
                 {
@@ -479,9 +494,9 @@ FEW_SHOT_DATA: list[tuple[str, int, str, str, dict]] = [
                     "label": "Answer",
                     "type": "interactive",
                     "is_given": False,
-                    "instruction": "Subtract to find the final remaining concentration.",
-                    "explanation": "$0.95 \\text{ M} - 0.40 \\text{ M} = 0.55 \\text{ M}$.",
-                    "correctAnswer": "$0.55 \\text{ M}$",
+                    "instruction": "Report the zero-order half-life.",
+                    "explanation": "$t_{1/2} = [B]_0/(2k) = 1.20/(2 \\times 0.0120) = 50.0 \\text{ s}$.",
+                    "correctAnswer": "50.0 s",
                     "skillUsed": "Compute final answer with sig figs",
                 },
             ],
@@ -489,8 +504,9 @@ FEW_SHOT_DATA: list[tuple[str, int, str, str, dict]] = [
     ),
 
     # ── 6. Recipe: molar mass → mass conversion (Level 1 · Easy) ────────────
+    # Mol-to-grams one-step → unit-mole (not unit-stoichiometry).
     (
-        "unit-stoichiometry",
+        "unit-mole",
         1,
         "easy",
         "recipe",
@@ -558,9 +574,10 @@ FEW_SHOT_DATA: list[tuple[str, int, str, str, dict]] = [
     ),
 
     # ── 7. Lawyer: periodic trend — atomic radius (Level 2 · Medium) ─────────
+    # Index 1 = L-periodic-atomic-size (index 2 is ionization energy).
     (
         "unit-periodic-table",
-        2,
+        1,
         "medium",
         "lawyer",
         {
@@ -769,9 +786,10 @@ FEW_SHOT_DATA: list[tuple[str, int, str, str, dict]] = [
     ),
 
     # ── 10. Detective: initial rates (Level 2 · Medium) ──────────────────────
+    # Index 0 = L-ap-kinetics-rate-laws.
     (
         "ap-unit-5",
-        1,
+        0,
         "medium",
         "detective",
         {
@@ -1494,7 +1512,7 @@ FEW_SHOT_DATA: list[tuple[str, int, str, str, dict]] = [
     # ── 20. Lawyer: periodic trend (Level 1 · Easy) ──────────────────���────────
     (
         "unit-periodic-table",
-        2,
+        1,
         "easy",
         "lawyer",
         {
@@ -2010,6 +2028,449 @@ FEW_SHOT_DATA: list[tuple[str, int, str, str, dict]] = [
                     "explanation": "Convert: $E_a = 54.6\\,\\text{kJ/mol}$ (3 significant figures).",
                     "correctAnswer": "$54.6\\,\\text{kJ/mol}$",
                     "skillUsed": "Convert units and report with correct significant figures",
+                },
+            ],
+        },
+    ),
+
+    # ── 28. Solver: first-order kinetics (Level 3 · Hard) ─────────────────────
+    (
+        "ap-unit-5",
+        2,
+        "hard",
+        "solver",
+        {
+            "title": "First-Order Decay: Radioactive Isotope",
+            "statement": (
+                "A radioactive isotope decays following first-order kinetics. "
+                "The initial concentration of the sample is $0.500 \\text{ M}$ and its rate constant "
+                "is $k = 0.0346 \\text{ yr}^{-1}$.\n\n"
+                "Calculate the concentration of the isotope remaining after $15.0 \\text{ years}$."
+            ),
+            "level": 3,
+            "steps": [
+                {
+                    "step_number": 1,
+                    "label": "Equation",
+                    "type": "drag_drop",
+                    "is_given": False,
+                    "instruction": "Form the first-order integrated rate law.",
+                    "explanation": (
+                        "The natural log of concentration decays linearly: "
+                        "$\\ln[A]_t = -kt + \\ln[A]_0$."
+                    ),
+                    "equationParts": [
+                        "$\\ln[A]_t$",
+                        "=",
+                        "$-$",
+                        "$k$",
+                        "$t$",
+                        "$+$",
+                        "$\\ln[A]_0$",
+                    ],
+                    "skillUsed": "Select correct equation",
+                },
+                {
+                    "step_number": 2,
+                    "label": "Knowns",
+                    "type": "multi_input",
+                    "is_given": False,
+                    "instruction": "Extract the given values with units.",
+                    "explanation": "List the initial concentration, rate constant, and time.",
+                    "inputFields": [
+                        {"label": "Initial concentration", "value": "$0.500$", "unit": "M"},
+                        {"label": "Rate constant", "value": "$0.0346$", "unit": "$\\text{yr}^{-1}$"},
+                        {"label": "Time", "value": "$15.0$", "unit": "yr"},
+                    ],
+                    "skillUsed": "Extract known values with units",
+                },
+                {
+                    "step_number": 3,
+                    "label": "Substitute",
+                    "type": "interactive",
+                    "is_given": False,
+                    "instruction": "Substitute into the rate law.",
+                    "explanation": "Replace $[A]_0$, $k$, and $t$ with the values from the problem.",
+                    "correctAnswer": "ln[A]_t = -(0.0346)(15.0) + ln(0.500)",
+                    "skillUsed": "Substitute values into equation",
+                },
+                {
+                    "step_number": 4,
+                    "label": "Calculate",
+                    "type": "interactive",
+                    "is_given": False,
+                    "instruction": "Calculate the right side of the equation ($\\ln[A]_t$).",
+                    "explanation": (
+                        "$-(0.0346 \\times 15.0) + \\ln(0.500) \\approx -0.519 - 0.693 = -1.212$."
+                    ),
+                    "correctAnswer": "-1.212",
+                    "skillUsed": "Compute final answer with sig figs",
+                },
+                {
+                    "step_number": 5,
+                    "label": "Answer",
+                    "type": "interactive",
+                    "is_given": False,
+                    "instruction": "Calculate the final concentration $[A]_t$.",
+                    "explanation": (
+                        "Exponentiate: $[A]_t = e^{-1.212} \\approx 0.298 \\text{ M}$."
+                    ),
+                    "correctAnswer": "0.298 M",
+                    "skillUsed": "Compute final answer with sig figs",
+                },
+            ],
+        },
+    ),
+
+    # ── 29. Lawyer: Le Châtelier Q vs K (Level 3 · Hard) ─────────────────────
+    (
+        "ap-unit-7",
+        3,
+        "hard",
+        "lawyer",
+        {
+            "title": "Predicting Equilibrium Shifts with Q",
+            "statement": (
+                "For the synthesis of ammonia, "
+                "$\\mathrm{N_2} + 3\\mathrm{H_2} \\rightleftharpoons 2\\mathrm{NH_3}$, "
+                "the equilibrium constant $K_c$ is $0.040$ at a given temperature.\n\n"
+                "A chemist mixes the gases such that the reaction quotient $Q_c$ is calculated to be "
+                "$0.150$. Compare $Q_c$ to $K_c$ and predict the direction the reaction will shift "
+                "to reach equilibrium."
+            ),
+            "level": 3,
+            "steps": [
+                {
+                    "step_number": 1,
+                    "label": "Concept ID",
+                    "type": "interactive",
+                    "is_given": False,
+                    "instruction": "Identify the principle used to predict shifts.",
+                    "explanation": (
+                        "When $Q \\neq K$, the system shifts to re-establish equilibrium "
+                        "(Le Châtelier's principle)."
+                    ),
+                    "correctAnswer": "Le Chatelier's Principle",
+                    "skillUsed": "Identify governing concept",
+                },
+                {
+                    "step_number": 2,
+                    "label": "Relation",
+                    "type": "comparison",
+                    "is_given": False,
+                    "instruction": "Compare the value of Q to K.",
+                    "explanation": "Since $Q_c = 0.150$ and $K_c = 0.040$, $Q_c$ is greater than $K_c$.",
+                    "comparisonParts": ["$Q_c$", "$K_c$"],
+                    "correctAnswer": ">",
+                    "skillUsed": "State chemical relationship",
+                },
+                {
+                    "step_number": 3,
+                    "label": "Evidence / Claim",
+                    "type": "interactive",
+                    "is_given": False,
+                    "instruction": "What does a large Q value imply about the current concentrations?",
+                    "explanation": (
+                        "A $Q$ value larger than $K$ means there is excess product relative to equilibrium."
+                    ),
+                    "correctAnswer": "excess products",
+                    "skillUsed": "Provide evidence/reasoning",
+                },
+                {
+                    "step_number": 4,
+                    "label": "Conclusion",
+                    "type": "interactive",
+                    "is_given": False,
+                    "instruction": "State the direction the reaction will shift.",
+                    "explanation": "To reduce excess product, the reaction shifts toward reactants (left).",
+                    "correctAnswer": "shift left",
+                    "skillUsed": "State final conclusion",
+                },
+            ],
+        },
+    ),
+
+    # ── 30. Solver: ideal gas law (Level 1 · Easy) ───────────────────────────
+    (
+        "unit-gas-laws",
+        3,
+        "easy",
+        "solver",
+        {
+            "title": "Calculating the Volume of a Gas",
+            "statement": (
+                "A chemist fills a cylinder with $0.850 \\text{ mol}$ of an ideal gas at a temperature "
+                "of $298 \\text{ K}$ and a pressure of $1.05 \\text{ atm}$.\n\n"
+                "Given the ideal gas constant $R = 0.08206 \\text{ L}\\cdot\\text{atm/(mol}\\cdot\\text{K)}$, "
+                "calculate the volume of the gas in liters."
+            ),
+            "level": 1,
+            "steps": [
+                {
+                    "step_number": 1,
+                    "label": "Equation",
+                    "type": "drag_drop",
+                    "is_given": True,
+                    "instruction": "Arrange the ideal gas law to solve for volume.",
+                    "explanation": "Isolate $V$: divide $PV = nRT$ by $P$ to get $V = nRT/P$.",
+                    "equationParts": ["$V$", "=", "$\\frac{nRT}{P}$"],
+                    "skillUsed": "Select correct equation",
+                },
+                {
+                    "step_number": 2,
+                    "label": "Knowns",
+                    "type": "multi_input",
+                    "is_given": True,
+                    "instruction": "Identify the given variables.",
+                    "explanation": "Extract moles, temperature, pressure, and $R$ from the text.",
+                    "inputFields": [
+                        {"label": "Moles", "value": "$0.850$", "unit": "mol"},
+                        {"label": "Temperature", "value": "$298$", "unit": "K"},
+                        {"label": "Pressure", "value": "$1.05$", "unit": "atm"},
+                        {
+                            "label": "Gas constant",
+                            "value": "$0.08206$",
+                            "unit": "$\\text{L}\\cdot\\text{atm/(mol}\\cdot\\text{K)}$",
+                        },
+                    ],
+                    "skillUsed": "Extract known values with units",
+                },
+                {
+                    "step_number": 3,
+                    "label": "Substitute",
+                    "type": "interactive",
+                    "is_given": True,
+                    "instruction": "Substitute the values into the rearranged equation.",
+                    "explanation": "Plug the knowns into $V = nRT/P$ using plain calculator-style math.",
+                    "correctAnswer": "(0.850 * 0.08206 * 298) / 1.05",
+                    "skillUsed": "Substitute values into equation",
+                },
+                {
+                    "step_number": 4,
+                    "label": "Calculate",
+                    "type": "interactive",
+                    "is_given": True,
+                    "instruction": "Compute the unrounded volume.",
+                    "explanation": "Multiply the numerator terms, then divide by $1.05$.",
+                    "correctAnswer": "19.7895",
+                    "skillUsed": "Compute final answer with sig figs",
+                },
+                {
+                    "step_number": 5,
+                    "label": "Answer",
+                    "type": "interactive",
+                    "is_given": True,
+                    "instruction": "Report the final volume with correct sig figs.",
+                    "explanation": (
+                        "Round to $3$ sig figs: $0.850 \\text{ mol}$ and $1.05 \\text{ atm}$ limit precision."
+                    ),
+                    "correctAnswer": "19.8 L",
+                    "skillUsed": "Compute final answer with sig figs",
+                },
+            ],
+        },
+    ),
+
+    # ── 31. Solver: strong-acid pH (Level 2 · Medium) ─────────────────────────
+    (
+        "unit-solutions",
+        3,
+        "medium",
+        "solver",
+        {
+            "title": "Calculating pH of a Strong Acid",
+            "statement": (
+                "A lab technician prepares a $0.025 \\text{ M}$ solution of hydrochloric acid, "
+                "$\\mathrm{HCl}$. Because $\\mathrm{HCl}$ is a strong acid, it dissociates completely "
+                "in water.\n\n"
+                "Calculate the pH of this solution."
+            ),
+            "level": 2,
+            "steps": [
+                {
+                    "step_number": 1,
+                    "label": "Equation",
+                    "type": "drag_drop",
+                    "is_given": True,
+                    "instruction": "Build the pH equation.",
+                    "explanation": "$\\mathrm{pH}$ is the negative base-10 log of $[\\mathrm{H}^+]$.",
+                    "equationParts": [
+                        "$\\mathrm{pH}$",
+                        "=",
+                        "$-\\log$",
+                        "$[\\mathrm{H}^+]$",
+                    ],
+                    "skillUsed": "Select correct equation",
+                },
+                {
+                    "step_number": 2,
+                    "label": "Knowns",
+                    "type": "multi_input",
+                    "is_given": True,
+                    "instruction": "Determine the hydrogen ion concentration.",
+                    "explanation": "Strong acid: $[\\mathrm{H}^+] = [\\mathrm{HCl}]$ in dilute solution.",
+                    "inputFields": [
+                        {
+                            "label": "Hydrogen ion concentration",
+                            "value": "$0.025$",
+                            "unit": "M",
+                        },
+                    ],
+                    "skillUsed": "Extract known values with units",
+                },
+                {
+                    "step_number": 3,
+                    "label": "Substitute",
+                    "type": "interactive",
+                    "is_given": False,
+                    "instruction": "Substitute the concentration into the pH formula.",
+                    "explanation": "Replace $[\\mathrm{H}^+]$ with $0.025$ in $\\mathrm{pH} = -\\log[H^+]$.",
+                    "correctAnswer": "-log(0.025)",
+                    "skillUsed": "Substitute values into equation",
+                },
+                {
+                    "step_number": 4,
+                    "label": "Calculate",
+                    "type": "interactive",
+                    "is_given": False,
+                    "instruction": "Compute the raw logarithmic value.",
+                    "explanation": "$-\\log(0.025) \\approx 1.60205$ before rounding.",
+                    "correctAnswer": "1.60205",
+                    "skillUsed": "Compute final answer with sig figs",
+                },
+                {
+                    "step_number": 5,
+                    "label": "Answer",
+                    "type": "interactive",
+                    "is_given": False,
+                    "instruction": "Report the pH with correct significant figures.",
+                    "explanation": "Concentration has 2 sig figs, so pH reports 2 decimal places.",
+                    "correctAnswer": "1.60",
+                    "skillUsed": "Compute final answer with sig figs",
+                },
+            ],
+        },
+    ),
+
+    # ── 32. Architect: VSEPR geometry of water (Level 3 · Hard) ───────────────
+    (
+        "unit-bonding",
+        3,
+        "hard",
+        "architect",
+        {
+            "title": "Predicting the Shape of Water",
+            "statement": (
+                "A student analyzes the molecular geometry of water, $\\mathrm{H_2O}$, using VSEPR "
+                "theory.\n\n"
+                "Determine the total valence electrons, count electron domains on central oxygen, "
+                "and predict the molecular geometry."
+            ),
+            "level": 3,
+            "steps": [
+                {
+                    "step_number": 1,
+                    "label": "Inventory / Rules",
+                    "type": "interactive",
+                    "is_given": False,
+                    "instruction": "Calculate the total number of valence electrons.",
+                    "explanation": "O contributes $6$; each H contributes $1$: $6 + 2(1) = 8$ valence $e^-$.",
+                    "correctAnswer": "8",
+                    "skillUsed": "Identify chemical rules/inventory",
+                },
+                {
+                    "step_number": 2,
+                    "label": "Draft",
+                    "type": "multi_input",
+                    "is_given": False,
+                    "instruction": "Count the electron domains on central oxygen.",
+                    "explanation": "Two O–H bonds plus two lone pairs on O give four domains total.",
+                    "inputFields": [
+                        {"label": "Bonding domains", "value": "2", "unit": ""},
+                        {"label": "Lone pair domains", "value": "2", "unit": ""},
+                    ],
+                    "skillUsed": "Draft initial symbolic representation",
+                },
+                {
+                    "step_number": 3,
+                    "label": "Refine",
+                    "type": "interactive",
+                    "is_given": False,
+                    "instruction": "Identify the base electron-domain geometry.",
+                    "explanation": "Four electron domains arrange tetrahedrally around the central atom.",
+                    "correctAnswer": "tetrahedral",
+                    "skillUsed": "Refine structure/coefficients",
+                },
+                {
+                    "step_number": 4,
+                    "label": "Final Answer",
+                    "type": "interactive",
+                    "is_given": False,
+                    "instruction": "State the final molecular geometry.",
+                    "explanation": "Two lone pairs on a tetrahedral base give a bent molecular shape.",
+                    "correctAnswer": "bent",
+                    "skillUsed": "Finalize symbolic answer",
+                },
+            ],
+        },
+    ),
+
+    # ── 33. Detective: phase diagram — CO2 (Level 2 · Medium) ────────────────
+    (
+        "unit-kinetic-theory",
+        3,
+        "medium",
+        "detective",
+        {
+            "title": "Identifying States on a Phase Diagram",
+            "statement": (
+                "A chemist examines the phase diagram of carbon dioxide, $\\mathrm{CO_2}$.\n\n"
+                "At $T = -60^\\circ\\text{C}$ and $P = 1.0 \\text{ atm}$, the substance exists in a single "
+                "phase. When $T$ rises to $20^\\circ\\text{C}$ at constant $P$, it crosses the "
+                "sublimation curve.\n\n"
+                "Identify the initial and final states of matter."
+            ),
+            "level": 2,
+            "steps": [
+                {
+                    "step_number": 1,
+                    "label": "Data Extraction",
+                    "type": "interactive",
+                    "is_given": True,
+                    "instruction": "Identify the specific curve that was crossed.",
+                    "explanation": "The problem states the path crosses the sublimation curve.",
+                    "correctAnswer": "sublimation curve",
+                    "skillUsed": "Extract data from representation",
+                },
+                {
+                    "step_number": 2,
+                    "label": "Feature ID",
+                    "type": "interactive",
+                    "is_given": True,
+                    "instruction": "Identify the phase transition for sublimation.",
+                    "explanation": "Sublimation is solid converting directly to gas.",
+                    "correctAnswer": "solid to gas",
+                    "skillUsed": "Identify key feature or pattern",
+                },
+                {
+                    "step_number": 3,
+                    "label": "Apply Concept",
+                    "type": "interactive",
+                    "is_given": False,
+                    "instruction": "Identify the state of matter before crossing (initial).",
+                    "explanation": "Heating toward sublimation starts from the solid region.",
+                    "correctAnswer": "solid",
+                    "skillUsed": "Apply chemical concept to data",
+                },
+                {
+                    "step_number": 4,
+                    "label": "Conclusion",
+                    "type": "interactive",
+                    "is_given": False,
+                    "instruction": "Identify the state of matter after sublimation (final).",
+                    "explanation": "Past the sublimation boundary at higher $T$, $\\mathrm{CO_2}$ is gaseous.",
+                    "correctAnswer": "gas",
+                    "skillUsed": "Draw scientific conclusion",
                 },
             ],
         },

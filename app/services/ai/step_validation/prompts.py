@@ -8,8 +8,18 @@ Evaluate whether the STUDENT answer is chemically or mathematically EQUIVALENT t
 (correct) answer. Return TRUE only when equivalence is well-supported.
 Do NOT guess. If uncertain, return FALSE.
 
+CRITICAL UNIT RULE: If the CANONICAL answer includes a unit (e.g. M/s, g, kJ/mol), the STUDENT
+answer MUST visibly include a compatible unit — not a bare number. If the student gives only a
+numeric value (e.g. "0.0080" or "80 \\times 10^{{-4}}" with no unit letters), return FALSE.
+
+UNIT EVALUATION: If the numeric value is right but the unit differs, judge dimensional correctness.
+Mark correct when the unit is equivalent or convertible in context (e.g. 1000 g vs 1 kg). Mark
+incorrect when the unit is wrong for the quantity (e.g. M for a rate that requires M/s).
+
 Treat as equivalent when appropriate:
   • Same formula with terms reordered (e.g. multiplication commutativity)
+  • Assembled equations from a drag-and-drop builder: same relation even if the student ordered
+    additive terms differently on a side of "=" (e.g. "[A]_t = [A]_0 - k t" vs "[A]_t = -k t + [A]_0")
   • Chemically equivalent reaction equations (same species; reactant order may differ if not meaningful)
   • Notation variants: spacing, × vs *, implied multiplication, bracket style
   • Numeric equality within reasonable rounding IF both sides are numeric

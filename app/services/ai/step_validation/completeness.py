@@ -24,6 +24,19 @@ def _segments(correct: str) -> list[str]:
     return [p.strip() for p in (correct or "").split(";") if p.strip()]
 
 
+def _missing_segment_parts(student: str, parts: list[str]) -> tuple[str, list[str]]:
+    """Normalized student text plus raw canonical segments absent from the student (in order)."""
+    st = _norm_segments(student)
+    missing: list[str] = []
+    for part in parts:
+        pn = _norm_segments(part)
+        if not pn:
+            continue
+        if _segment_is_missing(pn, st):
+            missing.append(part)
+    return st, missing
+
+
 def _segment_is_missing(pn: str, st: str) -> bool:
     """Return True only if normalised segment ``pn`` is genuinely absent from student text ``st``.
 
@@ -46,14 +59,10 @@ def first_missing_segment_message(student: str, correct: str) -> str | None:
     parts = _segments(correct)
     if len(parts) <= 1:
         return None
-    st = _norm_segments(student)
-    for part in parts:
-        pn = _norm_segments(part)
-        if not pn:
-            continue
-        if _segment_is_missing(pn, st):
-            return f"Include this in your answer: {part}"
-    return None
+    _, missing = _missing_segment_parts(student, parts)
+    if not missing:
+        return None
+    return f"Include this in your answer: {missing[0]}"
 
 
 def partial_multisegment_feedback(student: str, correct: str) -> str | None:
@@ -67,14 +76,7 @@ def partial_multisegment_feedback(student: str, correct: str) -> str | None:
     parts = [p.strip() for p in _segments(correct) if p.strip()]
     if len(parts) <= 1:
         return None
-    st = _norm_segments(student)
-    missing: list[str] = []
-    for part in parts:
-        pn = _norm_segments(part)
-        if not pn:
-            continue
-        if _segment_is_missing(pn, st):
-            missing.append(part)
+    st, missing = _missing_segment_parts(student, parts)
     if not missing:
         return None
     if not any(not _segment_is_missing(_norm_segments(p), st) for p in parts if _norm_segments(p)):

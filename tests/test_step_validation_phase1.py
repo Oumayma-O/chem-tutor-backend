@@ -8,6 +8,7 @@ from app.services.ai.step_validation.completeness import (
     prefer_partial_multisegment_feedback,
 )
 from app.services.ai.step_validation.local_hybrid import run_phase1_local
+from app.services.ai.step_validation.service import _apply_hard_requirements
 
 
 def test_phase1_numeric_exact_match() -> None:
@@ -116,3 +117,42 @@ def test_phase16_symbolic_algebra_equivalent() -> None:
         assert r.output.validation_method == "local_symbolic"
     else:
         assert r.output is None
+
+
+def test_apply_hard_requirements_llm_keeps_answer_when_unit_letters_present() -> None:
+    """LaTeX + unit suffix: heuristic sees letters; do not flip LLM correct."""
+    out = ValidationOutput(is_correct=True, validation_method="llm_equivalence")
+    fixed = _apply_hard_requirements(
+        out,
+        r"8\times10^{-3} M/s",
+        "0.0080 M/s",
+    )
+    assert fixed.is_correct is True
+    assert fixed.validation_method == "llm_equivalence"
+
+
+def test_apply_hard_requirements_llm_naked_number_flips_with_missing_unit() -> None:
+    out = ValidationOutput(is_correct=True, validation_method="llm_equivalence")
+    fixed = _apply_hard_requirements(
+        out,
+        r"80\times10^{-4}",
+        "0.0080 M/s",
+    )
+    assert fixed.is_correct is False
+    assert fixed.validation_method == "llm_equivalence_missing_unit"
+    assert fixed.unit_correct is False
+
+
+def test_phase1_numeric_match_wrong_unit_defers_to_phase2() -> None:
+    r = run_phase1_local("0.008 M", "0.0080 M/s", rtol=0.02)
+    assert r.immediate_return is False
+    assert r.output is None
+
+
+def test_phase1_drag_drop_linear_terms_reordered() -> None:
+    """Same-side additive reorder (drag-drop) should pass local SymPy when available."""
+    r = run_phase1_local("[A]t=[A]0-k*t", "[A]t=-k*t+[A]0", rtol=0.02)
+    if r.immediate_return and r.output is not None and r.output.is_correct:
+        assert r.output.validation_method == "local_symbolic"
+    else:
+        assert r.output is None  # defer to LLM equivalence

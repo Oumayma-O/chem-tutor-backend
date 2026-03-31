@@ -1,9 +1,9 @@
 """
 Phase 1 — fast local validation for the hybrid pipeline.
 
-- If either side looks like a symbolic/formula answer (letters in the math core),
-  compare using normalised string equality only.
-    - Otherwise compare numerically with tolerance; if the canonical answer includes a unit, require it.
+- Symbolic/formula answers: defer to Phase 2 when not an exact local match.
+- Numeric comparison: if values match but units differ (or are ambiguous), defer to Phase 2.
+- Naked number when canonical has a unit: immediate ``local_numeric_missing_unit``.
 """
 
 from __future__ import annotations
@@ -14,7 +14,9 @@ from dataclasses import dataclass
 from app.domain.schemas.tutor import ValidationOutput
 from app.services.ai.step_validation.canonicalize import canonical_equivalent
 from app.services.ai.step_validation.checkers import normalise, try_float
+from app.services.ai.step_validation.validation_feedback import FEEDBACK_INCLUDE_UNIT_SHORT
 from app.services.ai.step_validation.symbolic_equivalent import symbolic_equivalent
+from app.services.ai.step_validation.unit_guard import student_provided_unit
 from app.utils.math_eval import _strip_unit, extract_unit, numeric_equivalent, unit_equivalent
 
 # Strip scientific-notation clusters before detecting alphabetic variables (avoid flagging `e` in 1e-3).
@@ -22,7 +24,12 @@ _RE_SCI = re.compile(r"[+\-]?\d+\.?\d*[eE][+\-]?\d+")
 
 
 def _math_core_has_letters(s: str) -> bool:
-    """True if the numeric/core part of the answer still contains A–Z (formula / text answer)."""
+    """True if the numeric/core part of the answer still contains A–Z (formula / text answer).
+
+    Distinct from ``student_provided_unit`` in ``unit_guard``: this uses ``_strip_unit`` + sci-e
+    stripping to classify formula-like answers for the numeric shortcut; that heuristic strips
+    LaTeX/commands to detect a *missing* trailing unit after a value.
+    """
     num_part, _ = _strip_unit((s or "").strip())
     core = _RE_SCI.sub("", num_part)
     return bool(re.search(r"[A-Za-z]", core))
@@ -92,18 +99,23 @@ def run_phase1_local(
 
     ne = numeric_equivalent(student_answer, correct_answer, rtol=rtol)
     if ne is True:
-        if extract_unit(correct_answer) and not unit_equivalent(student_answer, correct_answer):
-            return Phase1Result(
-                True,
-                ValidationOutput(
-                    is_correct=False,
-                    student_value=try_float(student_answer),
-                    correct_value=try_float(correct_answer),
-                    feedback="Include the unit that goes with your value.",
-                    unit_correct=False,
-                    validation_method="local_numeric_missing_unit",
-                ),
-            )
+        correct_u = extract_unit(correct_answer)
+        if correct_u:
+            if not student_provided_unit(student_answer):
+                return Phase1Result(
+                    True,
+                    ValidationOutput(
+                        is_correct=False,
+                        student_value=try_float(student_answer),
+                        correct_value=try_float(correct_answer),
+                        feedback=FEEDBACK_INCLUDE_UNIT_SHORT,
+                        unit_correct=False,
+                        validation_method="local_numeric_missing_unit",
+                    ),
+                )
+            if not unit_equivalent(student_answer, correct_answer):
+                # Numbers match but units differ or parse ambiguously — let Phase 2 judge (M vs M/s, g vs kg, etc.).
+                return Phase1Result(False, None)
         return Phase1Result(
             True,
             ValidationOutput(

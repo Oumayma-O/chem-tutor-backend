@@ -3,6 +3,9 @@ StepValidationService — hybrid validation pipeline.
 
 Phase 1: fast local checks (numeric tolerance or normalised string equality).
 Phase 2: if Phase 1 is not confidently correct, call a fast LLM for equivalence + short hint.
+
+Post-processing: semicolon-separated completeness; lightweight "any letters left?" unit hint
+when canonical parses a unit — catches naked numbers after LLM approval without brittle LaTeX parsing.
 """
 
 from app.core.logging import get_logger
@@ -15,9 +18,54 @@ from app.services.ai.step_validation.completeness import (
 )
 from app.services.ai.step_validation.llm_equivalence import llm_equivalence_verify
 from app.services.ai.step_validation.local_hybrid import run_phase1_local
+from app.services.ai.step_validation.validation_feedback import (
+    FEEDBACK_EMPTY_STUDENT_ANSWER,
+    FEEDBACK_INCLUDE_UNIT_SHORT,
+    FEEDBACK_LLM_VALUE_OK_MISSING_UNIT,
+    FEEDBACK_MISSING_CANONICAL,
+)
+from app.services.ai.step_validation.unit_guard import student_provided_unit
 from app.utils.math_eval import extract_unit
 
 logger = get_logger(__name__)
+
+
+def _enforce_semicolon_segments_when_correct(
+    out: ValidationOutput,
+    student_answer: str,
+    correct_answer: str,
+) -> ValidationOutput:
+    if msg := first_missing_segment_message(student_answer, correct_answer):
+        return ValidationOutput(
+            is_correct=False,
+            feedback=msg,
+            validation_method="local_incomplete_segments",
+        )
+    return out
+
+
+def _enforce_unit_presence_hint_when_correct(
+    out: ValidationOutput,
+    student_answer: str,
+    correct_answer: str,
+) -> ValidationOutput:
+    correct_unit = extract_unit(correct_answer)
+    if not correct_unit or student_provided_unit(student_answer):
+        return out
+    method = out.validation_method or ""
+    if method == "llm_equivalence":
+        return ValidationOutput(
+            is_correct=False,
+            feedback=FEEDBACK_LLM_VALUE_OK_MISSING_UNIT,
+            unit_correct=False,
+            validation_method="llm_equivalence_missing_unit",
+        )
+    return ValidationOutput(
+        is_correct=False,
+        feedback=FEEDBACK_INCLUDE_UNIT_SHORT,
+        unit_correct=False,
+        validation_method="local_unit_required",
+    )
 
 
 def _apply_hard_requirements(
@@ -25,28 +73,13 @@ def _apply_hard_requirements(
     student_answer: str,
     correct_answer: str,
 ) -> ValidationOutput:
-    """Multi-segment canonical answers and units cannot be waived by local shortcuts or the LLM."""
+    """Semicolon completeness + naked-number guard when canonical includes a parsed unit."""
     if not out.is_correct:
         return out
-    if msg := first_missing_segment_message(student_answer, correct_answer):
-        return ValidationOutput(
-            is_correct=False,
-            feedback=msg,
-            validation_method="local_incomplete_segments",
-        )
-    # Only block when the student omitted a unit entirely.
-    # If they provided a different unit (e.g. kg vs g), the LLM has already
-    # evaluated the conversion — don't override with a hard unit string check.
-    correct_unit = extract_unit(correct_answer)
-    student_unit = extract_unit(student_answer)
-    if correct_unit and not student_unit:
-        return ValidationOutput(
-            is_correct=False,
-            feedback="Include the unit that goes with your value.",
-            unit_correct=False,
-            validation_method="local_unit_required",
-        )
-    return out
+    out = _enforce_semicolon_segments_when_correct(out, student_answer, correct_answer)
+    if not out.is_correct:
+        return out
+    return _enforce_unit_presence_hint_when_correct(out, student_answer, correct_answer)
 
 
 class StepValidationService:
@@ -63,10 +96,18 @@ class StepValidationService:
         correct_answer = (correct_answer or "").strip()
 
         if not student_answer:
-            return ValidationOutput(is_correct=False, feedback="Please enter an answer.", validation_method="local_empty")
+            return ValidationOutput(
+                is_correct=False,
+                feedback=FEEDBACK_EMPTY_STUDENT_ANSWER,
+                validation_method="local_empty",
+            )
 
-        if step_type == "drag_drop":
-            return check_string(student_answer, correct_answer, "drag_drop")
+        if not correct_answer:
+            return ValidationOutput(
+                is_correct=False,
+                feedback=FEEDBACK_MISSING_CANONICAL,
+                validation_method="missing_canonical",
+            )
 
         if step_type == "multi_input":
             return check_multi_input(student_answer, correct_answer)
@@ -108,7 +149,9 @@ class StepValidationService:
                 step_instruction=step_instruction or "",
                 problem_context=problem_context or "",
             )
-        except (TimeoutError, ConnectionError, ValueError) as exc:
+        except Exception as exc:
+            # LangChain / provider errors (auth, rate limit, parse failures, etc.) are not all
+            # TimeoutError/ConnectionError/ValueError — degrade to string match instead of 502.
             logger.warning("llm_equivalence_fallback", error=str(exc))
             return check_string(student_answer, correct_answer, "string_fallback")
 

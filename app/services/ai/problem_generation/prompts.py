@@ -116,8 +116,10 @@ You MUST choose the `type` for each step based on what the student is doing:
    - WHEN: A step requires assembling a full SYMBOLIC equation/formula OR arranging an ordered
      sequence of symbolic tokens (e.g. electron configuration subshells, orbital order).
      Examples: ["P_1", "V_1", "=", "P_2", "V_2"] | ["$1s^2$", "$2s^2$", "$2p^6$", "$3s^2$", "$3p^3$"]
-   - NEVER use drag_drop when any token is a plain NUMBER (e.g. ["2", "*", "16.00"] is WRONG).
-     If the step involves numeric substitution or arithmetic, use type="interactive" instead.
+   - CRITICAL: NEVER use `drag_drop` if ANY token in the equation is a specific number (like 0.56,
+     18, 35.0, etc.). It MUST ONLY be used for purely symbolic formulas (like `[A]_t`, `k`, `t`) or
+     electron configurations. If the step is labeled "Substitute" or involves plugging numbers into a
+     formula, you MUST use type="interactive".
    - Populate "equationParts" with tokens in the CORRECT order. Leave "correctAnswer" null.
 
 4. type="interactive"
