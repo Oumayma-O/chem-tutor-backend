@@ -1,8 +1,9 @@
-from unittest.mock import AsyncMock
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
 from app.domain.schemas.tutor import ValidationOutput
+from app.services.ai.step_validation.validation_feedback import FEEDBACK_GENERIC_INCORRECT
 from app.services.ai.hint_generation import prompts
 from app.services.ai.hint_generation.validation_context import (
     resolve_validation_feedback_for_hint,
@@ -11,17 +12,71 @@ from app.services.ai.hint_generation.service import _enforce_hint_constraints
 
 
 @pytest.mark.asyncio
-async def test_resolve_validation_feedback_prefers_client_string() -> None:
+async def test_resolve_validation_feedback_revalidates_ignores_stale_client_when_student_present() -> None:
+    """client_feedback must not win when student_input is set — avoids split-brain stale hints."""
+    mock_out = ValidationOutput(
+        is_correct=False,
+        feedback="Fresh server feedback for current answer.",
+        validation_method="llm_equivalence",
+    )
+    mock_validate = AsyncMock(return_value=mock_out)
     r = await resolve_validation_feedback_for_hint(
-        client_feedback="  Include the overall order.  ",
+        client_feedback="  Stale feedback from a previous wrong answer.  ",
         student_input="rate = k[A]",
         correct_answer="x",
         step_label="L",
         step_instruction=None,
         problem_context=None,
         step_type=None,
+        validate_fn=mock_validate,
     )
-    assert r == "Include the overall order."
+    assert r == "Fresh server feedback for current answer."
+    mock_validate.assert_awaited_once()
+
+
+@pytest.mark.asyncio
+async def test_resolve_validation_feedback_lazy_import_uses_step_validation_service() -> None:
+    """Patch the real get_step_validation_service target used by the lazy import path."""
+    mock_out = ValidationOutput(
+        is_correct=False,
+        feedback="From lazy service.",
+        validation_method="local_numeric",
+    )
+    mock_validate = AsyncMock(return_value=mock_out)
+    mock_svc = MagicMock()
+    mock_svc.validate = mock_validate
+    with patch(
+        "app.services.ai.step_validation.service.get_step_validation_service",
+        return_value=mock_svc,
+    ):
+        r = await resolve_validation_feedback_for_hint(
+            client_feedback="Ignored when student_input present.",
+            student_input="1",
+            correct_answer="2",
+            step_label="L",
+            step_instruction=None,
+            problem_context=None,
+            step_type=None,
+        )
+    assert r == "From lazy service."
+    mock_validate.assert_awaited_once()
+
+
+@pytest.mark.asyncio
+async def test_resolve_validation_feedback_uses_client_when_student_input_empty() -> None:
+    mock_validate = AsyncMock()
+    r = await resolve_validation_feedback_for_hint(
+        client_feedback="  Last validate message from client.  ",
+        student_input=None,
+        correct_answer="1",
+        step_label="L",
+        step_instruction=None,
+        problem_context=None,
+        step_type=None,
+        validate_fn=mock_validate,
+    )
+    assert r == "Last validate message from client."
+    mock_validate.assert_not_called()
 
 
 @pytest.mark.asyncio
@@ -60,7 +115,7 @@ async def test_resolve_validation_feedback_fallback_when_no_grader_message() -> 
         step_type=None,
         validate_fn=mock_validate,
     )
-    assert r == "Not quite right for this step."
+    assert r == FEEDBACK_GENERIC_INCORRECT
 
 
 @pytest.mark.asyncio

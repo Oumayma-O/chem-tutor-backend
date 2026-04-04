@@ -18,7 +18,14 @@ class GenerateHintRequest(BaseModel):
     key_rule: str | None = None  # the single rule/formula most relevant to this step
     error_category: str | None = None
     misconception_tag: str | None = None  # optional; included only when high-confidence
-    validation_feedback: str | None = None  # from validate-step; strongly recommended to avoid a second validation pass
+    validation_feedback: str | None = Field(
+        default=None,
+        description=(
+            "Optional; ignored when student_input is non-empty. The server re-validates "
+            "student_input so hint context matches the current answer. Used only when "
+            "student_input is empty (e.g. hint before typing)."
+        ),
+    )
     # Step progress — when set, hints stay scoped to THIS step (no repeating full theory from step 1)
     step_number: int | None = Field(default=None, ge=1)
     total_steps: int | None = Field(default=None, ge=1)

@@ -20,6 +20,7 @@ from app.services.ai.step_validation.llm_equivalence import llm_equivalence_veri
 from app.services.ai.step_validation.local_hybrid import run_phase1_local
 from app.services.ai.step_validation.validation_feedback import (
     FEEDBACK_EMPTY_STUDENT_ANSWER,
+    FEEDBACK_GENERIC_INCORRECT,
     FEEDBACK_INCLUDE_UNIT_SHORT,
     FEEDBACK_LLM_VALUE_OK_MISSING_UNIT,
     FEEDBACK_MISSING_CANONICAL,
@@ -68,6 +69,15 @@ def _enforce_unit_presence_hint_when_correct(
     )
 
 
+def _ensure_generic_feedback_when_incorrect(out: ValidationOutput) -> ValidationOutput:
+    """Guarantee non-empty feedback when incorrect so hint generation always has grader context."""
+    if out.is_correct:
+        return out
+    if (out.feedback or "").strip():
+        return out
+    return out.model_copy(update={"feedback": FEEDBACK_GENERIC_INCORRECT})
+
+
 def _apply_hard_requirements(
     out: ValidationOutput,
     student_answer: str,
@@ -96,30 +106,36 @@ class StepValidationService:
         correct_answer = (correct_answer or "").strip()
 
         if not student_answer:
-            return ValidationOutput(
-                is_correct=False,
-                feedback=FEEDBACK_EMPTY_STUDENT_ANSWER,
-                validation_method="local_empty",
+            return _ensure_generic_feedback_when_incorrect(
+                ValidationOutput(
+                    is_correct=False,
+                    feedback=FEEDBACK_EMPTY_STUDENT_ANSWER,
+                    validation_method="local_empty",
+                )
             )
 
         if not correct_answer:
-            return ValidationOutput(
-                is_correct=False,
-                feedback=FEEDBACK_MISSING_CANONICAL,
-                validation_method="missing_canonical",
+            return _ensure_generic_feedback_when_incorrect(
+                ValidationOutput(
+                    is_correct=False,
+                    feedback=FEEDBACK_MISSING_CANONICAL,
+                    validation_method="missing_canonical",
+                )
             )
 
         if step_type == "multi_input":
             result = check_multi_input(student_answer, correct_answer)
             if result is not None:
-                return result
+                return _ensure_generic_feedback_when_incorrect(result)
             # result is None → JSON parse failed or ambiguous unit → fall through to LLM
 
         if msg := partial_multisegment_feedback(student_answer, correct_answer):
-            return ValidationOutput(
-                is_correct=False,
-                feedback=msg,
-                validation_method="local_incomplete_segments",
+            return _ensure_generic_feedback_when_incorrect(
+                ValidationOutput(
+                    is_correct=False,
+                    feedback=msg,
+                    validation_method="local_incomplete_segments",
+                )
             )
 
         is_final_step = "answer" in step_label.strip().lower()
@@ -129,7 +145,9 @@ class StepValidationService:
         phase1 = run_phase1_local(student_answer, correct_answer, rtol=rtol)
         if phase1.immediate_return and phase1.output is not None:
             out = prefer_partial_multisegment_feedback(phase1.output, student_answer, correct_answer)
-            return _apply_hard_requirements(out, student_answer, correct_answer)
+            return _ensure_generic_feedback_when_incorrect(
+                _apply_hard_requirements(out, student_answer, correct_answer)
+            )
 
         out = await self._run_phase2(
             student_answer,
@@ -140,7 +158,9 @@ class StepValidationService:
             step_type,
         )
         out = prefer_partial_multisegment_feedback(out, student_answer, correct_answer)
-        return _apply_hard_requirements(out, student_answer, correct_answer)
+        return _ensure_generic_feedback_when_incorrect(
+            _apply_hard_requirements(out, student_answer, correct_answer)
+        )
 
     async def _run_phase2(
         self,
@@ -165,7 +185,9 @@ class StepValidationService:
             # LangChain / provider errors (auth, rate limit, parse failures, etc.) are not all
             # TimeoutError/ConnectionError/ValueError — degrade to string match instead of 502.
             logger.warning("llm_equivalence_fallback", error=str(exc))
-            return check_string(student_answer, correct_answer, "string_fallback")
+            return _ensure_generic_feedback_when_incorrect(
+                check_string(student_answer, correct_answer, "string_fallback")
+            )
 
 
 def get_step_validation_service() -> StepValidationService:
