@@ -110,7 +110,10 @@ class StepValidationService:
             )
 
         if step_type == "multi_input":
-            return check_multi_input(student_answer, correct_answer)
+            result = check_multi_input(student_answer, correct_answer)
+            if result is not None:
+                return result
+            # result is None → JSON parse failed or ambiguous unit → fall through to LLM
 
         if msg := partial_multisegment_feedback(student_answer, correct_answer):
             return ValidationOutput(

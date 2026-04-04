@@ -17,7 +17,14 @@ from app.services.ai.step_validation.checkers import normalise, try_float
 from app.services.ai.step_validation.validation_feedback import FEEDBACK_INCLUDE_UNIT_SHORT
 from app.services.ai.step_validation.symbolic_equivalent import symbolic_equivalent
 from app.services.ai.step_validation.unit_guard import student_provided_unit
-from app.utils.math_eval import _strip_unit, extract_unit, numeric_equivalent, unit_equivalent
+from app.utils.math_eval import (
+    _strip_unit,
+    extract_unit,
+    latex_to_python_math,
+    numeric_equivalent,
+    si_units_same_dimension,
+    unit_equivalent,
+)
 
 # Strip scientific-notation clusters before detecting alphabetic variables (avoid flagging `e` in 1e-3).
 _RE_SCI = re.compile(r"[+\-]?\d+\.?\d*[eE][+\-]?\d+")
@@ -91,7 +98,9 @@ def run_phase1_local(
             ),
         )
 
-    formula_like = _math_core_has_letters(student_answer) or _math_core_has_letters(correct_answer)
+    s_math = latex_to_python_math(student_answer)
+    c_math = latex_to_python_math(correct_answer)
+    formula_like = _math_core_has_letters(s_math) or _math_core_has_letters(c_math)
 
     if formula_like:
         # No numeric shortcut: only exact normalised string match counts (handled above).
@@ -99,7 +108,8 @@ def run_phase1_local(
 
     ne = numeric_equivalent(student_answer, correct_answer, rtol=rtol)
     if ne is True:
-        correct_u = extract_unit(correct_answer)
+        # Unit parsing uses the same math-normalized text as numeric_equivalent (LaTeX ``\times`` etc.).
+        correct_u = extract_unit(c_math)
         if correct_u:
             if not student_provided_unit(student_answer):
                 return Phase1Result(
@@ -113,9 +123,12 @@ def run_phase1_local(
                         validation_method="local_numeric_missing_unit",
                     ),
                 )
-            if not unit_equivalent(student_answer, correct_answer):
-                # Numbers match but units differ or parse ambiguously — let Phase 2 judge (M vs M/s, g vs kg, etc.).
-                return Phase1Result(False, None)
+            if not unit_equivalent(s_math, c_math):
+                su = extract_unit(s_math)
+                cu = extract_unit(c_math)
+                # Same SI dimension with different prefix (e.g. 55.4×10³ ms vs 55.4 s) — numeric_equivalent already matched in SI.
+                if not (su and cu and si_units_same_dimension(su, cu)):
+                    return Phase1Result(False, None)
         return Phase1Result(
             True,
             ValidationOutput(
@@ -132,8 +145,8 @@ def run_phase1_local(
         # a valid SI prefix or unit-system conversion (e.g. "121 × 10⁻³ kg" == "121 g"
         # or "48800 J/mol" == "48.8 kJ/mol"). Local arithmetic cannot convert units,
         # so hand off to the LLM only in that case.
-        student_unit = extract_unit(student_answer)
-        correct_unit = extract_unit(correct_answer)
+        student_unit = extract_unit(s_math)
+        correct_unit = extract_unit(c_math)
         if correct_unit and student_unit != correct_unit:
             return Phase1Result(False, None)
         # Same unit (or no unit) — deterministic numeric mismatch, no need for LLM.

@@ -8,15 +8,19 @@ Handles:
   - Arithmetic expressions: 0.025 * 8, 0.80 - 0.40, (0.025)(8)
   - Scientific notation:    1.5e-3, 1.5*10^-3, 1.5*10**-3
   - Unicode math symbols:   × → *, · → *, − → -, ^ → **
+  - LaTeX-style input:      ``latex_to_python_math`` maps ``\\times``, ``\\cdot``, ``^{}``, etc.
+    to Python operators. Decimal points (.) are never treated as multiplication; only the LaTeX
+    command ``\\cdot`` becomes ``*``.
   - Trailing units:         "0.45 M" → numeric 0.45, unit "M"
+  - SI / prefix scaling:    ``pint`` compares magnitudes in base units (same dimension only).
 
 Used by StepValidationService to avoid LLM calls for numeric steps.
 """
 
 import ast
 import math
-import random
 import re
+from functools import lru_cache
 from typing import Tuple
 
 
@@ -93,6 +97,55 @@ class _SafeVisitor(ast.NodeVisitor):
 
     def generic_visit(self, node: ast.AST) -> float:  # type: ignore[override]
         raise ValueError(f"Disallowed AST node: {type(node).__name__}")
+
+
+_FRAC_SIMPLE = re.compile(r"\\frac\{([^{}]+)\}\{([^{}]+)\}")
+_POW_BRACED = re.compile(r"\^\{([^{}]+)\}")
+
+
+def latex_to_python_math(text: str) -> str:
+    """Map common LaTeX math surface syntax to Python-evaluable text.
+
+    Only replaces explicit LaTeX commands (``\\times``, ``\\cdot``, ``\\frac``, ``^{...}``).
+    ASCII decimal points in numbers (e.g. ``0.0065``) are left unchanged; multiplication is
+    ``\\cdot`` / ``\\times`` / Unicode ``×``, not the period between integer and fractional parts.
+    """
+    if not text:
+        return text
+    s = text.strip()
+    s = re.sub(r"\$+", "", s).strip()
+
+    s = re.sub(r"\\left\s*\(", "(", s)
+    s = re.sub(r"\\right\s*\)", ")", s)
+    s = re.sub(r"\\left\s*\[", "[", s)
+    s = re.sub(r"\\right\s*\]", "]", s)
+
+    for _ in range(24):
+        s2 = _FRAC_SIMPLE.sub(r"((\1)/(\2))", s)
+        if s2 == s:
+            break
+        s = s2
+
+    s = re.sub(r"\\times", "*", s)
+    s = re.sub(r"\\cdot", "*", s)
+    s = re.sub(r"\\div", "/", s)
+
+    for _ in range(24):
+        s2 = re.sub(r"\\(?:mathrm|text)\{([^{}]*)\}", r"\1", s)
+        if s2 == s:
+            break
+        s = s2
+
+    for _ in range(24):
+        s2 = _POW_BRACED.sub(r"**(\1)", s)
+        if s2 == s:
+            break
+        s = s2
+
+    # Single-digit exponent without braces: 10^4 → **(4) (digits only to limit false positives)
+    s = re.sub(r"\^(\d)", r"**(\1)", s)
+
+    return s.strip()
 
 
 def _preprocess(expr: str) -> str:
@@ -211,6 +264,135 @@ def extract_unit(text: str) -> str:
     return unit
 
 
+@lru_cache(maxsize=1)
+def _get_pint_registry():
+    import pint
+
+    return pint.UnitRegistry()
+
+
+# Case-sensitive molarity (chem): M ≠ m, nM ≠ nm, mM ≠ mm.
+_PINT_MOLARITY_UNIT: dict[str, str] = {
+    "M": "mol / liter",
+    "mM": "mmol / liter",
+    "μM": "micromole / liter",
+    "uM": "micromole / liter",
+    "nM": "nmol / liter",
+    "pM": "pmol / liter",
+}
+
+# Single-token aliases → Pint (keys lowercased; μ → u before lookup).
+_UNIT_TOKEN_TO_PINT: dict[str, str] = {
+    "ns": "nanosecond",
+    "us": "microsecond",
+    "ms": "millisecond",
+    "s": "second",
+    "sec": "second",
+    "secs": "second",
+    "second": "second",
+    "seconds": "second",
+    "min": "minute",
+    "mins": "minute",
+    "minute": "minute",
+    "minutes": "minute",
+    "h": "hour",
+    "hr": "hour",
+    "hrs": "hour",
+    "hour": "hour",
+    "hours": "hour",
+    "pm": "picometer",
+    "nm": "nanometer",
+    "um": "micrometer",
+    "mm": "millimeter",
+    "cm": "centimeter",
+    "m": "meter",
+    "meter": "meter",
+    "meters": "meter",
+    "km": "kilometer",
+    "mg": "milligram",
+    "g": "gram",
+    "gram": "gram",
+    "grams": "gram",
+    "kg": "kilogram",
+    "ul": "microliter",
+    "ml": "milliliter",
+    "l": "liter",
+    "liter": "liter",
+    "litre": "liter",
+    "liters": "liter",
+    "litres": "liter",
+    "j": "joule",
+    "kj": "kilojoule",
+    "pa": "pascal",
+    "kpa": "kilopascal",
+    "mpa": "megapascal",
+}
+
+
+def _unit_token_to_pint_expression(unit: str) -> str | None:
+    """Map a single-token unit label to a string Pint accepts. None if compound/unknown."""
+    raw = unit.strip()
+    if not raw or "/" in raw or "^" in raw:
+        return None
+    if raw in _PINT_MOLARITY_UNIT:
+        return _PINT_MOLARITY_UNIT[raw]
+    key = raw.lower().replace("μ", "u").replace(" ", "")
+    return _UNIT_TOKEN_TO_PINT.get(key)
+
+
+def _pint_quantity(magnitude: float, unit_token: str):
+    expr = _unit_token_to_pint_expression(unit_token)
+    if not expr:
+        return None
+    try:
+        return _get_pint_registry().Quantity(magnitude, expr)
+    except Exception:
+        return None
+
+
+def si_units_same_dimension(student_unit: str, correct_unit: str) -> bool:
+    """True if Pint assigns both tokens the same dimension (e.g. ms and s)."""
+    es = _unit_token_to_pint_expression(student_unit)
+    ec = _unit_token_to_pint_expression(correct_unit)
+    if not es or not ec:
+        return False
+    try:
+        qs = _get_pint_registry().Quantity(1.0, es)
+        qc = _get_pint_registry().Quantity(1.0, ec)
+        return qs.dimensionality == qc.dimensionality
+    except Exception:
+        return False
+
+
+def _numeric_within_rtol(a: float, b: float, rtol: float, atol: float) -> bool:
+    if abs(b) <= atol:
+        return abs(a) <= atol
+    return abs(a - b) / abs(b) <= rtol
+
+
+def _values_equivalent_with_si_scaling(
+    sn: float,
+    cn: float,
+    student_unit: str,
+    correct_unit: str,
+    rtol: float,
+    atol: float,
+) -> bool:
+    """Compare magnitudes in SI base units using Pint (same dimension only)."""
+    qs = _pint_quantity(sn, student_unit)
+    qc = _pint_quantity(cn, correct_unit)
+    if qs is None or qc is None:
+        return False
+    if qs.dimensionality != qc.dimensionality:
+        return False
+    try:
+        qb_s = qs.to_base_units()
+        qb_c = qc.to_base_units()
+    except Exception:
+        return False
+    return _numeric_within_rtol(float(qb_s.magnitude), float(qb_c.magnitude), rtol, atol)
+
+
 def _strip_equation_lhs(text: str) -> str:
     """
     If text looks like 'Symbol = expression' (e.g. '[A]t = 2.5 - 0.05*20'),
@@ -263,6 +445,9 @@ def numeric_equivalent(
     """
     Check whether two answer strings are numerically equivalent.
 
+    After a direct numeric comparison, also tries Pint SI scaling when both sides use a
+    mapped single-token unit in the same dimension (e.g. ``ms`` vs ``s``).
+
     Returns:
       True  — definitely equal (within tolerance)
       False — definitely not equal
@@ -271,6 +456,9 @@ def numeric_equivalent(
     rtol: relative tolerance (default 1%)
     atol: absolute tolerance for near-zero values
     """
+    student = latex_to_python_math(student or "")
+    correct = latex_to_python_math(correct or "")
+
     # Try chemistry-aware expression evaluation (handles "[A]t = expr" form)
     sn = _eval_chemistry_expr(student) if student else None
     cn = _eval_chemistry_expr(correct) if correct else None
@@ -286,33 +474,66 @@ def numeric_equivalent(
     if sn is None or cn is None:
         return None
 
-    if cn == 0:
-        return abs(sn) <= atol
+    su = extract_unit(student)
+    cu = extract_unit(correct)
+    psu = _unit_token_to_pint_expression(su) if su else None
+    pcu = _unit_token_to_pint_expression(cu) if cu else None
 
-    return abs(sn - cn) / abs(cn) <= rtol
+    # Both sides map to Pint: compare in SI base only (prefix scaling + dimension check).
+    if su and cu and psu is not None and pcu is not None:
+        try:
+            qs = _get_pint_registry().Quantity(1.0, psu)
+            qc = _get_pint_registry().Quantity(1.0, pcu)
+            if qs.dimensionality != qc.dimensionality:
+                return False
+        except Exception:
+            return False
+        return _values_equivalent_with_si_scaling(sn, cn, su, cu, rtol, atol)
+
+    if _numeric_within_rtol(sn, cn, rtol, atol):
+        return True
+
+    if su and cu and _values_equivalent_with_si_scaling(sn, cn, su, cu, rtol, atol):
+        return True
+
+    return False
+
+
+# Single source of truth for string-based unit equality (used by ``unit_equivalent`` and checkers).
+UNIT_ALIAS_CANONICAL: dict[str, str] = {
+    "molar": "m",
+    "mol/l": "m",
+    "mol/L": "m",
+    "seconds": "s",
+    "sec": "s",
+    "minutes": "min",
+    "kj": "kJ",
+    "kj/mol": "kJ/mol",
+    "s-1": "s^-1",
+    "s**-1": "s^-1",
+    "m/s2": "m/s^2",
+    "m/s**2": "m/s^2",
+}
+
+
+def normalise_unit_string(u: str) -> str:
+    """Normalise a bare unit label for equality (aliases, Unicode, LaTeX braces, spacing)."""
+    u = u.strip()
+    u = u.replace("\u2212", "-")
+    u = u.replace("{", "").replace("}", "")
+    u = u.replace("\u00b7", " ")
+    u = u.replace(".", " ")
+    u = re.sub(r"\s+", " ", u).strip()
+    u = u.lower()
+    return UNIT_ALIAS_CANONICAL.get(u, u.replace(" ", ""))
 
 
 def unit_equivalent(student: str, correct: str) -> bool:
     """
-    Check whether two unit strings are equivalent (case-insensitive, whitespace-insensitive).
+    Check whether two answer strings carry equivalent trailing units.
 
-    Handles common aliases: molar → M, seconds → s, etc.
+    Uses ``extract_unit`` then ``normalise_unit_string`` (shared with multi-input checkers).
     """
-    _ALIASES: dict[str, str] = {
-        "molar": "m",
-        "mol/l": "m",
-        "mol/L": "m",
-        "seconds": "s",
-        "sec": "s",
-        "minutes": "min",
-        "kj": "kJ",
-        "kj/mol": "kJ/mol",
-    }
-
-    def normalise(u: str) -> str:
-        u = u.strip()
-        return _ALIASES.get(u.lower(), u.lower().replace(" ", ""))
-
     su = extract_unit(student)
     cu = extract_unit(correct)
 
@@ -320,4 +541,4 @@ def unit_equivalent(student: str, correct: str) -> bool:
     if not cu:
         return True
 
-    return normalise(su) == normalise(cu)
+    return normalise_unit_string(su) == normalise_unit_string(cu)

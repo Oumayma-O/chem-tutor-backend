@@ -38,6 +38,8 @@ dependencies = [
     "python-dotenv>=1.0.0",
     # Deterministic symbolic equivalence (Phase 1.6 validation)
     "sympy>=1.13.0",
+    # Physical units for Phase 1 numeric comparison (prefix scaling, dimensions)
+    "pint>=0.24",
 ]
 
 [project.optional-dependencies]

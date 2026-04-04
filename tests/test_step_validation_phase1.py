@@ -25,6 +25,20 @@ def test_phase1_numeric_tolerance() -> None:
     assert r.output is not None and r.output.is_correct is True
 
 
+def test_phase1_latex_times_ms_matches_seconds_via_pint() -> None:
+    """LaTeX ``\\times`` must not break ``extract_unit`` on the raw string (use math-normalized form)."""
+    r = run_phase1_local(r"55.4 \times 10^{3} ms", "55.4 s", rtol=0.01)
+    assert r.immediate_return is True
+    assert r.output is not None and r.output.is_correct is True
+    assert r.output.validation_method == "local_numeric"
+
+
+def test_phase1_spaced_star_ms_matches_seconds() -> None:
+    r = run_phase1_local("55.4 * 10^3 ms", "55.4 s", rtol=0.01)
+    assert r.immediate_return is True
+    assert r.output is not None and r.output.is_correct is True
+
+
 def test_phase1_string_normalised_match() -> None:
     r = run_phase1_local("Rate = k[X][Y]^2", "rate=k[x][y]^2", rtol=0.02)
     assert r.immediate_return is True
