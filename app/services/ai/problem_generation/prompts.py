@@ -87,6 +87,7 @@ You MUST choose the `type` for each step based on what the student is doing:
 1. type="multi_input"
    - WHEN: A step requires identifying or entering MULTIPLE labeled values
      (e.g. extracting several Knowns, two abundances, multiple masses).
+   - ALSO USE for ANY single numeric answer that requires a unit (see UNIT RULE below).
    - Populate "inputFields" (array of {{label, value, unit}}). Leave "correctAnswer" null.
    - "label" MUST be a plain readable label (no $ or LaTeX) — the UI renders it at normal size.
      "value" and "unit" may contain math wrapped in $...$:
@@ -97,6 +98,14 @@ You MUST choose the `type` for each step based on what the student is doing:
    - NEVER collapse multiple inputs into a comma-separated or semicolon-separated "correctAnswer" string
      (e.g. WRONG: correctAnswer="32.00, 2.02"; CORRECT: inputFields with label/value/unit per item).
    - When a step asks for multiple distinct answers (e.g., "rate law AND overall order"), you MUST use type="multi_input".
+   - UNIT RULE: The "unit" field MUST be chosen from this standard list (leave "" if no unit applies):
+     Mass: g, kg, mg, amu | Amount: mol, g/mol | Length: m, cm, mm, nm
+     Volume: L, mL, m^3, cm^3 | Time: s, min, h, d, yr | Temperature: K, °C, °F
+     Pressure: Pa, kPa, atm, mmHg, torr | Energy: J, kJ, cal, kcal, eV
+     Concentration: M, m, %, ppm, ppb, N | Density: g/mL, g/cm^3
+     Rates: s^-1, M/s, M^-1 s^-1, M^-2 s^-1 | Thermodynamics: J/(g·°C), J/(mol·K), kJ/mol
+     Electrochemistry: V, C, A | Light: Hz, nm
+     Do NOT invent unit strings. If the correct unit is not in the list, pick the closest match.
 
 2. type="comparison"
    - WHEN: A step asks the student to MATHEMATICALLY compare two numeric quantities or expressions
@@ -124,8 +133,15 @@ You MUST choose the `type` for each step based on what the student is doing:
 
 4. type="interactive"
    - WHEN: A standard single-value micro-input step (none of the above apply).
-   - Use for single-answer steps: calculations, identifications, final answers.
+   - Use ONLY for: pure text answers ("endothermic"), unitless numbers (pH=7.2, K=0.042),
+     or symbolic expressions ("2H₂ + O₂ → 2H₂O").
    - Must include a brief "correctAnswer" (number, symbol, or short word).
+   - UNIT RULE: If the answer requires a NUMERIC VALUE + UNIT, do NOT use type="interactive".
+     Use type="multi_input" with a single inputField row instead.
+     WRONG: type="interactive", correctAnswer="96.0 g"
+     CORRECT: type="multi_input", inputFields=[{{label:"Mass", value:"$96.0$", unit:"g"}}]
+     WRONG: type="interactive", correctAnswer="3.6e-4 s^-1"
+     CORRECT: type="multi_input", inputFields=[{{label:"k", value:"$3.6 \\times 10^{{-4}}$", unit:"s^-1"}}]
    - FORBIDDEN: If a step asks the student to find TWO OR MORE distinct physical quantities
      (e.g., "find neutrons AND electrons", "find protons AND charge"), you MUST use type="multi_input".
      WRONG: type="interactive", correctAnswer="18 neutrons, 18 electrons"
@@ -182,6 +198,8 @@ You are generating interactive steps for a compact student UI. Each step has THR
    DO NOT include explanations, formulas, or verbose reasoning here.
    - Good: "Find the target number of O atoms to balance."
    - Bad:  "Look at the equation. Oxygen appears as O2 and O3. What is the LCM?"
+   If the step expects a calculated number, APPEND the expected precision in parentheses:
+   - Good: "Calculate the rate constant. (3 sig figs)"  "Find the mass in grams. (1 decimal place)"
 
 2. "correctAnswer" (MICRO-INPUT ONLY): Brief single-value student input.
    - Valid: "63.62", "Cu", "4Al + 3O2 -> 2Al2O3", "<", "O2"

@@ -218,8 +218,8 @@ FEW_SHOT_DATA: list[tuple[str, int, str, str, dict]] = [
             "title": "Identifying an Element from Isotopic Abundance",
             "statement": (
                 "A sample contains an element with two naturally occurring isotopes detected by mass spectrometry:\n\n"
-                "One has a mass of $63.0 \\text{ amu}$ (abundance $69.0\\%$), "
-                "and the other has a mass of $65.0 \\text{ amu}$ (abundance $31.0\\%$). Identify the element."
+                "One has a mass of $63 \\text{ amu}$ (abundance $69.0\\%$), "
+                "and the other has a mass of $65 \\text{ amu}$ (abundance $31\\%$). Identify the element."
             ),
             "level": 2,
             "steps": [
@@ -229,8 +229,8 @@ FEW_SHOT_DATA: list[tuple[str, int, str, str, dict]] = [
                     "type": "interactive",
                     "is_given": True,
                     "instruction": "Identify the mass of the most abundant isotope.",
-                    "explanation": "The highest percentage ($69.0\\%$) corresponds to the $63.0 \\text{ amu}$ isotope.",
-                    "correctAnswer": "63.0",
+                    "explanation": "The highest percentage ($69\\%$) corresponds to the $63 \\text{ amu}$ isotope.",
+                    "correctAnswer": "63",
                     "skillUsed": "Extract data from representation",
                 },
                 {
@@ -239,7 +239,7 @@ FEW_SHOT_DATA: list[tuple[str, int, str, str, dict]] = [
                     "type": "multi_input",
                     "is_given": True,
                     "instruction": "Convert the percentage abundances to decimals.",
-                    "explanation": "Divide each percentage by $100$: $69.0 \\div 100 = 0.690$ and $31.0 \\div 100 = 0.310$.",
+                    "explanation": "Divide each percentage by $100$: $69 \\div 100 = 0.690$ and $31 \\div 100 = 0.310$.",
                     "inputFields": [
                         {"label": "Abundance 1", "value": "$0.690$", "unit": ""},
                         {"label": "Abundance 2", "value": "$0.310$", "unit": ""},
@@ -252,7 +252,7 @@ FEW_SHOT_DATA: list[tuple[str, int, str, str, dict]] = [
                     "type": "interactive",
                     "is_given": False,
                     "instruction": "Calculate the weighted average atomic mass.",
-                    "explanation": "$(63.0 \\times 0.690) + (65.0 \\times 0.310) = 43.47 + 20.15 = 63.62 \\text{ amu}$.",
+                    "explanation": "$(63 \\times 0.690) + (65 \\times 0.310) = 43.47 + 20.15 = 63.62 \\text{ amu}$.",
                     "correctAnswer": "63.62",
                     "skillUsed": "Apply chemical concept to data",
                 },
@@ -279,32 +279,32 @@ FEW_SHOT_DATA: list[tuple[str, int, str, str, dict]] = [
         {
             "title": "Theoretical Yield from a Limiting Reactant",
             "statement": (
-                "$10.0 \\text{ g}$ of $\\mathrm{H_2}$ reacts with $64.0 \\text{ g}$ of $\\mathrm{O_2}$ "
+                "$10 \\text{ g}$ of $\\mathrm{H_2}$ reacts with $64 \\text{ g}$ of $\\mathrm{O_2}$ "
                 "according to: $2\\mathrm{H_2} + \\mathrm{O_2} \\rightarrow 2\\mathrm{H_2O}$.\n\n"
                 "Calculate the theoretical yield of $\\mathrm{H_2O}$ in grams. "
                 "(Molar masses: $\\mathrm{H_2} = 2.02 \\text{ g/mol}$, "
-                "$\\mathrm{O_2} = 32.00 \\text{ g/mol}$, $\\mathrm{H_2O} = 18.02 \\text{ g/mol}$)"
+                "$\\mathrm{O_2} = 32 \\text{ g/mol}$, $\\mathrm{H_2O} = 18.02 \\text{ g/mol}$)"
             ),
             "level": 3,
             "steps": [
                 {
                     "step_number": 1,
                     "label": "Goal / Setup",
-                    "type": "interactive",
+                    "type": "multi_input",
                     "is_given": False,
-                    "instruction": "Calculate moles of $\\mathrm{H_2}$ available.",
-                    "explanation": "$10.0 \\text{ g} \\div 2.02 \\text{ g/mol} = 4.95 \\text{ mol}$.",
-                    "correctAnswer": "4.95",
+                    "instruction": "Calculate moles of $\\mathrm{H_2}$ available (3 sig figs).",
+                    "explanation": "$10 \\text{ g} \\div 2.02 \\text{ g/mol} = 4.95 \\text{ mol}$.",
+                    "inputFields": [{"label": "H₂ moles", "value": "4.95", "unit": "mol"}],
                     "skillUsed": "Identify conversion goal",
                 },
                 {
                     "step_number": 2,
                     "label": "Conversion Factors",
-                    "type": "interactive",
+                    "type": "multi_input",
                     "is_given": False,
                     "instruction": "Calculate moles of $\\mathrm{O_2}$ available.",
-                    "explanation": "$64.0 \\text{ g} \\div 32.00 \\text{ g/mol} = 2.00 \\text{ mol}$.",
-                    "correctAnswer": "2.00",
+                    "explanation": "$64 \\text{ g} \\div 32 \\text{ g/mol} = 2 \\text{ mol}$.",
+                    "inputFields": [{"label": "O₂ moles", "value": "2", "unit": "mol"}],
                     "skillUsed": "Select conversion factors",
                 },
                 {
@@ -313,28 +313,28 @@ FEW_SHOT_DATA: list[tuple[str, int, str, str, dict]] = [
                     "type": "interactive",
                     "is_given": False,
                     "instruction": "Identify the limiting reactant.",
-                    "explanation": "$2.00 \\text{ mol } \\mathrm{O_2}$ needs $4.00 \\text{ mol } \\mathrm{H_2}$; we have $4.95$, so $\\mathrm{O_2}$ limits.",
+                    "explanation": "$2 \\text{ mol } \\mathrm{O_2}$ needs $4 \\text{ mol } \\mathrm{H_2}$; we have $4.95$, so $\\mathrm{O_2}$ limits.",
                     "correctAnswer": "$\\mathrm{O_2}$",
                     "skillUsed": "Set up dimensional analysis",
                 },
                 {
                     "step_number": 4,
                     "label": "Calculate",
-                    "type": "interactive",
+                    "type": "multi_input",
                     "is_given": False,
                     "instruction": "Find moles of $\\mathrm{H_2O}$ produced.",
-                    "explanation": "$2.00 \\text{ mol } \\mathrm{O_2} \\times (2 \\text{ mol } \\mathrm{H_2O} / 1 \\text{ mol } \\mathrm{O_2}) = 4.00 \\text{ mol}$.",
-                    "correctAnswer": "4.00",
+                    "explanation": "$2 \\text{ mol } \\mathrm{O_2} \\times (2 \\text{ mol } \\mathrm{H_2O} / 1 \\text{ mol } \\mathrm{O_2}) = 4 \\text{ mol}$.",
+                    "inputFields": [{"label": "H₂O moles", "value": "4", "unit": "mol"}],
                     "skillUsed": "Set up dimensional analysis",
                 },
                 {
                     "step_number": 5,
                     "label": "Answer",
-                    "type": "interactive",
+                    "type": "multi_input",
                     "is_given": False,
-                    "instruction": "Convert moles of $\\mathrm{H_2O}$ to grams.",
-                    "explanation": "$4.00 \\text{ mol} \\times 18.02 \\text{ g/mol} = 72.1 \\text{ g}$ ($3$ sig figs).",
-                    "correctAnswer": "72.1",
+                    "instruction": "Convert moles of $\\mathrm{H_2O}$ to grams (3 sig figs).",
+                    "explanation": "$4 \\text{ mol} \\times 18.02 \\text{ g/mol} = 72.1 \\text{ g}$.",
+                    "inputFields": [{"label": "Mass", "value": "72.1", "unit": "g"}],
                     "skillUsed": "Compute final answer with sig figs",
                 },
             ],
@@ -355,7 +355,7 @@ FEW_SHOT_DATA: list[tuple[str, int, str, str, dict]] = [
                 "A chemist studies the decomposition of reactant $A$ at constant temperature. "
                 "The data produce a straight-line plot when $[A]$ is graphed versus time, "
                 "indicating zero-order behavior.\n\n"
-                "The initial concentration is $0.84 \\text{ M}$, and after $35.0 \\text{ s}$ "
+                "The initial concentration is $0.84 \\text{ M}$, and after $35\\text{ s}$ "
                 "the concentration is $0.56 \\text{ M}$.\n\n"
                 "Determine the zero-order rate constant $k$ and then calculate the half-life "
                 "of the reaction."
@@ -381,7 +381,7 @@ FEW_SHOT_DATA: list[tuple[str, int, str, str, dict]] = [
                     "explanation": "Extract $[A]_0$, $[A]_t$, and $t$ with units from the statement.",
                     "inputFields": [
                         {"label": "Initial concentration", "value": "$0.84$", "unit": "M"},
-                        {"label": "Concentration at 35.0 s", "value": "$0.56$", "unit": "M"},
+                        {"label": "Concentration at 35 s", "value": "$0.56$", "unit": "M"},
                         {"label": "Time", "value": "$35.0$", "unit": "s"},
                     ],
                     "skillUsed": "Extract known values with units",
@@ -401,27 +401,26 @@ FEW_SHOT_DATA: list[tuple[str, int, str, str, dict]] = [
                 {
                     "step_number": 4,
                     "label": "Calculate",
-                    "type": "interactive",
+                    "type": "multi_input",
                     "is_given": False,
-                    "instruction": "Calculate the rate constant $k$.",
+                    "instruction": "Calculate the rate constant $k$ (1 sig fig).",
                     "explanation": (
-                        "$k = (0.84 - 0.56) / 35.0 = 0.00800 \\text{ M/s}$ "
-                        "($3$ sig figs from the data)."
+                        "$k = (0.84 - 0.56) / 35 = 0.008 \\text{ M/s}$."
                     ),
-                    "correctAnswer": "0.00800 M/s",
+                    "inputFields": [{"label": "k", "value": "0.008", "unit": "M/s"}],
                     "skillUsed": "Compute final answer with sig figs",
                 },
                 {
                     "step_number": 5,
                     "label": "Answer",
-                    "type": "interactive",
+                    "type": "multi_input",
                     "is_given": False,
-                    "instruction": "Find the half-life for zero-order decay.",
+                    "instruction": "Find the half-life for zero-order decay (3 sig figs).",
                     "explanation": (
-                        "For zero-order, $t_{1/2} = [A]_0 / (2k) = 0.84 / (2 \\times 0.00800) "
+                        "For zero-order, $t_{1/2} = [A]_0 / (2k) = 0.84 / (2 \\times 0.008) "
                         "= 52.5 \\text{ s}$."
                     ),
-                    "correctAnswer": "52.5 s",
+                    "inputFields": [{"label": "t½", "value": "52.5", "unit": "s"}],
                     "skillUsed": "Compute final answer with sig figs",
                 },
             ],
@@ -439,7 +438,7 @@ FEW_SHOT_DATA: list[tuple[str, int, str, str, dict]] = [
             "statement": (
                 "Reactant $B$ decomposes at constant temperature. A plot of $[B]$ versus time "
                 "is linear, so the reaction is zero-order.\n\n"
-                "At $t = 0$, $[B]_0 = 1.20 \\text{ M}$. After $40.0 \\text{ s}$, "
+                "At $t = 0$, $[B]_0 = 1.20 \\text{ M}$. After $40 \\text{ s}$, "
                 "$[B] = 0.72 \\text{ M}$.\n\n"
                 "Find $k$ and the half-life."
             ),
@@ -464,8 +463,8 @@ FEW_SHOT_DATA: list[tuple[str, int, str, str, dict]] = [
                     "explanation": "Record initial $[B]$, final $[B]$, and elapsed time with units.",
                     "inputFields": [
                         {"label": "Initial concentration", "value": "$1.20$", "unit": "M"},
-                        {"label": "Concentration at 40.0 s", "value": "$0.72$", "unit": "M"},
-                        {"label": "Time", "value": "$40.0$", "unit": "s"},
+                        {"label": "Concentration at 40 s", "value": "$0.72$", "unit": "M"},
+                        {"label": "Time", "value": "$40$", "unit": "s"},
                     ],
                     "skillUsed": "Extract known values with units",
                 },
@@ -482,21 +481,21 @@ FEW_SHOT_DATA: list[tuple[str, int, str, str, dict]] = [
                 {
                     "step_number": 4,
                     "label": "Calculate",
-                    "type": "interactive",
+                    "type": "multi_input",
                     "is_given": False,
-                    "instruction": "Solve for $k$.",
+                    "instruction": "Solve for $k$ (3 sig figs).",
                     "explanation": "$k = (1.20 - 0.72) / 40.0 = 0.0120 \\text{ M/s}$.",
-                    "correctAnswer": "0.0120 M/s",
+                    "inputFields": [{"label": "k", "value": "0.0120", "unit": "M/s"}],
                     "skillUsed": "Compute final answer with sig figs",
                 },
                 {
                     "step_number": 5,
                     "label": "Answer",
-                    "type": "interactive",
+                    "type": "multi_input",
                     "is_given": False,
-                    "instruction": "Report the zero-order half-life.",
-                    "explanation": "$t_{1/2} = [B]_0/(2k) = 1.20/(2 \\times 0.0120) = 50.0 \\text{ s}$.",
-                    "correctAnswer": "50.0 s",
+                    "instruction": "Report the zero-order half-life (2 sig figs).",
+                    "explanation": "$t_{1/2} = [B]_0/(2k) = 1.20/(2 \\times 0.0120) = 50 \\text{ s}$.",
+                    "inputFields": [{"label": "t½", "value": "50", "unit": "s"}],
                     "skillUsed": "Compute final answer with sig figs",
                 },
             ],
@@ -562,11 +561,11 @@ FEW_SHOT_DATA: list[tuple[str, int, str, str, dict]] = [
                 {
                     "step_number": 5,
                     "label": "Answer",
-                    "type": "interactive",
+                    "type": "multi_input",
                     "is_given": True,
-                    "instruction": "Report the final mass with correct significant figures.",
+                    "instruction": "Report the final mass with correct significant figures (3 sig figs).",
                     "explanation": "Round to $3$ sig figs because $0.375 \\text{ mol}$ has $3$ sig figs.",
-                    "correctAnswer": "$41.6 \\text{ g}$",
+                    "inputFields": [{"label": "Mass", "value": "41.6", "unit": "g"}],
                     "skillUsed": "Compute final answer with sig figs",
                 },
             ],
@@ -652,21 +651,21 @@ FEW_SHOT_DATA: list[tuple[str, int, str, str, dict]] = [
                 {
                     "step_number": 1,
                     "label": "Goal / Setup",
-                    "type": "interactive",
+                    "type": "multi_input",
                     "is_given": False,
                     "instruction": "Convert time from minutes to seconds.",
                     "explanation": "$18.0 \\text{ min} \\times 60 = 1080 \\text{ s}$.",
-                    "correctAnswer": "1080",
+                    "inputFields": [{"label": "Time", "value": "1080", "unit": "s"}],
                     "skillUsed": "Apply Faraday's constant (F = 96,485 C/mol)",
                 },
                 {
                     "step_number": 2,
                     "label": "Conversion Factors",
-                    "type": "interactive",
+                    "type": "multi_input",
                     "is_given": False,
                     "instruction": "Calculate the total charge transferred.",
                     "explanation": "$Q = I \\times t = 2.85 \\times 1080 = 3078 \\text{ C}$.",
-                    "correctAnswer": "3078",
+                    "inputFields": [{"label": "Charge", "value": "3078", "unit": "C"}],
                     "skillUsed": "Apply Faraday's constant (F = 96,485 C/mol)",
                 },
                 {
@@ -692,11 +691,11 @@ FEW_SHOT_DATA: list[tuple[str, int, str, str, dict]] = [
                 {
                     "step_number": 5,
                     "label": "Answer",
-                    "type": "interactive",
+                    "type": "multi_input",
                     "is_given": False,
-                    "instruction": "Report the final mass with correct sig figs.",
+                    "instruction": "Report the final mass with correct sig figs (3 sig figs).",
                     "explanation": "Both $2.85 \\text{ A}$ and $18.0 \\text{ min}$ have 3 significant figures.",
-                    "correctAnswer": "3.44 g",
+                    "inputFields": [{"label": "Mass", "value": "3.44", "unit": "g"}],
                     "skillUsed": "Calculate mass deposited or volume of gas produced during electrolysis",
                 },
             ],
@@ -764,21 +763,23 @@ FEW_SHOT_DATA: list[tuple[str, int, str, str, dict]] = [
                 {
                     "step_number": 4,
                     "label": "Calculate",
-                    "type": "interactive",
+                    "type": "multi_input",
                     "is_given": False,
-                    "instruction": "Solve for $E_a$ in J/mol.",
-                    "explanation": "$E_a = \\frac{8.314 \\times \\ln(4.00)}{(1/285 - 1/305)} \\approx 7.20 \\times 10^{4}\\,\\text{J/mol}$.",
-                    "correctAnswer": "$7.20 \\times 10^{4}$",
+                    "instruction": "Report $E_a$ in J/mol (3 significant figures).",
+                    "explanation": (
+                        "$E_a = \\frac{8.314 \\times \\ln(4)}{(1/285 - 1/305)} \\approx 7.20 \\times 10^{4}\\,\\text{J/mol}$."
+                    ),
+                    "inputFields": [{"label": "$E_a$", "value": "7.20e4", "unit": "J/mol"}],
                     "skillUsed": "Calculate activation energy using logarithms and algebra",
                 },
                 {
                     "step_number": 5,
                     "label": "Answer",
-                    "type": "interactive",
+                    "type": "multi_input",
                     "is_given": False,
-                    "instruction": "Express the activation energy in kJ/mol.",
+                    "instruction": "Express the activation energy in kJ/mol (3 significant figures).",
                     "explanation": "Convert to kilojoules: $E_a = 72.0\\,\\text{kJ/mol}$ (3 significant figures).",
-                    "correctAnswer": "$72.0\\,\\text{kJ/mol}$",
+                    "inputFields": [{"label": "$E_a$", "value": "72.0", "unit": "kJ/mol"}],
                     "skillUsed": "Convert units and report with correct significant figures",
                 },
             ],
@@ -987,11 +988,13 @@ FEW_SHOT_DATA: list[tuple[str, int, str, str, dict]] = [
                 {
                     "step_number": 4,
                     "label": "Calculate",
-                    "type": "interactive",
+                    "type": "multi_input",
                     "is_given": False,
-                    "instruction": "Compute $\\Delta G^\\circ$ in J/mol.",
-                    "explanation": "$\\Delta G^\\circ = -(2)(96485)(0.34) = -65610 \\text{ J/mol} \\approx -65.6 \\text{ kJ/mol}$.",
-                    "correctAnswer": "-65610",
+                    "instruction": "Report $\\Delta G^\\circ$ in J/mol (3 sig figs).",
+                    "explanation": (
+                        "$\\Delta G^\\circ = -(2)(96485)(0.34) = -65610 \\text{ J/mol} \\approx -65.6 \\text{ kJ/mol}$."
+                    ),
+                    "inputFields": [{"label": "$\\Delta G^\\circ$", "value": "-65610", "unit": "J/mol"}],
                     "skillUsed": "Interconvert ΔG°, K, and E° for electrochemical and thermodynamic problems",
                 },
                 {
@@ -999,7 +1002,7 @@ FEW_SHOT_DATA: list[tuple[str, int, str, str, dict]] = [
                     "label": "Answer",
                     "type": "interactive",
                     "is_given": False,
-                    "instruction": "Calculate $K$ from $\\Delta G^\\circ = -RT\\ln K$.",
+                    "instruction": "Calculate $K$ from $\\Delta G^\\circ = -RT\\ln K$ (3 sig figs).",
                     "explanation": "$\\ln K = -\\Delta G^\\circ / RT = 65610 / (8.314 \\times 298) = 26.47$, so $K = e^{26.47} \\approx 3.15 \\times 10^{11}$.",
                     "correctAnswer": "$3.15 \\times 10^{11}$",
                     "skillUsed": "Interconvert ΔG°, K, and E° for electrochemical and thermodynamic problems",
@@ -1123,11 +1126,11 @@ FEW_SHOT_DATA: list[tuple[str, int, str, str, dict]] = [
                 {
                     "step_number": 2,
                     "label": "Conversion Factors",
-                    "type": "interactive",
+                    "type": "multi_input",
                     "is_given": True,
                     "instruction": "Convert time to seconds.",
                     "explanation": "Faraday's Law requires charge in coulombs, so convert minutes to seconds first.",
-                    "correctAnswer": "1500 s",
+                    "inputFields": [{"label": "Time", "value": "1500", "unit": "s"}],
                     "skillUsed": "Apply Faraday's constant (F = 96,485 C/mol)",
                 },
                 {
@@ -1153,11 +1156,11 @@ FEW_SHOT_DATA: list[tuple[str, int, str, str, dict]] = [
                 {
                     "step_number": 5,
                     "label": "Answer",
-                    "type": "interactive",
+                    "type": "multi_input",
                     "is_given": False,
-                    "instruction": "Report the final mass with correct sig figs.",
+                    "instruction": "Report the final mass with correct sig figs (3 sig figs).",
                     "explanation": "Round to 3 sig figs: $1.60 \\text{ A}$ and $25.0 \\text{ min}$ each have 3 sig figs.",
-                    "correctAnswer": "0.0251 g",
+                    "inputFields": [{"label": "Mass", "value": "0.0251", "unit": "g"}],
                     "skillUsed": "Calculate mass deposited or volume of gas produced during electrolysis",
                 },
             ],
@@ -1222,11 +1225,11 @@ FEW_SHOT_DATA: list[tuple[str, int, str, str, dict]] = [
                 {
                     "step_number": 5,
                     "label": "Answer",
-                    "type": "interactive",
+                    "type": "multi_input",
                     "is_given": True,
-                    "instruction": "Report the final mass with correct significant figures.",
+                    "instruction": "Report the final mass with correct significant figures (3 sig figs).",
                     "explanation": "Round to $3$ sig figs because the given $2.50 \\text{ mol}$ has $3$ sig figs.",
-                    "correctAnswer": "$238 \\text{ g}$",
+                    "inputFields": [{"label": "Mass", "value": "238", "unit": "g"}],
                     "skillUsed": "Convert between moles and grams (1-step)",
                 },
             ],
@@ -1283,21 +1286,21 @@ FEW_SHOT_DATA: list[tuple[str, int, str, str, dict]] = [
                 {
                     "step_number": 4,
                     "label": "Calculate",
-                    "type": "interactive",
+                    "type": "multi_input",
                     "is_given": False,
-                    "instruction": "First, calculate the moles of $\\mathrm{CaCl_2}$.",
-                    "explanation": "$11.1 \\text{ g} \\div 110.98 \\text{ g/mol} = 0.1000 \\text{ mol}$ (intermediate step).",
-                    "correctAnswer": "0.1000",
+                    "instruction": "First, calculate the moles of $\\mathrm{CaCl_2}$ (1 sig fig).",
+                    "explanation": "$11.1 \\text{ g} \\div 110.98 \\text{ g/mol} = 0.1 \\text{ mol}$ (intermediate step).",
+                    "inputFields": [{"label": "Moles", "value": "0.1", "unit": "mol"}],
                     "skillUsed": "Convert between moles and grams",
                 },
                 {
                     "step_number": 5,
                     "label": "Answer",
-                    "type": "interactive",
+                    "type": "multi_input",
                     "is_given": False,
-                    "instruction": "Multiply moles by Avogadro's number to get formula units.",
-                    "explanation": "$0.1000 \\text{ mol} \\times 6.022 \\times 10^{23} = 6.02 \\times 10^{22}$ formula units.",
-                    "correctAnswer": "$6.02 \\times 10^{22}$ formula units",
+                    "instruction": "Multiply moles by Avogadro's number (3 significant figures).",
+                    "explanation": "$0.1 \\text{ mol} \\times 6.022 \\times 10^{23} = 6.02 \\times 10^{22}$ formula units.",
+                    "inputFields": [{"label": "Formula units", "value": "6.02e22", "unit": ""}],
                     "skillUsed": "Convert between moles and particles",
                 },
             ],
@@ -1316,7 +1319,7 @@ FEW_SHOT_DATA: list[tuple[str, int, str, str, dict]] = [
                 "A sample contains $1.204 \\times 10^{24}$ formula units of aluminum oxide, $\\mathrm{Al_2O_3}$.\n\n"
                 "Using Avogadro's number, $6.022 \\times 10^{23}$ formula units per mole, "
                 "calculate the mass of oxygen present in the sample.\n\n"
-                "Molar masses: Al = $26.98 \\text{ g/mol}$, O = $16.00 \\text{ g/mol}$."
+                "Molar masses: Al = $26.98 \\text{ g/mol}$, O = $16 \\text{ g/mol}$."
             ),
             "level": 2,
             "steps": [
@@ -1347,31 +1350,31 @@ FEW_SHOT_DATA: list[tuple[str, int, str, str, dict]] = [
                 {
                     "step_number": 3,
                     "label": "Step 1: Particles → Moles",
-                    "type": "interactive",
+                    "type": "multi_input",
                     "is_given": False,
                     "instruction": "Convert formula units to moles of $\\mathrm{Al_2O_3}$.",
-                    "explanation": "Divide by Avogadro's number: $1.204 \\times 10^{24} / 6.022 \\times 10^{23} = 2.00 \\text{ mol}$.",
-                    "correctAnswer": "2.00",
+                    "explanation": "Divide by Avogadro's number: $1.204 \\times 10^{24} / 6.022 \\times 10^{23} = 2 \\text{ mol}$.",
+                    "inputFields": [{"label": "Moles", "value": "2", "unit": "mol"}],
                     "skillUsed": "Convert between particles and moles",
                 },
                 {
                     "step_number": 4,
                     "label": "Step 2: Moles of Compound → Moles of O",
-                    "type": "interactive",
+                    "type": "multi_input",
                     "is_given": False,
                     "instruction": "Find moles of oxygen atoms using the formula.",
-                    "explanation": "Each $\\mathrm{Al_2O_3}$ contains 3 oxygen atoms: $2.00 \\times 3 = 6.00 \\text{ mol O}$.",
-                    "correctAnswer": "6.00",
+                    "explanation": "Each $\\mathrm{Al_2O_3}$ contains 3 oxygen atoms: $2 \\times 3 = 6 \\text{ mol O}$.",
+                    "inputFields": [{"label": "Moles", "value": "6", "unit": "mol"}],
                     "skillUsed": "Use subscripts to determine mole ratios",
                 },
                 {
                     "step_number": 5,
                     "label": "Answer",
-                    "type": "interactive",
+                    "type": "multi_input",
                     "is_given": False,
-                    "instruction": "Convert moles of O to grams and report the final mass.",
-                    "explanation": "$6.00 \\text{ mol} \\times 16.00 \\text{ g/mol} = 96.0 \\text{ g}$.",
-                    "correctAnswer": "96.0 g",
+                    "instruction": "Convert moles of O to grams and report the final mass (3 sig figs).",
+                    "explanation": "$6 \\text{ mol} \\times 16 \\text{ g/mol} = 96 \\text{ g}$.",
+                    "inputFields": [{"label": "Mass", "value": "96", "unit": "g"}],
                     "skillUsed": "Convert between moles and mass",
                 },
             ],
@@ -2012,21 +2015,24 @@ FEW_SHOT_DATA: list[tuple[str, int, str, str, dict]] = [
                 {
                     "step_number": 4,
                     "label": "Calculate",
-                    "type": "interactive",
+                    "type": "multi_input",
                     "is_given": False,
-                    "instruction": "Solve for $E_a$ in J/mol.",
-                    "explanation": "$\\ln(3.28) \\approx 1.187$; denominator $\\approx 1.81 \\times 10^{-4}$; $E_a \\approx 5.46 \\times 10^{4}\\,\\text{J/mol}$.",
-                    "correctAnswer": "$5.46 \\times 10^{4}$",
+                    "instruction": "Report $E_a$ in J/mol (3 significant figures).",
+                    "explanation": (
+                        "$\\ln(3.28) \\approx 1.187$; denominator $\\approx 1.81 \\times 10^{-4}$; "
+                        "$E_a \\approx 5.46 \\times 10^{4}\\,\\text{J/mol}$."
+                    ),
+                    "inputFields": [{"label": "$E_a$", "value": "5.46e4", "unit": "J/mol"}],
                     "skillUsed": "Calculate activation energy using logarithms and algebra",
                 },
                 {
                     "step_number": 5,
                     "label": "Answer",
-                    "type": "interactive",
+                    "type": "multi_input",
                     "is_given": False,
-                    "instruction": "Express the activation energy in kJ/mol.",
+                    "instruction": "Express the activation energy in kJ/mol (3 significant figures).",
                     "explanation": "Convert: $E_a = 54.6\\,\\text{kJ/mol}$ (3 significant figures).",
-                    "correctAnswer": "$54.6\\,\\text{kJ/mol}$",
+                    "inputFields": [{"label": "$E_a$", "value": "54.6", "unit": "kJ/mol"}],
                     "skillUsed": "Convert units and report with correct significant figures",
                 },
             ],
@@ -2043,9 +2049,9 @@ FEW_SHOT_DATA: list[tuple[str, int, str, str, dict]] = [
             "title": "First-Order Decay: Radioactive Isotope",
             "statement": (
                 "A radioactive isotope decays following first-order kinetics. "
-                "The initial concentration of the sample is $0.500 \\text{ M}$ and its rate constant "
+                "The initial concentration of the sample is $0.5 \\text{ M}$ and its rate constant "
                 "is $k = 0.0346 \\text{ yr}^{-1}$.\n\n"
-                "Calculate the concentration of the isotope remaining after $15.0 \\text{ years}$."
+                "Calculate the concentration of the isotope remaining after $15 \\text{ years}$."
             ),
             "level": 3,
             "steps": [
@@ -2078,9 +2084,9 @@ FEW_SHOT_DATA: list[tuple[str, int, str, str, dict]] = [
                     "instruction": "Extract the given values with units.",
                     "explanation": "List the initial concentration, rate constant, and time.",
                     "inputFields": [
-                        {"label": "Initial concentration", "value": "$0.500$", "unit": "M"},
+                        {"label": "Initial concentration", "value": "$0.5$", "unit": "M"},
                         {"label": "Rate constant", "value": "$0.0346$", "unit": "$\\text{yr}^{-1}$"},
-                        {"label": "Time", "value": "$15.0$", "unit": "yr"},
+                        {"label": "Time", "value": "$15$", "unit": "yr"},
                     ],
                     "skillUsed": "Extract known values with units",
                 },
@@ -2091,7 +2097,7 @@ FEW_SHOT_DATA: list[tuple[str, int, str, str, dict]] = [
                     "is_given": False,
                     "instruction": "Substitute into the rate law.",
                     "explanation": "Replace $[A]_0$, $k$, and $t$ with the values from the problem.",
-                    "correctAnswer": "ln[A]_t = -(0.0346)(15.0) + ln(0.500)",
+                    "correctAnswer": "ln[A]_t = -(0.0346)(15) + ln(0.5)",
                     "skillUsed": "Substitute values into equation",
                 },
                 {
@@ -2101,7 +2107,7 @@ FEW_SHOT_DATA: list[tuple[str, int, str, str, dict]] = [
                     "is_given": False,
                     "instruction": "Calculate the right side of the equation ($\\ln[A]_t$).",
                     "explanation": (
-                        "$-(0.0346 \\times 15.0) + \\ln(0.500) \\approx -0.519 - 0.693 = -1.212$."
+                        "$-(0.0346 \\times 15) + \\ln(0.5) \\approx -0.519 - 0.693 = -1.212$."
                     ),
                     "correctAnswer": "-1.212",
                     "skillUsed": "Compute final answer with sig figs",
@@ -2133,7 +2139,7 @@ FEW_SHOT_DATA: list[tuple[str, int, str, str, dict]] = [
             "statement": (
                 "For the synthesis of ammonia, "
                 "$\\mathrm{N_2} + 3\\mathrm{H_2} \\rightleftharpoons 2\\mathrm{NH_3}$, "
-                "the equilibrium constant $K_c$ is $0.040$ at a given temperature.\n\n"
+                "the equilibrium constant $K_c$ is $0.04$ at a given temperature.\n\n"
                 "A chemist mixes the gases such that the reaction quotient $Q_c$ is calculated to be "
                 "$0.150$. Compare $Q_c$ to $K_c$ and predict the direction the reaction will shift "
                 "to reach equilibrium."
@@ -2159,7 +2165,7 @@ FEW_SHOT_DATA: list[tuple[str, int, str, str, dict]] = [
                     "type": "comparison",
                     "is_given": False,
                     "instruction": "Compare the value of Q to K.",
-                    "explanation": "Since $Q_c = 0.150$ and $K_c = 0.040$, $Q_c$ is greater than $K_c$.",
+                    "explanation": "Since $Q_c = 0.15$ and $K_c = 0.04$, $Q_c$ is greater than $K_c$.",
                     "comparisonParts": ["$Q_c$", "$K_c$"],
                     "correctAnswer": ">",
                     "skillUsed": "State chemical relationship",
@@ -2199,7 +2205,7 @@ FEW_SHOT_DATA: list[tuple[str, int, str, str, dict]] = [
         {
             "title": "Calculating the Volume of a Gas",
             "statement": (
-                "A chemist fills a cylinder with $0.850 \\text{ mol}$ of an ideal gas at a temperature "
+                "A chemist fills a cylinder with $0.85 \\text{ mol}$ of an ideal gas at a temperature "
                 "of $298 \\text{ K}$ and a pressure of $1.05 \\text{ atm}$.\n\n"
                 "Given the ideal gas constant $R = 0.08206 \\text{ L}\\cdot\\text{atm/(mol}\\cdot\\text{K)}$, "
                 "calculate the volume of the gas in liters."
@@ -2224,7 +2230,7 @@ FEW_SHOT_DATA: list[tuple[str, int, str, str, dict]] = [
                     "instruction": "Identify the given variables.",
                     "explanation": "Extract moles, temperature, pressure, and $R$ from the text.",
                     "inputFields": [
-                        {"label": "Moles", "value": "$0.850$", "unit": "mol"},
+                        {"label": "Moles", "value": "$0.85$", "unit": "mol"},
                         {"label": "Temperature", "value": "$298$", "unit": "K"},
                         {"label": "Pressure", "value": "$1.05$", "unit": "atm"},
                         {
@@ -2345,7 +2351,7 @@ FEW_SHOT_DATA: list[tuple[str, int, str, str, dict]] = [
                     "is_given": False,
                     "instruction": "Report the pH with correct significant figures.",
                     "explanation": "Concentration has 2 sig figs, so pH reports 2 decimal places.",
-                    "correctAnswer": "1.60",
+                    "correctAnswer": "1.6",
                     "skillUsed": "Compute final answer with sig figs",
                 },
             ],
@@ -2425,7 +2431,7 @@ FEW_SHOT_DATA: list[tuple[str, int, str, str, dict]] = [
             "title": "Identifying States on a Phase Diagram",
             "statement": (
                 "A chemist examines the phase diagram of carbon dioxide, $\\mathrm{CO_2}$.\n\n"
-                "At $T = -60^\\circ\\text{C}$ and $P = 1.0 \\text{ atm}$, the substance exists in a single "
+                "At $T = -60^\\circ\\text{C}$ and $P = 1 \\text{ atm}$, the substance exists in a single "
                 "phase. When $T$ rises to $20^\\circ\\text{C}$ at constant $P$, it crosses the "
                 "sublimation curve.\n\n"
                 "Identify the initial and final states of matter."

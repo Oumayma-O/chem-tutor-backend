@@ -112,17 +112,8 @@ def run_phase1_local(
         correct_u = extract_unit(c_math)
         if correct_u:
             if not student_provided_unit(student_answer):
-                return Phase1Result(
-                    True,
-                    ValidationOutput(
-                        is_correct=False,
-                        student_value=try_float(student_answer),
-                        correct_value=try_float(correct_answer),
-                        feedback=FEEDBACK_INCLUDE_UNIT_SHORT,
-                        unit_correct=False,
-                        validation_method="local_numeric_missing_unit",
-                    ),
-                )
+                # Value is correct but unit is absent — defer to LLM which will enforce the unit rule.
+                return Phase1Result(False, None)
             if not unit_equivalent(s_math, c_math):
                 su = extract_unit(s_math)
                 cu = extract_unit(c_math)
@@ -141,24 +132,9 @@ def run_phase1_local(
         )
 
     if ne is False:
-        # If the student and correct answers carry DIFFERENT units, the mismatch may be
-        # a valid SI prefix or unit-system conversion (e.g. "121 × 10⁻³ kg" == "121 g"
-        # or "48800 J/mol" == "48.8 kJ/mol"). Local arithmetic cannot convert units,
-        # so hand off to the LLM only in that case.
-        student_unit = extract_unit(s_math)
-        correct_unit = extract_unit(c_math)
-        if correct_unit and student_unit != correct_unit:
-            return Phase1Result(False, None)
-        # Same unit (or no unit) — deterministic numeric mismatch, no need for LLM.
-        return Phase1Result(
-            True,
-            ValidationOutput(
-                is_correct=False,
-                student_value=try_float(student_answer),
-                correct_value=try_float(correct_answer),
-                validation_method="local_numeric_fail",
-            ),
-        )
+        # Numeric mismatch — defer to LLM for rounding tolerance and gentle feedback.
+        # (Previous hard-fail was blocking students for minor rounding differences.)
+        return Phase1Result(False, None)
 
     # Cannot classify as numeric — treat as non-terminal string mismatch (LLM).
     return Phase1Result(False, None)
