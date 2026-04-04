@@ -131,7 +131,14 @@ class StepValidationService:
             out = prefer_partial_multisegment_feedback(phase1.output, student_answer, correct_answer)
             return _apply_hard_requirements(out, student_answer, correct_answer)
 
-        out = await self._run_phase2(student_answer, correct_answer, step_label, step_instruction, problem_context)
+        out = await self._run_phase2(
+            student_answer,
+            correct_answer,
+            step_label,
+            step_instruction,
+            problem_context,
+            step_type,
+        )
         out = prefer_partial_multisegment_feedback(out, student_answer, correct_answer)
         return _apply_hard_requirements(out, student_answer, correct_answer)
 
@@ -142,6 +149,7 @@ class StepValidationService:
         step_label: str,
         step_instruction: str | None,
         problem_context: str | None,
+        step_type: str | None,
     ) -> ValidationOutput:
         """Phase 2: LLM equivalence verification with string-match fallback on error."""
         try:
@@ -151,6 +159,7 @@ class StepValidationService:
                 step_label=step_label,
                 step_instruction=step_instruction or "",
                 problem_context=problem_context or "",
+                step_type=step_type,
             )
         except Exception as exc:
             # LangChain / provider errors (auth, rate limit, parse failures, etc.) are not all

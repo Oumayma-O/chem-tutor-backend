@@ -3,7 +3,9 @@ Phase 1 — fast local validation for the hybrid pipeline.
 
 - Symbolic/formula answers: defer to Phase 2 when not an exact local match.
 - Numeric comparison: if values match but units differ (or are ambiguous), defer to Phase 2.
-- Naked number when canonical has a unit: immediate ``local_numeric_missing_unit``.
+- Naked number when canonical has a unit but the numeric value matches: defer to Phase 2 so the LLM
+  can give tutor-style feedback (e.g. ask for the unit). Clear numeric mismatch still uses
+  ``local_numeric_fail``; ambiguous cases still defer to Phase 2.
 """
 
 from __future__ import annotations
@@ -14,7 +16,6 @@ from dataclasses import dataclass
 from app.domain.schemas.tutor import ValidationOutput
 from app.services.ai.step_validation.canonicalize import canonical_equivalent
 from app.services.ai.step_validation.checkers import normalise, try_float
-from app.services.ai.step_validation.validation_feedback import FEEDBACK_INCLUDE_UNIT_SHORT
 from app.services.ai.step_validation.symbolic_equivalent import symbolic_equivalent
 from app.services.ai.step_validation.unit_guard import student_provided_unit
 from app.utils.math_eval import (
@@ -112,7 +113,6 @@ def run_phase1_local(
         correct_u = extract_unit(c_math)
         if correct_u:
             if not student_provided_unit(student_answer):
-                # Value is correct but unit is absent — defer to LLM which will enforce the unit rule.
                 return Phase1Result(False, None)
             if not unit_equivalent(s_math, c_math):
                 su = extract_unit(s_math)
@@ -132,9 +132,15 @@ def run_phase1_local(
         )
 
     if ne is False:
-        # Numeric mismatch — defer to LLM for rounding tolerance and gentle feedback.
-        # (Previous hard-fail was blocking students for minor rounding differences.)
-        return Phase1Result(False, None)
+        return Phase1Result(
+            True,
+            ValidationOutput(
+                is_correct=False,
+                student_value=try_float(student_answer),
+                correct_value=try_float(correct_answer),
+                validation_method="local_numeric_fail",
+            ),
+        )
 
     # Cannot classify as numeric — treat as non-terminal string mismatch (LLM).
     return Phase1Result(False, None)

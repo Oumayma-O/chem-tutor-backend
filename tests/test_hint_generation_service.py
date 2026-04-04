@@ -1,4 +1,4 @@
-from unittest.mock import AsyncMock, patch
+from unittest.mock import AsyncMock
 
 import pytest
 
@@ -31,64 +31,53 @@ async def test_resolve_validation_feedback_calls_validate_when_client_empty() ->
         feedback="Include this in your answer: 3rd order",
         validation_method="local_incomplete_segments",
     )
-    mock_svc = AsyncMock()
-    mock_svc.validate = AsyncMock(return_value=mock_out)
-    with patch(
-        "app.services.ai.hint_generation.validation_context.get_step_validation_service",
-        return_value=mock_svc,
-    ):
-        r = await resolve_validation_feedback_for_hint(
-            client_feedback=None,
-            student_input="rate = k[X][Y]^2",
-            correct_answer="rate = k[X][Y]^2; 3rd order",
-            step_label="Conclusion",
-            step_instruction="State the rate law and overall order.",
-            problem_context="",
-            step_type="interactive",
-        )
+    mock_validate = AsyncMock(return_value=mock_out)
+    r = await resolve_validation_feedback_for_hint(
+        client_feedback=None,
+        student_input="rate = k[X][Y]^2",
+        correct_answer="rate = k[X][Y]^2; 3rd order",
+        step_label="Conclusion",
+        step_instruction="State the rate law and overall order.",
+        problem_context="",
+        step_type="interactive",
+        validate_fn=mock_validate,
+    )
     assert r == "Include this in your answer: 3rd order"
-    mock_svc.validate.assert_awaited_once()
+    mock_validate.assert_awaited_once()
 
 
 @pytest.mark.asyncio
 async def test_resolve_validation_feedback_fallback_when_no_grader_message() -> None:
     mock_out = ValidationOutput(is_correct=False, validation_method="local_numeric_fail")
-    mock_svc = AsyncMock()
-    mock_svc.validate = AsyncMock(return_value=mock_out)
-    with patch(
-        "app.services.ai.hint_generation.validation_context.get_step_validation_service",
-        return_value=mock_svc,
-    ):
-        r = await resolve_validation_feedback_for_hint(
-            client_feedback=None,
-            student_input="9",
-            correct_answer="18",
-            step_label="L",
-            step_instruction=None,
-            problem_context=None,
-            step_type=None,
-        )
+    mock_validate = AsyncMock(return_value=mock_out)
+    r = await resolve_validation_feedback_for_hint(
+        client_feedback=None,
+        student_input="9",
+        correct_answer="18",
+        step_label="L",
+        step_instruction=None,
+        problem_context=None,
+        step_type=None,
+        validate_fn=mock_validate,
+    )
     assert r == "Not quite right for this step."
 
 
 @pytest.mark.asyncio
 async def test_resolve_validation_feedback_none_when_empty_student() -> None:
-    mock_svc = AsyncMock()
-    with patch(
-        "app.services.ai.hint_generation.validation_context.get_step_validation_service",
-        return_value=mock_svc,
-    ):
-        r = await resolve_validation_feedback_for_hint(
-            client_feedback=None,
-            student_input=None,
-            correct_answer="1",
-            step_label="L",
-            step_instruction=None,
-            problem_context=None,
-            step_type=None,
-        )
+    mock_validate = AsyncMock()
+    r = await resolve_validation_feedback_for_hint(
+        client_feedback=None,
+        student_input=None,
+        correct_answer="1",
+        step_label="L",
+        step_instruction=None,
+        problem_context=None,
+        step_type=None,
+        validate_fn=mock_validate,
+    )
     assert r is None
-    mock_svc.validate.assert_not_called()
+    mock_validate.assert_not_called()
 
 
 def test_generate_hint_system_format_has_no_stray_brace_fields() -> None:
@@ -131,4 +120,3 @@ def test_enforce_hint_constraints_collapses_whitespace() -> None:
     out = _enforce_hint_constraints(raw, max_words=20)
     assert "\n" not in out
     assert "  " not in out
-

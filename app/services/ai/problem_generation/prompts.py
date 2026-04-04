@@ -7,8 +7,9 @@ Single source of truth for lesson metadata: scripts/seed_data/lessons.py
 """
 
 # ── Version ────────────────────────────────────────────────────────────────
-PROMPT_VERSION = "v15-no-dupe-steps"
+PROMPT_VERSION = "v17-physical-quantity-registry"
 
+from app.domain.physical_quantity_registry import build_generator_registry_prompt_block  # noqa: E402
 from app.services.ai.shared.latex_rules import SHARED_LATEX_RULES  # noqa: E402
 
 # Re-export shared blueprint symbols so callers can keep importing from here
@@ -77,6 +78,7 @@ def get_few_shot_block(db_examples: list[dict]) -> str:
 def get_level_block(level: int, step_count: int = 5) -> str:
     """Return step-type and widget-selection instructions for the given level."""
     n = max(3, min(6, step_count))
+    registry_block = build_generator_registry_prompt_block()
     return f"""
 Use exactly {n} steps. For every step, include "skillUsed" exactly matching the SKILL LIST.
 Current Mode: LEVEL {level} ({'WORKED' if level == 1 else 'FADED' if level == 2 else 'INDEPENDENT'})
@@ -98,14 +100,9 @@ You MUST choose the `type` for each step based on what the student is doing:
    - NEVER collapse multiple inputs into a comma-separated or semicolon-separated "correctAnswer" string
      (e.g. WRONG: correctAnswer="32.00, 2.02"; CORRECT: inputFields with label/value/unit per item).
    - When a step asks for multiple distinct answers (e.g., "rate law AND overall order"), you MUST use type="multi_input".
-   - UNIT RULE: The "unit" field MUST be chosen from this standard list (leave "" if no unit applies):
-     Mass: g, kg, mg, amu | Amount: mol, g/mol | Length: m, cm, mm, nm
-     Volume: L, mL, m^3, cm^3 | Time: s, min, h, d, yr | Temperature: K, °C, °F
-     Pressure: Pa, kPa, atm, mmHg, torr | Energy: J, kJ, cal, kcal, eV
-     Concentration: M, m, %, ppm, ppb, N | Density: g/mL, g/cm^3
-     Rates: s^-1, M/s, M^-1 s^-1, M^-2 s^-1 | Thermodynamics: J/(g·°C), J/(mol·K), kJ/mol
-     Electrochemistry: V, C, A | Light: Hz, nm
-     Do NOT invent unit strings. If the correct unit is not in the list, pick the closest match.
+   - UNIT RULE: Follow the PHYSICAL QUANTITY REGISTRY below. Each `inputFields` row must use a unit whose **dimensions**
+     match the quantity (e.g. $E_a$ → molar energy → only J/mol or kJ/mol). Do not use vague lists like "Energy: J, kJ".
+{registry_block}
 
 2. type="comparison"
    - WHEN: A step asks the student to MATHEMATICALLY compare two numeric quantities or expressions
@@ -225,6 +222,7 @@ You are generating interactive steps for a compact student UI. Each step has THR
 4. Do NOT include a "hint" field in any step. Hints are generated later on demand.
 
 CONSTRAINTS:
+- Multi_input units: obey the PHYSICAL QUANTITY REGISTRY in the level instructions (molar energy ≠ bare joules).
 - Statement: embed all numeric values with symbols and units in the narrative.
 - Statement paragraphs: ALWAYS use \\n\\n to separate logical sections. NEVER write the statement as one block.
   Structure → ¶1: scenario/context. ¶2: given data/constants. ¶3: the question.

@@ -7,7 +7,7 @@ from app.services.ai.shared.llm import generate_structured
 from app.services.ai.shared.retries import llm_retry
 from app.services.ai.shared.timing import perf_now, since
 from app.services.ai.step_validation.few_shots import select_examples
-from app.services.ai.step_validation.prompts import EQUIVALENCE_SYSTEM
+from app.services.ai.step_validation.prompts import build_equivalence_system
 
 
 @llm_retry
@@ -18,12 +18,14 @@ async def llm_equivalence_verify(
     step_label: str,
     step_instruction: str,
     problem_context: str,
+    step_type: str | None = None,
 ) -> ValidationOutput:
     """Phase 2 — LLM verifies equivalence or returns a short diagnostic hint."""
     messages = [
         {
             "role": "system",
-            "content": EQUIVALENCE_SYSTEM.format(
+            "content": build_equivalence_system(
+                step_type=step_type,
                 examples_section=select_examples(correct_answer, step_label),
                 step_label=step_label or "(none)",
                 step_instruction=(step_instruction or "").strip() or "(none)",

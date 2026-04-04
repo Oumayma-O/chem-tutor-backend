@@ -2,18 +2,22 @@
 
 import json
 
+from app.domain.physical_quantity_registry import (
+    QUANTITY_SPECS,
+    quantity_for_variable_key,
+    unit_matches_quantity,
+)
 from app.domain.schemas.tutor import ValidationOutput
 from app.services.ai.step_validation._text_norm import normalise
-from app.utils.math_eval import normalise_unit_string, numeric_equivalent
+from app.services.ai.step_validation.quantity_compare import compare_value_unit_pair
+
+# Align with hybrid Phase 1 intermediate steps (see StepValidationService.validate rtol).
+_MULTI_INPUT_RTOL = 0.02
+_MULTI_INPUT_ATOL = 1e-9
 
 
 def check_string(student: str, correct: str, method: str) -> ValidationOutput:
     return ValidationOutput(is_correct=normalise(student) == normalise(correct), validation_method=method)
-
-
-def _unit_match(sunit: str, cunit: str) -> bool:
-    """Bare unit token comparison — delegates to ``math_eval.normalise_unit_string``."""
-    return normalise_unit_string(sunit) == normalise_unit_string(cunit)
 
 
 def check_multi_input(student: str, correct: str) -> ValidationOutput | None:
@@ -23,8 +27,8 @@ def check_multi_input(student: str, correct: str) -> ValidationOutput | None:
 
     Returns:
         ValidationOutput(is_correct=True)  — every field is provably correct locally
-        None — any field is uncertain or wrong; the full JSON payload is deferred to Phase 2 (LLM),
-               which generates per-field feedback with rounding tolerance and unit leniency.
+        ValidationOutput(is_correct=False) — wrong dimension or other definite error (registry)
+        None — uncertain, wrong value, bad canonical, or unknown variable — defer to Phase 2 (LLM)
     """
     try:
         s_data = json.loads(student)
@@ -34,6 +38,8 @@ def check_multi_input(student: str, correct: str) -> ValidationOutput | None:
 
     if not isinstance(s_data, dict) or not isinstance(c_data, dict):
         return None
+
+    optional_feedback: str | None = None
 
     for label, c_field in c_data.items():
         s_field = next((v for k, v in s_data.items() if k.lower() == label.lower()), None)
@@ -45,13 +51,40 @@ def check_multi_input(student: str, correct: str) -> ValidationOutput | None:
         cunit = (c_field.get("unit", "") if isinstance(c_field, dict) else "").strip()
         sunit = (s_field.get("unit", "") if isinstance(s_field, dict) else "").strip()
 
-        if numeric_equivalent(sval, cval) is not True:
-            return None  # value uncertain or wrong — defer to LLM
+        qty = quantity_for_variable_key(label)
 
-        if cunit and not _unit_match(sunit, cunit):
-            return None  # unit formatting variant or wrong — defer to LLM
+        if qty is not None:
+            spec = QUANTITY_SPECS[qty]
+            if cunit and not unit_matches_quantity(cunit, qty):
+                return None  # canonical does not match registry — defer (fix problem data)
+            if sunit and not unit_matches_quantity(sunit, qty):
+                return ValidationOutput(
+                    is_correct=False,
+                    feedback=spec.wrong_dimension_hint,
+                    validation_method="local_multi_input_registry_dimension",
+                    unit_correct=False,
+                )
+            if cunit and not sunit:
+                return None
+            cmp = compare_value_unit_pair(sval, sunit, cval, cunit, _MULTI_INPUT_RTOL, _MULTI_INPUT_ATOL)
+            if cmp.outcome != "match":
+                return None
+            if cmp.equivalent_unit_note:
+                optional_feedback = cmp.equivalent_unit_note
+            continue
 
-    return ValidationOutput(is_correct=True, validation_method="local_multi_input_exact")
+        # Unknown variable: Pint-backed value+unit scaling (any equivalent metric form).
+        cmp = compare_value_unit_pair(sval, sunit, cval, cunit, _MULTI_INPUT_RTOL, _MULTI_INPUT_ATOL)
+        if cmp.outcome != "match":
+            return None
+        if cmp.equivalent_unit_note:
+            optional_feedback = cmp.equivalent_unit_note
+
+    return ValidationOutput(
+        is_correct=True,
+        validation_method="local_multi_input_exact",
+        feedback=optional_feedback,
+    )
 
 
 def try_float(s: str) -> str | None:

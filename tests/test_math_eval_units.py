@@ -87,3 +87,72 @@ def test_nM_is_nanomolar() -> None:
 
 def test_numeric_equivalent_kJ_vs_J() -> None:
     assert numeric_equivalent("4.184 kJ", "4184 J") is True
+
+
+def test_numeric_equivalent_molar_energy_J_per_mol_vs_kJ_per_mol() -> None:
+    assert numeric_equivalent("45000 J/mol", "45 kJ/mol") is True
+
+
+def test_numeric_equivalent_unicode_times_and_superscript_scientific() -> None:
+    """Calculator-style UI often uses × and Unicode superscripts (e.g. 10⁴)."""
+    assert numeric_equivalent("4.03 × 10⁴", "4.03e4") is True
+    assert numeric_equivalent("4.03×10⁴", "40300") is True
+
+
+def test_check_multi_input_ea_J_per_mol_vs_kJ_per_mol_scaled() -> None:
+    from app.services.ai.step_validation.checkers import check_multi_input
+
+    import json
+
+    s = json.dumps({"Ea": {"value": "45000", "unit": "J/mol"}})
+    c = json.dumps({"Ea": {"value": "45", "unit": "kJ/mol"}})
+    out = check_multi_input(s, c)
+    assert out is not None and out.is_correct is True
+    assert out.feedback == "Correct equivalent units."
+
+
+def test_check_multi_input_unicode_value_matches_canonical() -> None:
+    from app.services.ai.step_validation.checkers import check_multi_input
+
+    import json
+
+    s = json.dumps({"Ea": {"value": "4.03 × 10⁴", "unit": "J/mol"}})
+    c = json.dumps({"Ea": {"value": "4.03e4", "unit": "J/mol"}})
+    out = check_multi_input(s, c)
+    assert out is not None and out.is_correct is True
+
+
+def test_check_multi_input_ea_canonical_bare_j_defers() -> None:
+    """Canonical J is wrong dimension for molar energy — defer (fix problem data)."""
+    from app.services.ai.step_validation.checkers import check_multi_input
+
+    import json
+
+    s = json.dumps({"Ea": {"value": "4.34e4", "unit": "J/mol"}})
+    c = json.dumps({"Ea": {"value": "4.34e4", "unit": "J"}})
+    assert check_multi_input(s, c) is None
+
+
+def test_check_multi_input_ea_student_bare_j_incorrect() -> None:
+    """Strict registry: E_a must be J/mol; bare J is incorrect."""
+    from app.services.ai.step_validation.checkers import check_multi_input
+
+    import json
+
+    s = json.dumps({"Ea": {"value": "4.34e4", "unit": "J"}})
+    c = json.dumps({"Ea": {"value": "4.34e4", "unit": "J/mol"}})
+    out = check_multi_input(s, c)
+    assert out is not None and out.is_correct is False
+    assert out.validation_method == "local_multi_input_registry_dimension"
+
+
+def test_check_multi_input_energy_q_wrong_molar_unit() -> None:
+    """Heat q is energy (J); J/mol does not match."""
+    from app.services.ai.step_validation.checkers import check_multi_input
+
+    import json
+
+    s = json.dumps({"q": {"value": "100", "unit": "J/mol"}})
+    c = json.dumps({"q": {"value": "100", "unit": "J"}})
+    out = check_multi_input(s, c)
+    assert out is not None and out.is_correct is False

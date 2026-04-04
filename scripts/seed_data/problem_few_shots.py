@@ -1512,7 +1512,7 @@ FEW_SHOT_DATA: list[tuple[str, int, str, str, dict]] = [
         },
     ),
 
-    # ── 20. Lawyer: periodic trend (Level 1 · Easy) ──────────────────���────────
+    # ── 20. Lawyer: periodic trend (Level 1 · Easy) ───────────────────────────
     (
         "unit-periodic-table",
         1,

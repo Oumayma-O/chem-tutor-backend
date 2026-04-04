@@ -148,11 +148,28 @@ def latex_to_python_math(text: str) -> str:
     return s.strip()
 
 
+_UNICODE_SUPERSCRIPTS = "⁰¹²³⁴⁵⁶⁷⁸⁹"
+_UNICODE_SUP_TO_ASCII = str.maketrans(_UNICODE_SUPERSCRIPTS, "0123456789")
+
+
+def _expand_unicode_superscript_exponents(expr: str) -> str:
+    """Rewrite e.g. ``10⁴`` or ``2³`` as ``(10)**(4)`` so ``ast`` can evaluate (Unicode UI input)."""
+
+    def repl(m: re.Match[str]) -> str:
+        base, sup = m.group(1), m.group(2)
+        exp_digits = sup.translate(_UNICODE_SUP_TO_ASCII)
+        return f"({base})**({exp_digits})"
+
+    return re.sub(rf"(\d+(?:\.\d+)?)([{_UNICODE_SUPERSCRIPTS}]+)", repl, expr)
+
+
 def _preprocess(expr: str) -> str:
     """Normalise an expression before parsing."""
     # Unicode math aliases
     expr = expr.replace("×", "*").replace("·", "*").replace("−", "-")
     expr = expr.replace("–", "-").replace("—", "-")
+
+    expr = _expand_unicode_superscript_exponents(expr)
 
     # Caret exponent to Python power
     expr = expr.replace("^", "**")
@@ -183,8 +200,9 @@ def _strip_unit(text: str) -> Tuple[str, str]:
     text = text.strip()
     # Match number (possibly expression) followed by optional unit
     # Unit pattern: letters, /, digits, ^, ° (e.g. M, M/s, kJ/mol, s^-1)
+    # Include Unicode superscript digits (e.g. 10⁴) in the numeric cluster.
     m = re.match(
-        r"^([+\-]?[\d\.\*\+\-\(\)\^eE\s×·]+?)\s*([A-Za-z°%][A-Za-z°%/^·\d\-]*)?\s*$",
+        r"^([+\-]?[\d\.\*\+\-\(\)\^eE\s×·\u2070-\u2079]+?)\s*([A-Za-z°%][A-Za-z°%/^·\d\-]*)?\s*$",
         text,
     )
     if m:
@@ -330,14 +348,27 @@ _UNIT_TOKEN_TO_PINT: dict[str, str] = {
 
 
 def _unit_token_to_pint_expression(unit: str) -> str | None:
-    """Map a single-token unit label to a string Pint accepts. None if compound/unknown."""
+    """Map a unit label to a string Pint accepts (single token or compound like kJ/mol)."""
     raw = unit.strip()
-    if not raw or "/" in raw or "^" in raw:
+    if not raw:
         return None
     if raw in _PINT_MOLARITY_UNIT:
         return _PINT_MOLARITY_UNIT[raw]
     key = raw.lower().replace("μ", "u").replace(" ", "")
-    return _UNIT_TOKEN_TO_PINT.get(key)
+    tok = _UNIT_TOKEN_TO_PINT.get(key)
+    if tok is not None:
+        return tok
+    try:
+        ureg = _get_pint_registry()
+        q = ureg.Quantity(1.0, raw)
+        return str(q.units)
+    except Exception:
+        try:
+            ureg = _get_pint_registry()
+            q = ureg.Quantity(1.0, raw.replace("/", " / "))
+            return str(q.units)
+        except Exception:
+            return None
 
 
 def _pint_quantity(magnitude: float, unit_token: str):
@@ -485,6 +516,13 @@ def numeric_equivalent(
             qs = _get_pint_registry().Quantity(1.0, psu)
             qc = _get_pint_registry().Quantity(1.0, pcu)
             if qs.dimensionality != qc.dimensionality:
+                # Same numeric magnitude but incompatible dimensions: usually a definite mismatch
+                # (e.g. m vs s). If a compound unit (/, ^) appears on either side, defer to the LLM
+                # (legacy behavior before compound units parsed to Pint; e.g. M vs M/s).
+                if _numeric_within_rtol(sn, cn, rtol, atol) and any(
+                    "/" in (u or "") or "^" in (u or "") for u in (su, cu)
+                ):
+                    return None
                 return False
         except Exception:
             return False

@@ -87,13 +87,11 @@ def test_prefer_partial_overrides_vague_llm_feedback() -> None:
     assert "Incomplete rate law and missing order" not in (fixed.feedback or "")
 
 
-def test_phase1_numeric_requires_unit_when_canonical_has_unit() -> None:
+def test_phase1_numeric_missing_unit_defers_to_llm_when_value_matches() -> None:
+    """Correct number but no unit: defer to Phase 2 for tutor-style feedback."""
     r = run_phase1_local("5", "5.0 M", rtol=0.02)
-    assert r.immediate_return is True
-    assert r.output is not None
-    assert r.output.is_correct is False
-    assert r.output.unit_correct is False
-    assert r.output.validation_method == "local_numeric_missing_unit"
+    assert r.immediate_return is False
+    assert r.output is None
 
     r_ok = run_phase1_local("5.0 M", "5.0 M", rtol=0.02)
     assert r_ok.immediate_return is True
