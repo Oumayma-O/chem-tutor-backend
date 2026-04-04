@@ -109,7 +109,7 @@ scripts/
 | ✅ | Widget types — `given`, `interactive`, `drag_drop`, `variable_id`, `comparison` |
 | ✅ | Step validation — numeric tolerance, string match, drag-drop, comparison (`<`/`>`/`=`) |
 | ✅ | Hint generation — 3-level scaffolded, no answer leaking |
-| ✅ | Error classification — conceptual/procedural/computational/representation |
+| ✅ | Error classification — conceptual/procedural/computational |
 | ✅ | Structured output + retry logic (LangChain + Tenacity) |
 | ✅ | Persist attempts in DB — `MasteryRepository.record_attempt()` |
 | ✅ | Playlist navigation — prev/next within user/unit/lesson/level/difficulty |

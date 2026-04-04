@@ -136,6 +136,8 @@ class ProblemDeliveryService:
                 blueprint=blueprint,
                 db=self._db,
             )
+            # Fill step.category from canonical labels when the LLM omits it; must run before cache/playlist.
+            enforce_step_types(problem, req.level)
             elapsed_s = since(t0, decimals=3)
             if exclude and problem.id in exclude:
                 problem.id = f"{problem.id}-{_uuid.uuid4().hex[:8]}"

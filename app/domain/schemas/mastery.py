@@ -34,7 +34,6 @@ class CategoryScores(BaseModel):
     conceptual: float = 0.0
     procedural: float = 0.0
     computational: float = 0.0
-    representation: float = 0.0
 
 
 class MasteryState(BaseModel):

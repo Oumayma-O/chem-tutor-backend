@@ -1,6 +1,7 @@
 """Step-type assignment and scaffolding (is_given) guardrail for problem levels."""
 
 from app.domain.schemas.tutor import ProblemOutput
+from app.services.ai.shared.blueprints import LABEL_TO_MASTERY_CATEGORY
 
 _DRAG_DROP_LABELS = {"equation", "substitute", "formula", "expression", "draft", "arrange", "order", "sequence", "configuration"}
 _MULTI_INPUT_LABELS = {"knowns", "given", "variables", "identify", "known values", "data extraction", "extraction", "goal / setup", "setup"}
@@ -55,5 +56,9 @@ def enforce_step_types(problem: ProblemOutput, level: int) -> ProblemOutput:
         elif level == 3:
             step.is_given = False         # L3 must always be independent practice
         # level 2: leave LLM-set is_given unchanged
+
+        # Guardrail: fill category if LLM omitted it
+        if step.category is None:
+            step.category = LABEL_TO_MASTERY_CATEGORY.get(step.label, "procedural")
 
     return problem

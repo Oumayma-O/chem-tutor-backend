@@ -7,21 +7,16 @@ Single source of truth for lesson metadata: scripts/seed_data/lessons.py
 """
 
 # ── Version ────────────────────────────────────────────────────────────────
-PROMPT_VERSION = "v17-physical-quantity-registry"
+PROMPT_VERSION = "v18-step-category"
 
 from app.domain.physical_quantity_registry import build_generator_registry_prompt_block  # noqa: E402
-from app.services.ai.shared.latex_rules import SHARED_LATEX_RULES  # noqa: E402
-
-# Re-export shared blueprint symbols so callers can keep importing from here
-from app.services.ai.shared.blueprints import (  # noqa: E402, F401
-    BlueprintName,
-    Tool,
+from app.services.ai.shared.blueprints import (  # noqa: E402
     BLUEPRINT_CONFIG,
-    DEFAULT_SKILLS_BY_BLUEPRINT,
-    get_step_count_for_prompt,
-    collect_skills_from_lesson_objectives,
     build_skills_block,
+    collect_skills_from_lesson_objectives,
+    get_step_count_for_prompt,
 )
+from app.services.ai.shared.latex_rules import SHARED_LATEX_RULES  # noqa: E402
 
 
 def _format_one_example(example: dict, index: int) -> str:
@@ -43,7 +38,9 @@ def _format_one_example(example: dict, index: int) -> str:
             answer = f'{s["comparisonParts"][0]} {s.get("correctAnswer", "?")} {s["comparisonParts"][1]}'
         else:
             answer = s.get("correctAnswer", "")
-        line = f"  {label}: {instruction} → {answer}"
+        cat = s.get("category")
+        prefix = f"[{cat}] " if cat else ""
+        line = f"  {prefix}{label}: {instruction} → {answer}"
         if explanation:
             line += f"\n    explanation: {explanation}"
         step_lines.append(line)
@@ -150,6 +147,18 @@ Set "is_given" on every step based on the current level:
   Level 2 (FADED):  Steps 1–2 → "is_given": true; remaining → "is_given": false
   Level 3 (INDEPENDENT): ALL steps → "is_given": false  (student solves independently)
 DO NOT omit "is_given". The server uses your value directly.
+
+### STEP CATEGORY (required on every step) ###
+Assign "category" for each step based on the cognitive demand:
+  "conceptual"    — Understanding what, why, or which rule applies.
+                    Use for: Equation, Knowns, Goal / Setup, Conversion Factors,
+                    Inventory / Rules, Data Extraction, Feature ID, Concept ID,
+                    Relation, Evidence / Claim, Conclusion.
+  "procedural"    — Executing a method or setting up a calculation.
+                    Use for: Substitute, Dimensional Setup, Draft, Refine, Apply Concept.
+  "computational" — Pure arithmetic or numeric calculation.
+                    Use for: Calculate, Answer, Final Answer.
+DO NOT omit "category". Every step must have exactly one of these three values.
 """
 
 

@@ -25,6 +25,7 @@ from sqlalchemy import delete, select, text
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
 from app.core.config import get_settings
+from app.services.ai.shared.blueprints import LABEL_TO_MASTERY_CATEGORY
 from app.infrastructure.database.models import (
     Course,
     FewShotExample,
@@ -332,6 +333,8 @@ async def _seed_lesson_standards(async_session) -> None:
 def _fs_normalize_steps(steps: list[dict], level: int) -> list[dict]:
     """Normalize curated few-shot steps into API-facing structure, preserving all widget fields.
 
+    Always emits ``category`` (from the step dict or ``LABEL_TO_MASTERY_CATEGORY`` by label).
+
     ``is_given`` is read from the step dict if present (LLM-designed); otherwise
     computed from level + step position as a fallback:
       level 1 → all steps is_given=True
@@ -355,6 +358,9 @@ def _fs_normalize_steps(steps: list[dict], level: int) -> list[dict]:
             "type": s["type"],
             "is_given": is_given,
             "instruction": s["instruction"],
+            # Required for mastery + guardrails; curated rows may omit it — derive from label SSOT.
+            "category": s.get("category")
+            or LABEL_TO_MASTERY_CATEGORY.get(s["label"], "procedural"),
         }
         if (ca := s.get("correctAnswer")) is not None:
             step["correctAnswer"] = ca

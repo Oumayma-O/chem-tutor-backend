@@ -73,6 +73,45 @@ DEFAULT_SKILLS_BY_BLUEPRINT: dict[str, list[str]] = {
 }
 
 
+# Maps every canonical blueprint step label to its mastery category.
+# Single source of truth — imported by step_types.py (guardrail) and any
+# other service that needs label→category classification.
+LABEL_TO_MASTERY_CATEGORY: dict[str, str] = {
+    # ── Conceptual ─────────────────────────────────────────────
+    "Equation":           "conceptual",
+    "Knowns":             "conceptual",
+    "Goal / Setup":       "conceptual",
+    "Conversion Factors": "conceptual",
+    "Inventory / Rules":  "conceptual",
+    "Data Extraction":    "conceptual",
+    "Feature ID":         "conceptual",
+    "Concept ID":         "conceptual",
+    "Relation":           "conceptual",
+    "Evidence / Claim":   "conceptual",
+    "Conclusion":         "conceptual",
+    # ── Procedural ────────────────────────────────────────────
+    "Substitute":         "procedural",
+    "Dimensional Setup":  "procedural",
+    "Draft":              "procedural",
+    "Refine":             "procedural",
+    "Apply Concept":      "procedural",
+    # ── Computational ─────────────────────────────────────────
+    "Calculate":          "computational",
+    "Answer":             "computational",
+    "Final Answer":       "computational",
+}
+
+# All categories that mastery tracking accepts — derived from blueprint labels only (SSOT).
+VALID_MASTERY_CATEGORIES: frozenset[str] = frozenset(LABEL_TO_MASTERY_CATEGORY.values())
+
+# Averaging / API field order (must match CategoryScores and dashboard).
+MASTERY_CATEGORY_KEYS: tuple[str, ...] = ("conceptual", "procedural", "computational")
+
+assert VALID_MASTERY_CATEGORIES == set(MASTERY_CATEGORY_KEYS), (
+    "LABEL_TO_MASTERY_CATEGORY values must match MASTERY_CATEGORY_KEYS"
+)
+
+
 def get_step_count_for_prompt(blueprint: str) -> int:
     return int(BLUEPRINT_CONFIG.get(blueprint, BLUEPRINT_CONFIG["solver"])["step_count"])
 

@@ -18,6 +18,11 @@ from app.core.config import get_settings
 from app.core.logging import get_logger
 from app.domain.schemas.mastery import CategoryScores, MasteryState, ProgressionDecision
 from app.infrastructure.database.models import ProblemAttempt, SkillMastery
+from app.services.ai.shared.blueprints import (
+    LABEL_TO_MASTERY_CATEGORY,
+    MASTERY_CATEGORY_KEYS,
+    VALID_MASTERY_CATEGORIES,
+)
 from app.infrastructure.database.repositories.attempt_repo import (
     AttemptRepository,
     MisconceptionRepository,
@@ -444,37 +449,30 @@ def _compute_category_scores(
     """
     Update per-category mastery scores from this attempt's step log.
 
-    Each step may carry a "reasoningPattern" key (set by ThinkingAnalysisService
-    after classification). We do a simple rolling update: 80% existing + 20% new.
+    Each step carries a "category" field set by the LLM (and guaranteed by the
+    server guardrail in enforce_step_types). We do a simple rolling update:
+    80% existing + 20% new score per step.
 
     Returns a dict compatible with the CategoryScores schema.
     """
-    _PATTERN_TO_CATEGORY = {
-        "Conceptual": "conceptual",
-        "Procedural": "procedural",
-        "Substitution": "procedural",
-        "Arithmetic": "computational",
-        "Units": "computational",
-        "Symbolic": "representation",
-    }
 
     # Start from existing scores (or defaults of 0.0 for new users)
     existing = existing or {}
-    scores = {
-        "conceptual":     existing.get("conceptual", 0.0),
-        "procedural":     existing.get("procedural", 0.0),
-        "computational":  existing.get("computational", 0.0),
-        "representation": existing.get("representation", 0.0),
-    }
+    scores = {k: float(existing.get(k, 0.0)) for k in MASTERY_CATEGORY_KEYS}
 
     for step in step_log:
-        # Accept camelCase (frontend) or snake_case
-        pattern = step.get("reasoningPattern") or step.get("reasoning_pattern")
-        cat = _PATTERN_TO_CATEGORY.get(pattern) if pattern else None
-        if cat is None:
-            # Fallback: ensure completed steps still contribute to category scores
-            cat = "procedural"
-        is_correct = step.get("isCorrect", step.get("is_correct", False))
+        # Primary: "category" field set by LLM + server guardrail
+        # Fallback: legacy "error_category" from older cached problems
+        cat = step.get("category") or step.get("error_category")
+        if cat not in VALID_MASTERY_CATEGORIES:
+            label_key = (step.get("step_label") or step.get("label") or "").strip()
+            inferred = LABEL_TO_MASTERY_CATEGORY.get(label_key)
+            if inferred in VALID_MASTERY_CATEGORIES:
+                cat = inferred
+            else:
+                logger.warning("unknown_step_category", category=cat, step_label=label_key or None)
+                cat = "procedural"
+        is_correct = step.get("is_correct", step.get("isCorrect", False))
         step_score = 1.0 if is_correct else 0.0
         # Exponential moving average: 80% history + 20% new
         scores[cat] = round(0.8 * scores[cat] + 0.2 * step_score, 4)
@@ -501,9 +499,8 @@ def _feedback_message(
 
 
 def _category_average(category_scores: dict) -> float:
-    """Average of the four category scores (0–1). Used when band-based mastery is 0."""
-    keys = ("conceptual", "procedural", "computational", "representation")
-    values = [float(category_scores.get(k, 0.0)) for k in keys]
+    """Average of the three category scores (0–1). Used when band-based mastery is 0."""
+    values = [float(category_scores.get(k, 0.0)) for k in MASTERY_CATEGORY_KEYS]
     return round(sum(values) / len(values), 4) if values else 0.0
 
 
@@ -539,7 +536,6 @@ def _to_mastery_state(record: SkillMastery, threshold: float) -> MasteryState:
             conceptual=cat.get("conceptual", 0.0),
             procedural=cat.get("procedural", 0.0),
             computational=cat.get("computational", 0.0),
-            representation=cat.get("representation", 0.0),
         ),
         updated_at=record.updated_at,
         has_mastered=effective >= threshold,

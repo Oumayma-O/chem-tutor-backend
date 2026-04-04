@@ -91,6 +91,16 @@ class ProblemStep(BaseModel):
         ),
     )
     skill_used: str | None = Field(default=None, validation_alias="skillUsed")
+    category: Literal["conceptual", "procedural", "computational"] | None = Field(
+        default=None,
+        description=(
+            "Cognitive demand classification. "
+            "'conceptual' = understanding WHY/WHEN (formula selection, setup, identifying knowns); "
+            "'procedural' = applying a technique (substitution, dimensional setup, drafting); "
+            "'computational' = arithmetic/calculation (Calculate, Answer, Final Answer steps). "
+            "Must be set. Server fills from label if LLM omits."
+        ),
+    )
     correct_answer: str | None = Field(default=None, validation_alias="correctAnswer")
     equation_parts: list[str] | None = Field(default=None, validation_alias="equationParts")
     input_fields: list[InputField] | None = Field(

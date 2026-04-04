@@ -39,6 +39,7 @@ FEW_SHOT_DATA: list[tuple[str, int, str, str, dict]] = [
                 {
                     "step_number": 1,
                     "label": "Inventory / Rules",
+                    "category": "conceptual",
                     "type": "interactive",
                     "is_given": True,
                     "instruction": "Write the unbalanced skeleton equation.",
@@ -49,6 +50,7 @@ FEW_SHOT_DATA: list[tuple[str, int, str, str, dict]] = [
                 {
                     "step_number": 2,
                     "label": "Draft",
+                    "category": "procedural",
                     "type": "interactive",
                     "is_given": True,
                     "instruction": "Find the LCM for oxygen atoms on both sides.",
@@ -59,6 +61,7 @@ FEW_SHOT_DATA: list[tuple[str, int, str, str, dict]] = [
                 {
                     "step_number": 3,
                     "label": "Refine",
+                    "category": "procedural",
                     "type": "interactive",
                     "is_given": True,
                     "instruction": "Place coefficients to reach 6 oxygen atoms.",
@@ -69,6 +72,7 @@ FEW_SHOT_DATA: list[tuple[str, int, str, str, dict]] = [
                 {
                     "step_number": 4,
                     "label": "Final Answer",
+                    "category": "computational",
                     "type": "interactive",
                     "is_given": True,
                     "instruction": "Balance aluminum and write the complete equation.",
@@ -98,6 +102,7 @@ FEW_SHOT_DATA: list[tuple[str, int, str, str, dict]] = [
                 {
                     "step_number": 1,
                     "label": "Inventory / Rules",
+                    "category": "conceptual",
                     "type": "interactive",
                     "is_given": True,
                     "instruction": "Write the unbalanced skeleton equation.",
@@ -108,6 +113,7 @@ FEW_SHOT_DATA: list[tuple[str, int, str, str, dict]] = [
                 {
                     "step_number": 2,
                     "label": "Draft",
+                    "category": "procedural",
                     "type": "interactive",
                     "is_given": True,
                     "instruction": "Find the LCM for oxygen atoms on both sides.",
@@ -118,6 +124,7 @@ FEW_SHOT_DATA: list[tuple[str, int, str, str, dict]] = [
                 {
                     "step_number": 3,
                     "label": "Refine",
+                    "category": "procedural",
                     "type": "interactive",
                     "is_given": False,
                     "instruction": "Place oxygen and iron oxide coefficients to reach 6 O atoms.",
@@ -128,6 +135,7 @@ FEW_SHOT_DATA: list[tuple[str, int, str, str, dict]] = [
                 {
                     "step_number": 4,
                     "label": "Final Answer",
+                    "category": "computational",
                     "type": "interactive",
                     "is_given": False,
                     "instruction": "Balance iron and write the complete equation.",
@@ -159,6 +167,7 @@ FEW_SHOT_DATA: list[tuple[str, int, str, str, dict]] = [
                 {
                     "step_number": 1,
                     "label": "Inventory / Rules",
+                    "category": "conceptual",
                     "type": "multi_input",
                     "is_given": True,
                     "instruction": "List the given isotope values.",
@@ -173,6 +182,7 @@ FEW_SHOT_DATA: list[tuple[str, int, str, str, dict]] = [
                 {
                     "step_number": 2,
                     "label": "Draft",
+                    "category": "procedural",
                     "type": "interactive",
                     "is_given": True,
                     "instruction": "Find the proton count.",
@@ -183,6 +193,7 @@ FEW_SHOT_DATA: list[tuple[str, int, str, str, dict]] = [
                 {
                     "step_number": 3,
                     "label": "Refine",
+                    "category": "procedural",
                     "type": "multi_input",
                     "is_given": False,
                     "instruction": "Find neutrons and electrons separately.",
@@ -196,6 +207,7 @@ FEW_SHOT_DATA: list[tuple[str, int, str, str, dict]] = [
                 {
                     "step_number": 4,
                     "label": "Final Answer",
+                    "category": "computational",
                     "type": "interactive",
                     "is_given": False,
                     "instruction": "Add all particles for the total count.",
@@ -226,6 +238,7 @@ FEW_SHOT_DATA: list[tuple[str, int, str, str, dict]] = [
                 {
                     "step_number": 1,
                     "label": "Data Extraction",
+                    "category": "conceptual",
                     "type": "interactive",
                     "is_given": True,
                     "instruction": "Identify the mass of the most abundant isotope.",
@@ -236,6 +249,7 @@ FEW_SHOT_DATA: list[tuple[str, int, str, str, dict]] = [
                 {
                     "step_number": 2,
                     "label": "Feature ID",
+                    "category": "conceptual",
                     "type": "multi_input",
                     "is_given": True,
                     "instruction": "Convert the percentage abundances to decimals.",
@@ -249,6 +263,7 @@ FEW_SHOT_DATA: list[tuple[str, int, str, str, dict]] = [
                 {
                     "step_number": 3,
                     "label": "Apply Concept",
+                    "category": "procedural",
                     "type": "interactive",
                     "is_given": False,
                     "instruction": "Calculate the weighted average atomic mass.",
@@ -259,6 +274,7 @@ FEW_SHOT_DATA: list[tuple[str, int, str, str, dict]] = [
                 {
                     "step_number": 4,
                     "label": "Conclusion",
+                    "category": "conceptual",
                     "type": "interactive",
                     "is_given": False,
                     "instruction": "Identify the element's chemical symbol.",
@@ -290,6 +306,7 @@ FEW_SHOT_DATA: list[tuple[str, int, str, str, dict]] = [
                 {
                     "step_number": 1,
                     "label": "Goal / Setup",
+                    "category": "conceptual",
                     "type": "multi_input",
                     "is_given": False,
                     "instruction": "Calculate moles of $\\mathrm{H_2}$ available (3 sig figs).",
@@ -300,6 +317,7 @@ FEW_SHOT_DATA: list[tuple[str, int, str, str, dict]] = [
                 {
                     "step_number": 2,
                     "label": "Conversion Factors",
+                    "category": "conceptual",
                     "type": "multi_input",
                     "is_given": False,
                     "instruction": "Calculate moles of $\\mathrm{O_2}$ available.",
@@ -310,6 +328,7 @@ FEW_SHOT_DATA: list[tuple[str, int, str, str, dict]] = [
                 {
                     "step_number": 3,
                     "label": "Dimensional Setup",
+                    "category": "procedural",
                     "type": "interactive",
                     "is_given": False,
                     "instruction": "Identify the limiting reactant.",
@@ -320,6 +339,7 @@ FEW_SHOT_DATA: list[tuple[str, int, str, str, dict]] = [
                 {
                     "step_number": 4,
                     "label": "Calculate",
+                    "category": "computational",
                     "type": "multi_input",
                     "is_given": False,
                     "instruction": "Find moles of $\\mathrm{H_2O}$ produced.",
@@ -330,6 +350,7 @@ FEW_SHOT_DATA: list[tuple[str, int, str, str, dict]] = [
                 {
                     "step_number": 5,
                     "label": "Answer",
+                    "category": "computational",
                     "type": "multi_input",
                     "is_given": False,
                     "instruction": "Convert moles of $\\mathrm{H_2O}$ to grams (3 sig figs).",
@@ -365,6 +386,7 @@ FEW_SHOT_DATA: list[tuple[str, int, str, str, dict]] = [
                 {
                     "step_number": 1,
                     "label": "Equation",
+                    "category": "conceptual",
                     "type": "interactive",
                     "is_given": True,
                     "instruction": "Identify the matching plot type.",
@@ -375,6 +397,7 @@ FEW_SHOT_DATA: list[tuple[str, int, str, str, dict]] = [
                 {
                     "step_number": 2,
                     "label": "Knowns",
+                    "category": "conceptual",
                     "type": "multi_input",
                     "is_given": True,
                     "instruction": "Record the known values.",
@@ -389,6 +412,7 @@ FEW_SHOT_DATA: list[tuple[str, int, str, str, dict]] = [
                 {
                     "step_number": 3,
                     "label": "Substitute",
+                    "category": "procedural",
                     "type": "interactive",
                     "is_given": False,
                     "instruction": "Substitute into the zero-order integrated rate law.",
@@ -401,6 +425,7 @@ FEW_SHOT_DATA: list[tuple[str, int, str, str, dict]] = [
                 {
                     "step_number": 4,
                     "label": "Calculate",
+                    "category": "computational",
                     "type": "multi_input",
                     "is_given": False,
                     "instruction": "Calculate the rate constant $k$ (1 sig fig).",
@@ -413,6 +438,7 @@ FEW_SHOT_DATA: list[tuple[str, int, str, str, dict]] = [
                 {
                     "step_number": 5,
                     "label": "Answer",
+                    "category": "computational",
                     "type": "multi_input",
                     "is_given": False,
                     "instruction": "Find the half-life for zero-order decay (3 sig figs).",
@@ -447,6 +473,7 @@ FEW_SHOT_DATA: list[tuple[str, int, str, str, dict]] = [
                 {
                     "step_number": 1,
                     "label": "Equation",
+                    "category": "conceptual",
                     "type": "interactive",
                     "is_given": False,
                     "instruction": "What kinetic order matches a linear $[B]$ vs time plot?",
@@ -457,6 +484,7 @@ FEW_SHOT_DATA: list[tuple[str, int, str, str, dict]] = [
                 {
                     "step_number": 2,
                     "label": "Knowns",
+                    "category": "conceptual",
                     "type": "multi_input",
                     "is_given": False,
                     "instruction": "List the given concentrations and time.",
@@ -471,6 +499,7 @@ FEW_SHOT_DATA: list[tuple[str, int, str, str, dict]] = [
                 {
                     "step_number": 3,
                     "label": "Substitute",
+                    "category": "procedural",
                     "type": "interactive",
                     "is_given": False,
                     "instruction": "Write the substituted zero-order rate law.",
@@ -481,6 +510,7 @@ FEW_SHOT_DATA: list[tuple[str, int, str, str, dict]] = [
                 {
                     "step_number": 4,
                     "label": "Calculate",
+                    "category": "computational",
                     "type": "multi_input",
                     "is_given": False,
                     "instruction": "Solve for $k$ (3 sig figs).",
@@ -491,6 +521,7 @@ FEW_SHOT_DATA: list[tuple[str, int, str, str, dict]] = [
                 {
                     "step_number": 5,
                     "label": "Answer",
+                    "category": "computational",
                     "type": "multi_input",
                     "is_given": False,
                     "instruction": "Report the zero-order half-life (2 sig figs).",
@@ -521,6 +552,7 @@ FEW_SHOT_DATA: list[tuple[str, int, str, str, dict]] = [
                 {
                     "step_number": 1,
                     "label": "Goal / Setup",
+                    "category": "conceptual",
                     "type": "interactive",
                     "is_given": True,
                     "instruction": "Identify the starting value and the target unit.",
@@ -531,6 +563,7 @@ FEW_SHOT_DATA: list[tuple[str, int, str, str, dict]] = [
                 {
                     "step_number": 2,
                     "label": "Conversion Factors",
+                    "category": "conceptual",
                     "type": "interactive",
                     "is_given": True,
                     "instruction": "Calculate the molar mass of calcium chloride.",
@@ -541,6 +574,7 @@ FEW_SHOT_DATA: list[tuple[str, int, str, str, dict]] = [
                 {
                     "step_number": 3,
                     "label": "Dimensional Setup",
+                    "category": "procedural",
                     "type": "interactive",
                     "is_given": True,
                     "instruction": "Set up the conversion to cancel moles.",
@@ -551,6 +585,7 @@ FEW_SHOT_DATA: list[tuple[str, int, str, str, dict]] = [
                 {
                     "step_number": 4,
                     "label": "Calculate",
+                    "category": "computational",
                     "type": "interactive",
                     "is_given": True,
                     "instruction": "Calculate the unrounded sample mass.",
@@ -561,6 +596,7 @@ FEW_SHOT_DATA: list[tuple[str, int, str, str, dict]] = [
                 {
                     "step_number": 5,
                     "label": "Answer",
+                    "category": "computational",
                     "type": "multi_input",
                     "is_given": True,
                     "instruction": "Report the final mass with correct significant figures (3 sig figs).",
@@ -590,6 +626,7 @@ FEW_SHOT_DATA: list[tuple[str, int, str, str, dict]] = [
                 {
                     "step_number": 1,
                     "label": "Concept ID",
+                    "category": "conceptual",
                     "type": "interactive",
                     "is_given": True,
                     "instruction": "Identify the principle governing atomic radius across a period.",
@@ -600,6 +637,7 @@ FEW_SHOT_DATA: list[tuple[str, int, str, str, dict]] = [
                 {
                     "step_number": 2,
                     "label": "Relation",
+                    "category": "conceptual",
                     "type": "comparison",
                     "is_given": True,
                     "instruction": "Compare the effective nuclear charge of Na and Cl.",
@@ -611,6 +649,7 @@ FEW_SHOT_DATA: list[tuple[str, int, str, str, dict]] = [
                 {
                     "step_number": 3,
                     "label": "Evidence / Claim",
+                    "category": "conceptual",
                     "type": "interactive",
                     "is_given": False,
                     "instruction": "How does higher Zeff affect the electron cloud?",
@@ -621,6 +660,7 @@ FEW_SHOT_DATA: list[tuple[str, int, str, str, dict]] = [
                 {
                     "step_number": 4,
                     "label": "Conclusion",
+                    "category": "conceptual",
                     "type": "interactive",
                     "is_given": False,
                     "instruction": "Which element has the larger atomic radius?",
@@ -651,6 +691,7 @@ FEW_SHOT_DATA: list[tuple[str, int, str, str, dict]] = [
                 {
                     "step_number": 1,
                     "label": "Goal / Setup",
+                    "category": "conceptual",
                     "type": "multi_input",
                     "is_given": False,
                     "instruction": "Convert time from minutes to seconds.",
@@ -661,6 +702,7 @@ FEW_SHOT_DATA: list[tuple[str, int, str, str, dict]] = [
                 {
                     "step_number": 2,
                     "label": "Conversion Factors",
+                    "category": "conceptual",
                     "type": "multi_input",
                     "is_given": False,
                     "instruction": "Calculate the total charge transferred.",
@@ -671,6 +713,7 @@ FEW_SHOT_DATA: list[tuple[str, int, str, str, dict]] = [
                 {
                     "step_number": 3,
                     "label": "Dimensional Setup",
+                    "category": "procedural",
                     "type": "interactive",
                     "is_given": False,
                     "instruction": "Set up the mass calculation expression.",
@@ -681,6 +724,7 @@ FEW_SHOT_DATA: list[tuple[str, int, str, str, dict]] = [
                 {
                     "step_number": 4,
                     "label": "Calculate",
+                    "category": "computational",
                     "type": "interactive",
                     "is_given": False,
                     "instruction": "Compute the unrounded deposited mass.",
@@ -691,6 +735,7 @@ FEW_SHOT_DATA: list[tuple[str, int, str, str, dict]] = [
                 {
                     "step_number": 5,
                     "label": "Answer",
+                    "category": "computational",
                     "type": "multi_input",
                     "is_given": False,
                     "instruction": "Report the final mass with correct sig figs (3 sig figs).",
@@ -722,6 +767,7 @@ FEW_SHOT_DATA: list[tuple[str, int, str, str, dict]] = [
                 {
                     "step_number": 1,
                     "label": "Equation",
+                    "category": "conceptual",
                     "type": "drag_drop",
                     "is_given": True,
                     "instruction": "Arrange the two-point Arrhenius equation.",
@@ -737,6 +783,7 @@ FEW_SHOT_DATA: list[tuple[str, int, str, str, dict]] = [
                 {
                     "step_number": 2,
                     "label": "Knowns",
+                    "category": "conceptual",
                     "type": "multi_input",
                     "is_given": True,
                     "instruction": "Identify the given values.",
@@ -753,6 +800,7 @@ FEW_SHOT_DATA: list[tuple[str, int, str, str, dict]] = [
                 {
                     "step_number": 3,
                     "label": "Substitute",
+                    "category": "procedural",
                     "type": "interactive",
                     "is_given": False,
                     "instruction": "Substitute the values into the equation.",
@@ -763,6 +811,7 @@ FEW_SHOT_DATA: list[tuple[str, int, str, str, dict]] = [
                 {
                     "step_number": 4,
                     "label": "Calculate",
+                    "category": "computational",
                     "type": "multi_input",
                     "is_given": False,
                     "instruction": "Report $E_a$ in J/mol (3 significant figures).",
@@ -775,6 +824,7 @@ FEW_SHOT_DATA: list[tuple[str, int, str, str, dict]] = [
                 {
                     "step_number": 5,
                     "label": "Answer",
+                    "category": "computational",
                     "type": "multi_input",
                     "is_given": False,
                     "instruction": "Express the activation energy in kJ/mol (3 significant figures).",
@@ -812,6 +862,7 @@ FEW_SHOT_DATA: list[tuple[str, int, str, str, dict]] = [
                 {
                     "step_number": 1,
                     "label": "Data Extraction",
+                    "category": "conceptual",
                     "type": "multi_input",
                     "is_given": True,
                     "instruction": "Extract the three experiment values.",
@@ -826,6 +877,7 @@ FEW_SHOT_DATA: list[tuple[str, int, str, str, dict]] = [
                 {
                     "step_number": 2,
                     "label": "Feature ID",
+                    "category": "conceptual",
                     "type": "interactive",
                     "is_given": True,
                     "instruction": "Identify the order in $\\text{X}$.",
@@ -836,6 +888,7 @@ FEW_SHOT_DATA: list[tuple[str, int, str, str, dict]] = [
                 {
                     "step_number": 3,
                     "label": "Apply Concept",
+                    "category": "procedural",
                     "type": "interactive",
                     "is_given": False,
                     "instruction": "Identify the order in $\\text{Y}$.",
@@ -846,6 +899,7 @@ FEW_SHOT_DATA: list[tuple[str, int, str, str, dict]] = [
                 {
                     "step_number": 4,
                     "label": "Conclusion",
+                    "category": "conceptual",
                     "type": "multi_input",
                     "is_given": False,
                     "instruction": "State the rate law and overall order.",
@@ -884,6 +938,7 @@ FEW_SHOT_DATA: list[tuple[str, int, str, str, dict]] = [
                 {
                     "step_number": 1,
                     "label": "Data Extraction",
+                    "category": "conceptual",
                     "type": "multi_input",
                     "is_given": True,
                     "instruction": "Extract the experiment values.",
@@ -898,6 +953,7 @@ FEW_SHOT_DATA: list[tuple[str, int, str, str, dict]] = [
                 {
                     "step_number": 2,
                     "label": "Feature ID",
+                    "category": "conceptual",
                     "type": "interactive",
                     "is_given": True,
                     "instruction": "Identify the order with respect to NO.",
@@ -908,6 +964,7 @@ FEW_SHOT_DATA: list[tuple[str, int, str, str, dict]] = [
                 {
                     "step_number": 3,
                     "label": "Apply Concept",
+                    "category": "procedural",
                     "type": "interactive",
                     "is_given": False,
                     "instruction": "Identify the order with respect to $\\text{H}_2$.",
@@ -918,6 +975,7 @@ FEW_SHOT_DATA: list[tuple[str, int, str, str, dict]] = [
                 {
                     "step_number": 4,
                     "label": "Conclusion",
+                    "category": "conceptual",
                     "type": "multi_input",
                     "is_given": False,
                     "instruction": "State the rate law and overall order.",
@@ -952,6 +1010,7 @@ FEW_SHOT_DATA: list[tuple[str, int, str, str, dict]] = [
                 {
                     "step_number": 1,
                     "label": "Equation",
+                    "category": "conceptual",
                     "type": "drag_drop",
                     "is_given": True,
                     "instruction": "Identify the equation linking $E^\\circ$ and $\\Delta G^\\circ$.",
@@ -962,6 +1021,7 @@ FEW_SHOT_DATA: list[tuple[str, int, str, str, dict]] = [
                 {
                     "step_number": 2,
                     "label": "Knowns",
+                    "category": "conceptual",
                     "type": "multi_input",
                     "is_given": True,
                     "instruction": "List the given values.",
@@ -978,6 +1038,7 @@ FEW_SHOT_DATA: list[tuple[str, int, str, str, dict]] = [
                 {
                     "step_number": 3,
                     "label": "Substitute",
+                    "category": "procedural",
                     "type": "interactive",
                     "is_given": False,
                     "instruction": "Substitute into the $\\Delta G^\\circ$ formula.",
@@ -988,6 +1049,7 @@ FEW_SHOT_DATA: list[tuple[str, int, str, str, dict]] = [
                 {
                     "step_number": 4,
                     "label": "Calculate",
+                    "category": "computational",
                     "type": "multi_input",
                     "is_given": False,
                     "instruction": "Report $\\Delta G^\\circ$ in J/mol (3 sig figs).",
@@ -1000,6 +1062,7 @@ FEW_SHOT_DATA: list[tuple[str, int, str, str, dict]] = [
                 {
                     "step_number": 5,
                     "label": "Answer",
+                    "category": "computational",
                     "type": "interactive",
                     "is_given": False,
                     "instruction": "Calculate $K$ from $\\Delta G^\\circ = -RT\\ln K$ (3 sig figs).",
@@ -1031,6 +1094,7 @@ FEW_SHOT_DATA: list[tuple[str, int, str, str, dict]] = [
                 {
                     "step_number": 1,
                     "label": "Equation",
+                    "category": "conceptual",
                     "type": "drag_drop",
                     "is_given": True,
                     "instruction": "Select the correct relationship linking $K$ and $E^\\circ$.",
@@ -1041,6 +1105,7 @@ FEW_SHOT_DATA: list[tuple[str, int, str, str, dict]] = [
                 {
                     "step_number": 2,
                     "label": "Knowns",
+                    "category": "conceptual",
                     "type": "multi_input",
                     "is_given": True,
                     "instruction": "Identify all given values.",
@@ -1056,7 +1121,8 @@ FEW_SHOT_DATA: list[tuple[str, int, str, str, dict]] = [
                 },
                 {
                     "step_number": 3,
-                    "label": "Transform",
+                    "label": "Substitute",
+                    "category": "procedural",
                     "type": "interactive",
                     "is_given": False,
                     "instruction": "Write the expression for $E^\\circ$.",
@@ -1066,7 +1132,8 @@ FEW_SHOT_DATA: list[tuple[str, int, str, str, dict]] = [
                 },
                 {
                     "step_number": 4,
-                    "label": "Interpretation",
+                    "label": "Calculate",
+                    "category": "computational",
                     "type": "interactive",
                     "is_given": False,
                     "instruction": "Predict the sign of $E^\\circ$ before calculating.",
@@ -1077,6 +1144,7 @@ FEW_SHOT_DATA: list[tuple[str, int, str, str, dict]] = [
                 {
                     "step_number": 5,
                     "label": "Answer",
+                    "category": "computational",
                     "type": "multi_input",
                     "is_given": False,
                     "instruction": "State the final result and spontaneity.",
@@ -1111,6 +1179,7 @@ FEW_SHOT_DATA: list[tuple[str, int, str, str, dict]] = [
                 {
                     "step_number": 1,
                     "label": "Goal / Setup",
+                    "category": "conceptual",
                     "type": "multi_input",
                     "is_given": True,
                     "instruction": "Identify the electrolysis variables.",
@@ -1126,6 +1195,7 @@ FEW_SHOT_DATA: list[tuple[str, int, str, str, dict]] = [
                 {
                     "step_number": 2,
                     "label": "Conversion Factors",
+                    "category": "conceptual",
                     "type": "multi_input",
                     "is_given": True,
                     "instruction": "Convert time to seconds.",
@@ -1136,6 +1206,7 @@ FEW_SHOT_DATA: list[tuple[str, int, str, str, dict]] = [
                 {
                     "step_number": 3,
                     "label": "Dimensional Setup",
+                    "category": "procedural",
                     "type": "interactive",
                     "is_given": False,
                     "instruction": "Construct the expression for mass of $\\text{H}_2$.",
@@ -1146,6 +1217,7 @@ FEW_SHOT_DATA: list[tuple[str, int, str, str, dict]] = [
                 {
                     "step_number": 4,
                     "label": "Calculate",
+                    "category": "computational",
                     "type": "interactive",
                     "is_given": False,
                     "instruction": "Compute the unrounded mass.",
@@ -1156,6 +1228,7 @@ FEW_SHOT_DATA: list[tuple[str, int, str, str, dict]] = [
                 {
                     "step_number": 5,
                     "label": "Answer",
+                    "category": "computational",
                     "type": "multi_input",
                     "is_given": False,
                     "instruction": "Report the final mass with correct sig figs (3 sig figs).",
@@ -1185,6 +1258,7 @@ FEW_SHOT_DATA: list[tuple[str, int, str, str, dict]] = [
                 {
                     "step_number": 1,
                     "label": "Goal / Setup",
+                    "category": "conceptual",
                     "type": "interactive",
                     "is_given": True,
                     "instruction": "Identify the starting value and target unit.",
@@ -1195,6 +1269,7 @@ FEW_SHOT_DATA: list[tuple[str, int, str, str, dict]] = [
                 {
                     "step_number": 2,
                     "label": "Conversion Factors",
+                    "category": "conceptual",
                     "type": "interactive",
                     "is_given": True,
                     "instruction": "Find the molar mass of $\\mathrm{MgCl_2}$.",
@@ -1205,6 +1280,7 @@ FEW_SHOT_DATA: list[tuple[str, int, str, str, dict]] = [
                 {
                     "step_number": 3,
                     "label": "Dimensional Setup",
+                    "category": "procedural",
                     "type": "interactive",
                     "is_given": True,
                     "instruction": "Set up the math to convert moles to grams.",
@@ -1215,6 +1291,7 @@ FEW_SHOT_DATA: list[tuple[str, int, str, str, dict]] = [
                 {
                     "step_number": 4,
                     "label": "Calculate",
+                    "category": "computational",
                     "type": "interactive",
                     "is_given": True,
                     "instruction": "Calculate the unrounded mass.",
@@ -1225,6 +1302,7 @@ FEW_SHOT_DATA: list[tuple[str, int, str, str, dict]] = [
                 {
                     "step_number": 5,
                     "label": "Answer",
+                    "category": "computational",
                     "type": "multi_input",
                     "is_given": True,
                     "instruction": "Report the final mass with correct significant figures (3 sig figs).",
@@ -1256,6 +1334,7 @@ FEW_SHOT_DATA: list[tuple[str, int, str, str, dict]] = [
                 {
                     "step_number": 1,
                     "label": "Goal / Setup",
+                    "category": "conceptual",
                     "type": "interactive",
                     "is_given": True,
                     "instruction": "Identify the starting value and target unit.",
@@ -1266,6 +1345,7 @@ FEW_SHOT_DATA: list[tuple[str, int, str, str, dict]] = [
                 {
                     "step_number": 2,
                     "label": "Conversion Factors",
+                    "category": "conceptual",
                     "type": "interactive",
                     "is_given": True,
                     "instruction": "Find the molar mass of $\\mathrm{CaCl_2}$.",
@@ -1276,6 +1356,7 @@ FEW_SHOT_DATA: list[tuple[str, int, str, str, dict]] = [
                 {
                     "step_number": 3,
                     "label": "Dimensional Setup",
+                    "category": "procedural",
                     "type": "interactive",
                     "is_given": False,
                     "instruction": "Set up the two-step conversion.",
@@ -1286,6 +1367,7 @@ FEW_SHOT_DATA: list[tuple[str, int, str, str, dict]] = [
                 {
                     "step_number": 4,
                     "label": "Calculate",
+                    "category": "computational",
                     "type": "multi_input",
                     "is_given": False,
                     "instruction": "First, calculate the moles of $\\mathrm{CaCl_2}$ (1 sig fig).",
@@ -1296,6 +1378,7 @@ FEW_SHOT_DATA: list[tuple[str, int, str, str, dict]] = [
                 {
                     "step_number": 5,
                     "label": "Answer",
+                    "category": "computational",
                     "type": "multi_input",
                     "is_given": False,
                     "instruction": "Multiply moles by Avogadro's number (3 significant figures).",
@@ -1326,6 +1409,7 @@ FEW_SHOT_DATA: list[tuple[str, int, str, str, dict]] = [
                 {
                     "step_number": 1,
                     "label": "Goal / Setup",
+                    "category": "conceptual",
                     "type": "multi_input",
                     "is_given": True,
                     "instruction": "Identify what is given and what is required.",
@@ -1339,7 +1423,8 @@ FEW_SHOT_DATA: list[tuple[str, int, str, str, dict]] = [
                 },
                 {
                     "step_number": 2,
-                    "label": "Conversion Plan",
+                    "label": "Conversion Factors",
+                    "category": "conceptual",
                     "type": "interactive",
                     "is_given": True,
                     "instruction": "Determine the conversion pathway.",
@@ -1349,7 +1434,8 @@ FEW_SHOT_DATA: list[tuple[str, int, str, str, dict]] = [
                 },
                 {
                     "step_number": 3,
-                    "label": "Step 1: Particles → Moles",
+                    "label": "Dimensional Setup",
+                    "category": "procedural",
                     "type": "multi_input",
                     "is_given": False,
                     "instruction": "Convert formula units to moles of $\\mathrm{Al_2O_3}$.",
@@ -1359,7 +1445,8 @@ FEW_SHOT_DATA: list[tuple[str, int, str, str, dict]] = [
                 },
                 {
                     "step_number": 4,
-                    "label": "Step 2: Moles of Compound → Moles of O",
+                    "label": "Calculate",
+                    "category": "computational",
                     "type": "multi_input",
                     "is_given": False,
                     "instruction": "Find moles of oxygen atoms using the formula.",
@@ -1370,6 +1457,7 @@ FEW_SHOT_DATA: list[tuple[str, int, str, str, dict]] = [
                 {
                     "step_number": 5,
                     "label": "Answer",
+                    "category": "computational",
                     "type": "multi_input",
                     "is_given": False,
                     "instruction": "Convert moles of O to grams and report the final mass (3 sig figs).",
@@ -1401,6 +1489,7 @@ FEW_SHOT_DATA: list[tuple[str, int, str, str, dict]] = [
                 {
                     "step_number": 1,
                     "label": "Concept ID",
+                    "category": "conceptual",
                     "type": "multi_input",
                     "is_given": True,
                     "instruction": "Identify the system and surroundings.",
@@ -1414,6 +1503,7 @@ FEW_SHOT_DATA: list[tuple[str, int, str, str, dict]] = [
                 {
                     "step_number": 2,
                     "label": "Relation",
+                    "category": "conceptual",
                     "type": "comparison",
                     "is_given": True,
                     "instruction": "Compare final and initial temperatures of the surroundings.",
@@ -1425,6 +1515,7 @@ FEW_SHOT_DATA: list[tuple[str, int, str, str, dict]] = [
                 {
                     "step_number": 3,
                     "label": "Evidence / Claim",
+                    "category": "conceptual",
                     "type": "interactive",
                     "is_given": True,
                     "instruction": "Classify the process by heat flow direction.",
@@ -1435,6 +1526,7 @@ FEW_SHOT_DATA: list[tuple[str, int, str, str, dict]] = [
                 {
                     "step_number": 4,
                     "label": "Conclusion",
+                    "category": "conceptual",
                     "type": "interactive",
                     "is_given": True,
                     "instruction": "State the sign of $q_{\\text{system}}$.",
@@ -1467,6 +1559,7 @@ FEW_SHOT_DATA: list[tuple[str, int, str, str, dict]] = [
                 {
                     "step_number": 1,
                     "label": "Concept ID",
+                    "category": "conceptual",
                     "type": "multi_input",
                     "is_given": True,
                     "instruction": "List the system and surroundings.",
@@ -1480,6 +1573,7 @@ FEW_SHOT_DATA: list[tuple[str, int, str, str, dict]] = [
                 {
                     "step_number": 2,
                     "label": "Relation",
+                    "category": "conceptual",
                     "type": "comparison",
                     "is_given": True,
                     "instruction": "Compare $q_{\\text{system}}$ and $-q_{\\text{surr}}$.",
@@ -1491,6 +1585,7 @@ FEW_SHOT_DATA: list[tuple[str, int, str, str, dict]] = [
                 {
                     "step_number": 3,
                     "label": "Evidence / Claim",
+                    "category": "conceptual",
                     "type": "interactive",
                     "is_given": False,
                     "instruction": "Determine the sign of $q_{\\text{system}}$.",
@@ -1501,6 +1596,7 @@ FEW_SHOT_DATA: list[tuple[str, int, str, str, dict]] = [
                 {
                     "step_number": 4,
                     "label": "Conclusion",
+                    "category": "conceptual",
                     "type": "interactive",
                     "is_given": False,
                     "instruction": "Classify the dissolving process.",
@@ -1529,6 +1625,7 @@ FEW_SHOT_DATA: list[tuple[str, int, str, str, dict]] = [
                 {
                     "step_number": 1,
                     "label": "Concept ID",
+                    "category": "conceptual",
                     "type": "interactive",
                     "is_given": True,
                     "instruction": "Identify the principle governing atomic radius across a period.",
@@ -1539,6 +1636,7 @@ FEW_SHOT_DATA: list[tuple[str, int, str, str, dict]] = [
                 {
                     "step_number": 2,
                     "label": "Relation",
+                    "category": "conceptual",
                     "type": "comparison",
                     "is_given": True,
                     "instruction": "Compare the effective nuclear charge of Na and Cl.",
@@ -1550,6 +1648,7 @@ FEW_SHOT_DATA: list[tuple[str, int, str, str, dict]] = [
                 {
                     "step_number": 3,
                     "label": "Evidence / Claim",
+                    "category": "conceptual",
                     "type": "interactive",
                     "is_given": True,
                     "instruction": "How does higher Zeff affect the electron cloud?",
@@ -1560,6 +1659,7 @@ FEW_SHOT_DATA: list[tuple[str, int, str, str, dict]] = [
                 {
                     "step_number": 4,
                     "label": "Conclusion",
+                    "category": "conceptual",
                     "type": "interactive",
                     "is_given": True,
                     "instruction": "Which element has the larger atomic radius?",
@@ -1592,6 +1692,7 @@ FEW_SHOT_DATA: list[tuple[str, int, str, str, dict]] = [
                 {
                     "step_number": 1,
                     "label": "Concept ID",
+                    "category": "conceptual",
                     "type": "multi_input",
                     "is_given": True,
                     "instruction": "Identify the primary hazard and the broken rule.",
@@ -1605,6 +1706,7 @@ FEW_SHOT_DATA: list[tuple[str, int, str, str, dict]] = [
                 {
                     "step_number": 2,
                     "label": "Relation",
+                    "category": "conceptual",
                     "type": "interactive",
                     "is_given": True,
                     "instruction": "State the safety rule being violated.",
@@ -1615,6 +1717,7 @@ FEW_SHOT_DATA: list[tuple[str, int, str, str, dict]] = [
                 {
                     "step_number": 3,
                     "label": "Evidence / Claim",
+                    "category": "conceptual",
                     "type": "interactive",
                     "is_given": True,
                     "instruction": "State the risk of this unsafe behavior.",
@@ -1625,6 +1728,7 @@ FEW_SHOT_DATA: list[tuple[str, int, str, str, dict]] = [
                 {
                     "step_number": 4,
                     "label": "Conclusion",
+                    "category": "conceptual",
                     "type": "interactive",
                     "is_given": True,
                     "instruction": "Give the safest immediate action.",
@@ -1656,6 +1760,7 @@ FEW_SHOT_DATA: list[tuple[str, int, str, str, dict]] = [
                 {
                     "step_number": 1,
                     "label": "Concept ID",
+                    "category": "conceptual",
                     "type": "multi_input",
                     "is_given": True,
                     "instruction": "Identify the hazard and the broken rule.",
@@ -1669,6 +1774,7 @@ FEW_SHOT_DATA: list[tuple[str, int, str, str, dict]] = [
                 {
                     "step_number": 2,
                     "label": "Relation",
+                    "category": "conceptual",
                     "type": "interactive",
                     "is_given": True,
                     "instruction": "State the safety rule regarding chemical waste.",
@@ -1679,6 +1785,7 @@ FEW_SHOT_DATA: list[tuple[str, int, str, str, dict]] = [
                 {
                     "step_number": 3,
                     "label": "Evidence / Claim",
+                    "category": "conceptual",
                     "type": "interactive",
                     "is_given": False,
                     "instruction": "Where should this specific waste go?",
@@ -1689,6 +1796,7 @@ FEW_SHOT_DATA: list[tuple[str, int, str, str, dict]] = [
                 {
                     "step_number": 4,
                     "label": "Conclusion",
+                    "category": "conceptual",
                     "type": "interactive",
                     "is_given": False,
                     "instruction": "What should the student do right now?",
@@ -1721,6 +1829,7 @@ FEW_SHOT_DATA: list[tuple[str, int, str, str, dict]] = [
                 {
                     "step_number": 1,
                     "label": "Concept ID",
+                    "category": "conceptual",
                     "type": "interactive",
                     "is_given": False,
                     "instruction": "Name the primary hazard from the scenario.",
@@ -1731,6 +1840,7 @@ FEW_SHOT_DATA: list[tuple[str, int, str, str, dict]] = [
                 {
                     "step_number": 2,
                     "label": "Relation",
+                    "category": "conceptual",
                     "type": "interactive",
                     "is_given": False,
                     "instruction": "State the lab rule being violated.",
@@ -1741,6 +1851,7 @@ FEW_SHOT_DATA: list[tuple[str, int, str, str, dict]] = [
                 {
                     "step_number": 3,
                     "label": "Evidence / Claim",
+                    "category": "conceptual",
                     "type": "interactive",
                     "is_given": False,
                     "instruction": "State the hidden risk of having the bottle on the bench.",
@@ -1751,6 +1862,7 @@ FEW_SHOT_DATA: list[tuple[str, int, str, str, dict]] = [
                 {
                     "step_number": 4,
                     "label": "Conclusion",
+                    "category": "conceptual",
                     "type": "interactive",
                     "is_given": False,
                     "instruction": "Give the safest immediate action.",
@@ -1780,6 +1892,7 @@ FEW_SHOT_DATA: list[tuple[str, int, str, str, dict]] = [
                 {
                     "step_number": 1,
                     "label": "Inventory / Rules",
+                    "category": "conceptual",
                     "type": "multi_input",
                     "is_given": True,
                     "instruction": "Distribute the 15 electrons into the correct subshells.",
@@ -1796,6 +1909,7 @@ FEW_SHOT_DATA: list[tuple[str, int, str, str, dict]] = [
                 {
                     "step_number": 2,
                     "label": "Draft",
+                    "category": "procedural",
                     "type": "drag_drop",
                     "is_given": True,
                     "instruction": "Arrange the subshells in correct Aufbau order.",
@@ -1806,6 +1920,7 @@ FEW_SHOT_DATA: list[tuple[str, int, str, str, dict]] = [
                 {
                     "step_number": 3,
                     "label": "Refine",
+                    "category": "procedural",
                     "type": "interactive",
                     "is_given": False,
                     "instruction": "How many unpaired electrons are in the 3p subshell?",
@@ -1816,6 +1931,7 @@ FEW_SHOT_DATA: list[tuple[str, int, str, str, dict]] = [
                 {
                     "step_number": 4,
                     "label": "Final Answer",
+                    "category": "computational",
                     "type": "interactive",
                     "is_given": False,
                     "instruction": "State the complete electron configuration.",
@@ -1847,6 +1963,7 @@ FEW_SHOT_DATA: list[tuple[str, int, str, str, dict]] = [
                 {
                     "step_number": 1,
                     "label": "Inventory / Rules",
+                    "category": "conceptual",
                     "type": "multi_input",
                     "is_given": True,
                     "instruction": "Identify the core and outer subshells.",
@@ -1860,6 +1977,7 @@ FEW_SHOT_DATA: list[tuple[str, int, str, str, dict]] = [
                 {
                     "step_number": 2,
                     "label": "Draft",
+                    "category": "procedural",
                     "type": "drag_drop",
                     "is_given": True,
                     "instruction": "Assemble the abbreviated configuration.",
@@ -1870,6 +1988,7 @@ FEW_SHOT_DATA: list[tuple[str, int, str, str, dict]] = [
                 {
                     "step_number": 3,
                     "label": "Refine",
+                    "category": "procedural",
                     "type": "interactive",
                     "is_given": True,
                     "instruction": "Count the valence electrons.",
@@ -1880,6 +1999,7 @@ FEW_SHOT_DATA: list[tuple[str, int, str, str, dict]] = [
                 {
                     "step_number": 4,
                     "label": "Final Answer",
+                    "category": "computational",
                     "type": "multi_input",
                     "is_given": True,
                     "instruction": "State both final results.",
@@ -1913,6 +2033,7 @@ FEW_SHOT_DATA: list[tuple[str, int, str, str, dict]] = [
                 {
                     "step_number": 1,
                     "label": "Inventory / Rules",
+                    "category": "conceptual",
                     "type": "interactive",
                     "is_given": True,
                     "instruction": "Identify the core noble gas and remaining electrons.",
@@ -1923,6 +2044,7 @@ FEW_SHOT_DATA: list[tuple[str, int, str, str, dict]] = [
                 {
                     "step_number": 2,
                     "label": "Draft",
+                    "category": "procedural",
                     "type": "drag_drop",
                     "is_given": True,
                     "instruction": "Assemble the subshell filling after the core.",
@@ -1933,6 +2055,7 @@ FEW_SHOT_DATA: list[tuple[str, int, str, str, dict]] = [
                 {
                     "step_number": 3,
                     "label": "Refine",
+                    "category": "procedural",
                     "type": "interactive",
                     "is_given": False,
                     "instruction": "Enter the abbreviated electron configuration.",
@@ -1943,6 +2066,7 @@ FEW_SHOT_DATA: list[tuple[str, int, str, str, dict]] = [
                 {
                     "step_number": 4,
                     "label": "Final Answer",
+                    "category": "computational",
                     "type": "interactive",
                     "is_given": False,
                     "instruction": "State the number of valence electrons.",
@@ -1974,6 +2098,7 @@ FEW_SHOT_DATA: list[tuple[str, int, str, str, dict]] = [
                 {
                     "step_number": 1,
                     "label": "Equation",
+                    "category": "conceptual",
                     "type": "drag_drop",
                     "is_given": True,
                     "instruction": "Arrange the two-point Arrhenius equation.",
@@ -1989,6 +2114,7 @@ FEW_SHOT_DATA: list[tuple[str, int, str, str, dict]] = [
                 {
                     "step_number": 2,
                     "label": "Knowns",
+                    "category": "conceptual",
                     "type": "multi_input",
                     "is_given": True,
                     "instruction": "Identify the given values.",
@@ -2005,6 +2131,7 @@ FEW_SHOT_DATA: list[tuple[str, int, str, str, dict]] = [
                 {
                     "step_number": 3,
                     "label": "Substitute",
+                    "category": "procedural",
                     "type": "interactive",
                     "is_given": False,
                     "instruction": "Substitute values into the equation.",
@@ -2015,6 +2142,7 @@ FEW_SHOT_DATA: list[tuple[str, int, str, str, dict]] = [
                 {
                     "step_number": 4,
                     "label": "Calculate",
+                    "category": "computational",
                     "type": "multi_input",
                     "is_given": False,
                     "instruction": "Report $E_a$ in J/mol (3 significant figures).",
@@ -2028,6 +2156,7 @@ FEW_SHOT_DATA: list[tuple[str, int, str, str, dict]] = [
                 {
                     "step_number": 5,
                     "label": "Answer",
+                    "category": "computational",
                     "type": "multi_input",
                     "is_given": False,
                     "instruction": "Express the activation energy in kJ/mol (3 significant figures).",
@@ -2058,6 +2187,7 @@ FEW_SHOT_DATA: list[tuple[str, int, str, str, dict]] = [
                 {
                     "step_number": 1,
                     "label": "Equation",
+                    "category": "conceptual",
                     "type": "drag_drop",
                     "is_given": False,
                     "instruction": "Form the first-order integrated rate law.",
@@ -2079,6 +2209,7 @@ FEW_SHOT_DATA: list[tuple[str, int, str, str, dict]] = [
                 {
                     "step_number": 2,
                     "label": "Knowns",
+                    "category": "conceptual",
                     "type": "multi_input",
                     "is_given": False,
                     "instruction": "Extract the given values with units.",
@@ -2093,6 +2224,7 @@ FEW_SHOT_DATA: list[tuple[str, int, str, str, dict]] = [
                 {
                     "step_number": 3,
                     "label": "Substitute",
+                    "category": "procedural",
                     "type": "interactive",
                     "is_given": False,
                     "instruction": "Substitute into the rate law.",
@@ -2103,6 +2235,7 @@ FEW_SHOT_DATA: list[tuple[str, int, str, str, dict]] = [
                 {
                     "step_number": 4,
                     "label": "Calculate",
+                    "category": "computational",
                     "type": "interactive",
                     "is_given": False,
                     "instruction": "Calculate the right side of the equation ($\\ln[A]_t$).",
@@ -2115,6 +2248,7 @@ FEW_SHOT_DATA: list[tuple[str, int, str, str, dict]] = [
                 {
                     "step_number": 5,
                     "label": "Answer",
+                    "category": "computational",
                     "type": "interactive",
                     "is_given": False,
                     "instruction": "Calculate the final concentration $[A]_t$.",
@@ -2149,6 +2283,7 @@ FEW_SHOT_DATA: list[tuple[str, int, str, str, dict]] = [
                 {
                     "step_number": 1,
                     "label": "Concept ID",
+                    "category": "conceptual",
                     "type": "interactive",
                     "is_given": False,
                     "instruction": "Identify the principle used to predict shifts.",
@@ -2162,6 +2297,7 @@ FEW_SHOT_DATA: list[tuple[str, int, str, str, dict]] = [
                 {
                     "step_number": 2,
                     "label": "Relation",
+                    "category": "conceptual",
                     "type": "comparison",
                     "is_given": False,
                     "instruction": "Compare the value of Q to K.",
@@ -2173,6 +2309,7 @@ FEW_SHOT_DATA: list[tuple[str, int, str, str, dict]] = [
                 {
                     "step_number": 3,
                     "label": "Evidence / Claim",
+                    "category": "conceptual",
                     "type": "interactive",
                     "is_given": False,
                     "instruction": "What does a large Q value imply about the current concentrations?",
@@ -2185,6 +2322,7 @@ FEW_SHOT_DATA: list[tuple[str, int, str, str, dict]] = [
                 {
                     "step_number": 4,
                     "label": "Conclusion",
+                    "category": "conceptual",
                     "type": "interactive",
                     "is_given": False,
                     "instruction": "State the direction the reaction will shift.",
@@ -2215,6 +2353,7 @@ FEW_SHOT_DATA: list[tuple[str, int, str, str, dict]] = [
                 {
                     "step_number": 1,
                     "label": "Equation",
+                    "category": "conceptual",
                     "type": "drag_drop",
                     "is_given": True,
                     "instruction": "Arrange the ideal gas law to solve for volume.",
@@ -2225,6 +2364,7 @@ FEW_SHOT_DATA: list[tuple[str, int, str, str, dict]] = [
                 {
                     "step_number": 2,
                     "label": "Knowns",
+                    "category": "conceptual",
                     "type": "multi_input",
                     "is_given": True,
                     "instruction": "Identify the given variables.",
@@ -2244,6 +2384,7 @@ FEW_SHOT_DATA: list[tuple[str, int, str, str, dict]] = [
                 {
                     "step_number": 3,
                     "label": "Substitute",
+                    "category": "procedural",
                     "type": "interactive",
                     "is_given": True,
                     "instruction": "Substitute the values into the rearranged equation.",
@@ -2254,6 +2395,7 @@ FEW_SHOT_DATA: list[tuple[str, int, str, str, dict]] = [
                 {
                     "step_number": 4,
                     "label": "Calculate",
+                    "category": "computational",
                     "type": "interactive",
                     "is_given": True,
                     "instruction": "Compute the unrounded volume.",
@@ -2264,6 +2406,7 @@ FEW_SHOT_DATA: list[tuple[str, int, str, str, dict]] = [
                 {
                     "step_number": 5,
                     "label": "Answer",
+                    "category": "computational",
                     "type": "interactive",
                     "is_given": True,
                     "instruction": "Report the final volume with correct sig figs.",
@@ -2296,6 +2439,7 @@ FEW_SHOT_DATA: list[tuple[str, int, str, str, dict]] = [
                 {
                     "step_number": 1,
                     "label": "Equation",
+                    "category": "conceptual",
                     "type": "drag_drop",
                     "is_given": True,
                     "instruction": "Build the pH equation.",
@@ -2311,6 +2455,7 @@ FEW_SHOT_DATA: list[tuple[str, int, str, str, dict]] = [
                 {
                     "step_number": 2,
                     "label": "Knowns",
+                    "category": "conceptual",
                     "type": "multi_input",
                     "is_given": True,
                     "instruction": "Determine the hydrogen ion concentration.",
@@ -2327,6 +2472,7 @@ FEW_SHOT_DATA: list[tuple[str, int, str, str, dict]] = [
                 {
                     "step_number": 3,
                     "label": "Substitute",
+                    "category": "procedural",
                     "type": "interactive",
                     "is_given": False,
                     "instruction": "Substitute the concentration into the pH formula.",
@@ -2337,6 +2483,7 @@ FEW_SHOT_DATA: list[tuple[str, int, str, str, dict]] = [
                 {
                     "step_number": 4,
                     "label": "Calculate",
+                    "category": "computational",
                     "type": "interactive",
                     "is_given": False,
                     "instruction": "Compute the raw logarithmic value.",
@@ -2347,6 +2494,7 @@ FEW_SHOT_DATA: list[tuple[str, int, str, str, dict]] = [
                 {
                     "step_number": 5,
                     "label": "Answer",
+                    "category": "computational",
                     "type": "interactive",
                     "is_given": False,
                     "instruction": "Report the pH with correct significant figures.",
@@ -2377,6 +2525,7 @@ FEW_SHOT_DATA: list[tuple[str, int, str, str, dict]] = [
                 {
                     "step_number": 1,
                     "label": "Inventory / Rules",
+                    "category": "conceptual",
                     "type": "interactive",
                     "is_given": False,
                     "instruction": "Calculate the total number of valence electrons.",
@@ -2387,6 +2536,7 @@ FEW_SHOT_DATA: list[tuple[str, int, str, str, dict]] = [
                 {
                     "step_number": 2,
                     "label": "Draft",
+                    "category": "procedural",
                     "type": "multi_input",
                     "is_given": False,
                     "instruction": "Count the electron domains on central oxygen.",
@@ -2400,6 +2550,7 @@ FEW_SHOT_DATA: list[tuple[str, int, str, str, dict]] = [
                 {
                     "step_number": 3,
                     "label": "Refine",
+                    "category": "procedural",
                     "type": "interactive",
                     "is_given": False,
                     "instruction": "Identify the base electron-domain geometry.",
@@ -2410,6 +2561,7 @@ FEW_SHOT_DATA: list[tuple[str, int, str, str, dict]] = [
                 {
                     "step_number": 4,
                     "label": "Final Answer",
+                    "category": "computational",
                     "type": "interactive",
                     "is_given": False,
                     "instruction": "State the final molecular geometry.",
@@ -2441,6 +2593,7 @@ FEW_SHOT_DATA: list[tuple[str, int, str, str, dict]] = [
                 {
                     "step_number": 1,
                     "label": "Data Extraction",
+                    "category": "conceptual",
                     "type": "interactive",
                     "is_given": True,
                     "instruction": "Identify the specific curve that was crossed.",
@@ -2451,6 +2604,7 @@ FEW_SHOT_DATA: list[tuple[str, int, str, str, dict]] = [
                 {
                     "step_number": 2,
                     "label": "Feature ID",
+                    "category": "conceptual",
                     "type": "interactive",
                     "is_given": True,
                     "instruction": "Identify the phase transition for sublimation.",
@@ -2461,6 +2615,7 @@ FEW_SHOT_DATA: list[tuple[str, int, str, str, dict]] = [
                 {
                     "step_number": 3,
                     "label": "Apply Concept",
+                    "category": "procedural",
                     "type": "interactive",
                     "is_given": False,
                     "instruction": "Identify the state of matter before crossing (initial).",
@@ -2471,6 +2626,7 @@ FEW_SHOT_DATA: list[tuple[str, int, str, str, dict]] = [
                 {
                     "step_number": 4,
                     "label": "Conclusion",
+                    "category": "conceptual",
                     "type": "interactive",
                     "is_given": False,
                     "instruction": "Identify the state of matter after sublimation (final).",
