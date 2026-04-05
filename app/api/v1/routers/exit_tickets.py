@@ -19,7 +19,6 @@ from app.domain.schemas.dashboards import (
     ExitTicketConfig,
     ExitTicketGenerateRequest,
     ExitTicketGenerateResponse,
-    ExitTicketQuestion,
     ExitTicketResponseItem,
     ExitTicketsForClassOut,
 )
@@ -28,28 +27,9 @@ from app.infrastructure.database.models import ExitTicket, User
 from app.infrastructure.database.repositories.classroom_repo import ClassroomRepository
 from app.services.ai.exit_ticket.service import get_exit_ticket_generation_service
 from app.services.ai.exit_ticket.persistence import ExitTicketPersistenceService
+from app.services.ai.exit_ticket.config_serialization import exit_ticket_row_to_config
 
 router = APIRouter(prefix="/teacher/exit-tickets")
-
-
-def _to_config(row: ExitTicket) -> ExitTicketConfig:
-    questions: list[ExitTicketQuestion] = []
-    for raw in row.questions or []:
-        if isinstance(raw, dict):
-            questions.append(ExitTicketQuestion.model_validate(raw))
-    return ExitTicketConfig(
-        id=row.id,
-        class_id=row.class_id,
-        teacher_id=row.teacher_id,
-        unit_id=row.unit_id,
-        lesson_index=row.lesson_index,
-        difficulty=row.difficulty,
-        time_limit_minutes=row.time_limit_minutes,
-        is_active=row.is_active,
-        questions=questions,
-        created_at=row.created_at,
-        updated_at=row.updated_at,
-    )
 
 
 @router.post("/generate", response_model=ExitTicketGenerateResponse)
@@ -80,7 +60,7 @@ async def generate_exit_ticket(
         questions=raw_questions,
         is_active=True,
     )
-    cfg = _to_config(row)
+    cfg = exit_ticket_row_to_config(row)
     return ExitTicketGenerateResponse(ticket=cfg)
 
 
@@ -130,7 +110,7 @@ async def list_exit_tickets_for_class(
                 if last_activity is None or r.submitted_at > last_activity:
                     last_activity = r.submitted_at
 
-        items.append(ExitTicketBundleOut(ticket=_to_config(t), responses=resp_out))
+        items.append(ExitTicketBundleOut(ticket=exit_ticket_row_to_config(t), responses=resp_out))
 
     avg = sum(scores) / len(scores) if scores else None
     analytics = ExitTicketAnalytics(

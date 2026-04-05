@@ -14,6 +14,7 @@ from app.api.v1.routers import (
     phases,
     presence,
     problems,
+    student_exit_tickets,
     students,
     teacher,
     units,
@@ -100,6 +101,7 @@ app.include_router(students.router, prefix=prefix, tags=["Students"])
 # Teacher & admin dashboards (JWT role guards)
 app.include_router(teacher.router, prefix=prefix, tags=["Teacher"])
 app.include_router(exit_tickets.router, prefix=prefix, tags=["Exit Tickets"])
+app.include_router(student_exit_tickets.router, prefix=prefix, tags=["Student Exit Tickets"])
 app.include_router(presence.router, prefix=prefix, tags=["Presence"])
 app.include_router(admin.router, prefix=prefix, tags=["Admin"])
 

@@ -8,6 +8,23 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.domain.schemas.live_session import LiveSessionOut
 from app.infrastructure.database.models import Classroom, ClassroomStudent, ExitTicket
+from app.services.ai.exit_ticket.config_serialization import exit_ticket_row_to_config
+
+
+def _coerce_optional_int(v: object) -> int | None:
+    """JSONB may return int or float for whole numbers."""
+    if v is None:
+        return None
+    if isinstance(v, bool):
+        return None
+    if isinstance(v, int):
+        return v
+    if isinstance(v, float):
+        return int(v) if v.is_integer() else None
+    try:
+        return int(v)  # type: ignore[arg-type]
+    except (TypeError, ValueError):
+        return None
 
 
 def _empty_live_session() -> dict:
@@ -28,15 +45,21 @@ def _to_out(classroom_id: uuid.UUID, raw: dict | None) -> LiveSessionOut:
     if phase not in ("idle", "timed_practice", "exit_ticket"):
         phase = "idle"
     aid = d.get("active_exit_ticket_id")
+    tpm = d.get("timed_practice_minutes")
+    if isinstance(tpm, float) and tpm.is_integer():
+        tpm = int(tpm)
+    elif not isinstance(tpm, int):
+        tpm = None
+
     return LiveSessionOut(
         classroom_id=classroom_id,
         timed_mode_active=bool(d.get("timed_mode_active")),
-        timed_practice_minutes=d.get("timed_practice_minutes"),
+        timed_practice_minutes=tpm,
         timed_started_at=d.get("timed_started_at") if isinstance(d.get("timed_started_at"), str) else None,
         active_exit_ticket_id=str(aid) if aid else None,
         session_phase=phase,
         unit_id=d.get("unit_id") if isinstance(d.get("unit_id"), str) else None,
-        lesson_index=d.get("lesson_index") if isinstance(d.get("lesson_index"), int) else None,
+        lesson_index=_coerce_optional_int(d.get("lesson_index")),
     )
 
 
@@ -115,4 +138,18 @@ async def get_live_session_for_student(
     if c_row is None:
         return None
     raw = c_row.live_session if isinstance(c_row.live_session, dict) else {}
-    return _to_out(c_row.id, raw)
+    base = _to_out(c_row.id, raw)
+    exit_cfg = None
+    aid = raw.get("active_exit_ticket_id") if isinstance(raw, dict) else None
+    if aid:
+        try:
+            tid = uuid.UUID(str(aid))
+        except ValueError:
+            tid = None
+        else:
+            t_row = await session.scalar(
+                select(ExitTicket).where(ExitTicket.id == tid, ExitTicket.class_id == c_row.id)
+            )
+            if t_row is not None:
+                exit_cfg = exit_ticket_row_to_config(t_row)
+    return base.model_copy(update={"exit_ticket": exit_cfg})

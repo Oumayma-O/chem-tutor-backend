@@ -5,6 +5,8 @@ from typing import Literal
 
 from pydantic import BaseModel, Field
 
+from app.domain.schemas.dashboards import ExitTicketConfig
+
 
 class LiveSessionPublishRequest(BaseModel):
     exit_ticket_id: uuid.UUID
@@ -25,3 +27,4 @@ class LiveSessionOut(BaseModel):
     session_phase: Literal["idle", "timed_practice", "exit_ticket"] = "idle"
     unit_id: str | None = None
     lesson_index: int | None = None
+    exit_ticket: ExitTicketConfig | None = None

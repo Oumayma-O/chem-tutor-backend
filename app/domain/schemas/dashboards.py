@@ -21,6 +21,10 @@ class ExitTicketQuestion(BaseModel):
     prompt: str
     question_type: str = Field(default="short_answer", description="mcq | short_answer | numeric")
     options: list[str] = Field(default_factory=list, description="For MCQ")
+    option_misconception_tags: list[str | None] | None = Field(
+        default=None,
+        description="Index-aligned distractor tags for MCQ options.",
+    )
     correct_answer: str | None = None
     points: float = 1.0
 
