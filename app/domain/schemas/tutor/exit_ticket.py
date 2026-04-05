@@ -1,4 +1,4 @@
-"""Exit ticket schemas."""
+"""Exit ticket schemas — tutor output types and LLM generation bundles."""
 
 from typing import Literal
 from pydantic import BaseModel, Field
@@ -29,3 +29,19 @@ class GenerateExitTicketRequest(BaseModel):
 
 class ExitTicketOutput(BaseModel):
     questions: list[ExitTicketQuestion] = Field(min_length=1)
+
+
+# ── LLM generation bundle (teacher topic-based flow) ─────────
+
+class ExitTicketQuestionLLM(BaseModel):
+    """Raw LLM output shape for a single teacher exit ticket question."""
+    id: str = ""
+    prompt: str
+    question_type: str = "short_answer"
+    options: list[str] = Field(default_factory=list)
+    correct_answer: str | None = None
+    points: float = 1.0
+
+
+class ExitTicketGenerationBundle(BaseModel):
+    questions: list[ExitTicketQuestionLLM]

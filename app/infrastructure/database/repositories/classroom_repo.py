@@ -5,7 +5,7 @@ import string
 import uuid
 from typing import Sequence
 
-from sqlalchemy import select
+from sqlalchemy import delete, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
@@ -104,3 +104,13 @@ class ClassroomStudentRepository(BaseRepository[ClassroomStudent]):
             .order_by(ClassroomStudent.joined_at)
         )
         return result.scalars().all()
+
+    async def remove_membership(self, classroom_id: uuid.UUID, student_id: uuid.UUID) -> bool:
+        """Remove a student from a classroom. Returns True if a row was deleted."""
+        result = await self._session.execute(
+            delete(ClassroomStudent).where(
+                ClassroomStudent.classroom_id == classroom_id,
+                ClassroomStudent.student_id == student_id,
+            )
+        )
+        return (result.rowcount or 0) > 0

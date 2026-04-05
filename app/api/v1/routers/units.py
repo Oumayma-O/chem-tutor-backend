@@ -25,6 +25,7 @@ from app.infrastructure.database.repositories.unit_repo import (
     StandardRepository,
     UnitRepository,
 )
+from app.services.unit_catalog_service import create_unit_with_lessons
 
 logger = get_logger(__name__)
 router = APIRouter(prefix="/units")
@@ -128,45 +129,7 @@ async def create_unit(
     req: UnitCreate,
     db: AsyncSession = Depends(get_db),
 ) -> UnitOut:
-    unit_repo = UnitRepository(db)
-    lesson_repo = LessonRepository(db)
-    std_repo = StandardRepository(db)
-
-    unit = Unit(
-        id=req.id,
-        title=req.title,
-        description=req.description,
-        icon=req.icon,
-        gradient=req.gradient,
-        grade_id=req.grade_id,
-        course_id=req.course_id,
-        sort_order=req.sort_order,
-        is_coming_soon=req.is_coming_soon,
-    )
-    await unit_repo.create(unit)
-
-    for order, l in enumerate(req.lessons):
-        lesson = Lesson(
-            title=l.title,
-            description=l.description,
-            lesson_index=l.lesson_index,
-            objectives=l.objectives,
-            key_equations=l.key_equations,
-            key_rules=l.key_rules,
-            misconceptions=l.misconceptions,
-            is_active=l.is_active,
-            required_tools=l.required_tools,
-        )
-        db.add(lesson)
-        await db.flush()
-
-        db.add(UnitLesson(unit_id=req.id, lesson_id=lesson.id, lesson_order=order))
-
-        for code in l.standard_codes:
-            framework = code.split(" ")[0] if " " in code else "OTHER"
-            std = await std_repo.get_or_create(code=code, framework=framework)
-            db.add(LessonStandard(lesson_id=lesson.id, standard_id=std.id))
-
+    await create_unit_with_lessons(db, req)
     return await get_unit(req.id, db)
 
 

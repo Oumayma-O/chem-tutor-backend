@@ -1,0 +1,128 @@
+"""Teacher dashboard service — class overview, roster, live presence."""
+
+import uuid
+
+from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from app.domain.schemas.classrooms import ClassroomOut
+from app.domain.schemas.dashboards import (
+    LiveStudentEntry,
+    RosterStudentEntry,
+    TeacherClassCreate,
+    TeacherClassOut,
+)
+from app.infrastructure.database.models import Classroom, User
+from app.services.classroom.service import _to_classroom_out
+from app.infrastructure.database.repositories.classroom_repo import (
+    ClassroomRepository,
+    ClassroomStudentRepository,
+)
+from app.infrastructure.database.repositories.presence_repo import PresenceRepository
+from app.services.mastery_service import MasteryService
+
+
+class TeacherService:
+    def __init__(self, session: AsyncSession, mastery: MasteryService) -> None:
+        self._session = session
+        self._mastery = mastery
+        self._classrooms = ClassroomRepository(session)
+        self._students = ClassroomStudentRepository(session)
+
+    async def create_class(self, name: str, teacher_id: uuid.UUID, unit_id: str | None) -> ClassroomOut:
+        classroom = Classroom(name=name, teacher_id=teacher_id, unit_id=unit_id, code="")
+        created = await self._classrooms.create_with_code(classroom)
+        return _to_classroom_out(created, student_count=0)
+
+    async def list_classes(self, teacher_id: uuid.UUID) -> list[TeacherClassOut]:
+        classrooms = await self._classrooms.get_by_teacher(teacher_id)
+        out: list[TeacherClassOut] = []
+        for c in classrooms:
+            members = await self._students.get_class_students(c.id)
+            student_ids = [m.student_id for m in members]
+            stats = await self._mastery.get_class_summary_stats(c.id, student_ids, c.unit_id)
+            out.append(
+                TeacherClassOut(
+                    id=c.id,
+                    name=c.name,
+                    code=c.code,
+                    unit_id=c.unit_id,
+                    student_count=len(student_ids),
+                    is_active=c.is_active,
+                    created_at=c.created_at,
+                    stats=stats,
+                )
+            )
+        return out
+
+    async def _fetch_users_by_ids(self, ids: list[uuid.UUID]) -> dict[uuid.UUID, User]:
+        result = await self._session.execute(select(User).where(User.id.in_(ids)))
+        return {u.id: u for u in result.scalars().all()}
+
+    async def get_roster(
+        self,
+        classroom_id: uuid.UUID,
+        teacher_id: uuid.UUID,
+    ) -> list[RosterStudentEntry]:
+        """Raises LookupError if classroom not found, PermissionError if not owner."""
+        classroom = await self._classrooms.get_by_id_with_students(classroom_id)
+        if classroom is None:
+            raise LookupError("Classroom not found.")
+        if classroom.teacher_id != teacher_id:
+            raise PermissionError("Not your class.")
+
+        members = await self._students.get_class_students(classroom_id)
+        if not members:
+            return []
+
+        users = await self._fetch_users_by_ids([m.student_id for m in members])
+
+        roster: list[RosterStudentEntry] = []
+        for m in members:
+            u = users.get(m.student_id)
+            snap = await self._mastery.get_student_mastery_snapshot(m.student_id, classroom.unit_id)
+            at_risk = (
+                bool(classroom.unit_id)
+                and await self._mastery.is_at_risk(m.student_id, classroom.unit_id)  # type: ignore[arg-type]
+            )
+            roster.append(
+                RosterStudentEntry(
+                    student_id=m.student_id,
+                    name=u.name if u else "Unknown",
+                    email=u.email if u else None,
+                    joined_at=m.joined_at,
+                    mastery=snap,
+                    at_risk=at_risk,
+                )
+            )
+        return roster
+
+    async def get_live(
+        self,
+        classroom_id: uuid.UUID,
+        teacher_id: uuid.UUID,
+        within_seconds: int,
+    ) -> list[LiveStudentEntry]:
+        """Raises LookupError if classroom not found, PermissionError if not owner."""
+        classroom = await self._classrooms.get_by_id_with_students(classroom_id)
+        if classroom is None:
+            raise LookupError("Classroom not found.")
+        if classroom.teacher_id != teacher_id:
+            raise PermissionError("Not your class.")
+
+        p_repo = PresenceRepository(self._session)
+        rows = await p_repo.list_active_in_classroom(classroom_id, within_seconds=within_seconds)
+        if not rows:
+            return []
+
+        users = await self._fetch_users_by_ids([r.user_id for r in rows])
+        return [
+            LiveStudentEntry(
+                student_id=r.user_id,
+                name=users[r.user_id].name if r.user_id in users else "Unknown",
+                email=users[r.user_id].email if r.user_id in users else None,
+                step_id=r.step_id,
+                last_seen_at=r.last_seen_at,
+            )
+            for r in rows
+        ]

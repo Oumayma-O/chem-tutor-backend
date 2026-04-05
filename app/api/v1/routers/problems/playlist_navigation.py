@@ -1,14 +1,11 @@
 """Problems: navigate prev/next through a student's problem playlist."""
 
-import uuid
-from typing import Literal
-
 from fastapi import APIRouter, Depends, HTTPException, status
-from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.v1.authz import AuthContext, get_auth_context, require_self
 from app.domain.schemas.tutor import ProblemDeliveryResponse, ProblemOutput
+from app.domain.schemas.tutor.problems import NavigateProblemRequest
 from app.infrastructure.database.connection import get_db
 from app.infrastructure.database.repositories.playlist_repo import UserLessonPlaylistRepository
 from app.services.ai.shared.step_types import enforce_step_types
@@ -16,15 +13,6 @@ from app.services.problem_delivery.limits import max_problems_for_level
 from app.utils.markdown_sanitizer import normalize_strings
 
 router = APIRouter()
-
-
-class NavigateProblemRequest(BaseModel):
-    user_id: uuid.UUID
-    unit_id: str
-    lesson_index: int
-    level: int
-    difficulty: Literal["easy", "medium", "hard"] = "medium"
-    direction: Literal["prev", "next"]
 
 
 @router.post("/navigate", response_model=ProblemDeliveryResponse)

@@ -87,7 +87,12 @@ class Settings(BaseSettings):
     jwt_secret_key: str = "chemtutor-dev-secret-key-change-in-production-32chars"
     jwt_algorithm: str = "HS256"
     access_token_expire_minutes: int = 10080  # 7 days
-    supabase_jwt_secret: str = ""
+
+    # ── Admin bootstrap ──────────────────────────────────────
+    # When set, an admin account is created on startup if it doesn't exist yet.
+    # Leave empty to disable.
+    admin_email: str = ""
+    admin_password: str = ""
 
     @property
     def is_production(self) -> bool:

@@ -4,7 +4,7 @@ import uuid
 from datetime import datetime
 
 from sqlalchemy import Boolean, DateTime, ForeignKey, Index, Integer, String, UniqueConstraint
-from sqlalchemy.dialects.postgresql import UUID
+from sqlalchemy.dialects.postgresql import JSONB, UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.infrastructure.database.connection import Base
@@ -30,6 +30,9 @@ class Classroom(Base):
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), default=_now, onupdate=_now
     )
+
+    # Teacher publish (exit ticket + optional timed practice); students poll GET /classrooms/me/live-session
+    live_session: Mapped[dict] = mapped_column(JSONB, nullable=False, default=dict)
 
     students: Mapped[list["ClassroomStudent"]] = relationship(back_populates="classroom")
     unit: Mapped["Unit | None"] = relationship()

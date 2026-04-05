@@ -11,11 +11,13 @@ Design decisions:
   - should_advance / has_mastered: true when mastery_score >= l3_mastery_ceiling (lesson done).
 """
 
+import asyncio
 import uuid
 from datetime import datetime
 
 from app.core.config import get_settings
 from app.core.logging import get_logger
+from app.domain.schemas.dashboards import CategorySnapshot, ClassSummaryStats, MasterySnapshot
 from app.domain.schemas.mastery import CategoryScores, MasteryState, ProgressionDecision
 from app.infrastructure.database.models import ProblemAttempt, SkillMastery
 from app.services.ai.shared.blueprints import (
@@ -99,19 +101,7 @@ class MasteryService:
         # Load or create mastery record
         mastery_record = await self._mastery.get_for_lesson(user_id, unit_id, lesson_index)
         if mastery_record is None:
-            mastery_record = SkillMastery(
-                id=uuid.uuid4(),
-                user_id=user_id,
-                unit_id=unit_id,
-                lesson_index=lesson_index,
-                mastery_score=0.0,
-                attempts_count=0,
-                consecutive_correct=0,
-                current_difficulty="medium",
-                level3_unlocked=False,
-                category_scores={},
-                error_counts={},
-            )
+            mastery_record = _default_skill_mastery(user_id, unit_id, lesson_index)
 
         # Was L3 already unlocked before this attempt?
         was_already_unlocked = mastery_record.level3_unlocked
@@ -203,17 +193,8 @@ class MasteryService:
             attempt.user_id, attempt.unit_id, attempt.lesson_index
         )
         if mastery_record is None:
-            mastery_record = SkillMastery(
-                user_id=attempt.user_id,
-                unit_id=attempt.unit_id,
-                lesson_index=attempt.lesson_index,
-                mastery_score=0.0,
-                attempts_count=0,
-                consecutive_correct=0,
-                current_difficulty="medium",
-                level3_unlocked=False,
-                category_scores={},
-                error_counts={},
+            mastery_record = _default_skill_mastery(
+                attempt.user_id, attempt.unit_id, attempt.lesson_index
             )
 
         attempt_score, attempted_steps = _compute_attempt_score_from_step_log(step_log)
@@ -301,22 +282,13 @@ class MasteryService:
         now = datetime.utcnow()
         existing = await self._mastery.get_for_lesson(user_id, unit_id, lesson_index)
         if existing is None:
-            await self._mastery.upsert(SkillMastery(
-                id=uuid.uuid4(),
-                user_id=user_id,
-                unit_id=unit_id,
-                lesson_index=lesson_index,
-                mastery_score=0.0,
-                attempts_count=0,
-                consecutive_correct=0,
-                current_difficulty="medium",
-                level3_unlocked=True,
-                level3_unlocked_at=now,
-                category_scores={},
-                error_counts={},
-                recent_scores=[],
-                updated_at=now,
-            ))
+            await self._mastery.upsert(
+                _default_skill_mastery(
+                    user_id, unit_id, lesson_index,
+                    level3_unlocked=True,
+                    level3_unlocked_at=now,
+                )
+            )
         elif not existing.level3_unlocked:
             existing.level3_unlocked = True
             existing.level3_unlocked_at = now
@@ -329,17 +301,19 @@ class MasteryService:
         lesson_index: int,
     ) -> tuple[list[float], list[float]]:
         """Fetch recent qualifying scores for L2 and L3 bands in parallel."""
-        l2 = await self._attempts.get_recent_scores_for_level(
-            user_id, unit_id, lesson_index,
-            level=2,
-            window=settings.l2_attempts_to_fill,
-            passing_score=settings.mastery_passing_score,
-        )
-        l3 = await self._attempts.get_recent_scores_for_level(
-            user_id, unit_id, lesson_index,
-            level=3,
-            window=settings.l3_attempts_to_fill,
-            passing_score=settings.mastery_passing_score,
+        l2, l3 = await asyncio.gather(
+            self._attempts.get_recent_scores_for_level(
+                user_id, unit_id, lesson_index,
+                level=2,
+                window=settings.l2_attempts_to_fill,
+                passing_score=settings.mastery_passing_score,
+            ),
+            self._attempts.get_recent_scores_for_level(
+                user_id, unit_id, lesson_index,
+                level=3,
+                window=settings.l3_attempts_to_fill,
+                passing_score=settings.mastery_passing_score,
+            ),
         )
         return l2, l3
 
@@ -355,21 +329,142 @@ class MasteryService:
 
     async def is_at_risk(self, user_id: uuid.UUID, unit_id: str) -> bool:
         """Returns True if the student is struggling across the unit."""
-        records = await self._mastery.get_all_for_user(user_id)
-        chapter_records = [r for r in records if r.unit_id == unit_id]
-        if not chapter_records:
-            return False
-        eligible = [
-            r for r in chapter_records
-            if r.attempts_count >= _AT_RISK_MIN_ATTEMPTS
-        ]
-        if not eligible:
-            return False
-        avg = sum(r.mastery_score for r in eligible) / len(eligible)
-        return avg < _AT_RISK_THRESHOLD
+        records = list(await self._mastery.get_all_for_user(user_id))
+        return _is_at_risk_from_records(records, unit_id)
+
+    async def get_student_mastery_snapshot(
+        self,
+        user_id: uuid.UUID,
+        unit_id: str | None,
+    ) -> MasterySnapshot:
+        """
+        Aggregate mastery for one student across lessons.
+        When unit_id is set, only lessons in that unit are included (class context).
+        """
+        records = list(await self._mastery.get_all_for_user(user_id))
+        return _snapshot_from_records(records, unit_id)
+
+    async def get_class_summary_stats(
+        self,
+        classroom_id: uuid.UUID,
+        student_ids: list[uuid.UUID],
+        unit_id: str | None,
+    ) -> ClassSummaryStats:
+        """Class-level aggregates: averages, at-risk count, category breakdown."""
+        if not student_ids:
+            return ClassSummaryStats(
+                classroom_id=classroom_id,
+                avg_mastery=0.0,
+                total_students=0,
+                at_risk_count=0,
+                category_breakdown=CategorySnapshot(),
+            )
+
+        # Fetch all student records in parallel — one query per student, not two
+        all_records = await asyncio.gather(
+            *(self._mastery.get_all_for_user(sid) for sid in student_ids)
+        )
+        snapshots: list[MasterySnapshot] = []
+        at_risk = 0
+        for sid, records in zip(student_ids, all_records):
+            records = list(records)
+            snapshots.append(_snapshot_from_records(records, unit_id))
+            if unit_id and _is_at_risk_from_records(records, unit_id):
+                at_risk += 1
+
+        avg_m = sum(s.overall_mastery for s in snapshots) / len(snapshots)
+        cb = CategorySnapshot()
+        if snapshots:
+            cb.conceptual = round(sum(s.category_scores.conceptual for s in snapshots) / len(snapshots), 4)
+            cb.procedural = round(sum(s.category_scores.procedural for s in snapshots) / len(snapshots), 4)
+            cb.computational = round(
+                sum(s.category_scores.computational for s in snapshots) / len(snapshots), 4
+            )
+
+        return ClassSummaryStats(
+            classroom_id=classroom_id,
+            avg_mastery=round(avg_m, 4),
+            total_students=len(student_ids),
+            at_risk_count=at_risk,
+            category_breakdown=cb,
+        )
 
 
 # ── Pure functions (easy to unit-test) ───────────────────────
+
+def _default_skill_mastery(
+    user_id: uuid.UUID,
+    unit_id: str,
+    lesson_index: int,
+    *,
+    level3_unlocked: bool = False,
+    level3_unlocked_at: datetime | None = None,
+) -> SkillMastery:
+    """Create a zeroed-out SkillMastery for a new student/lesson slot."""
+    return SkillMastery(
+        id=uuid.uuid4(),
+        user_id=user_id,
+        unit_id=unit_id,
+        lesson_index=lesson_index,
+        mastery_score=0.0,
+        attempts_count=0,
+        consecutive_correct=0,
+        current_difficulty="medium",
+        level3_unlocked=level3_unlocked,
+        level3_unlocked_at=level3_unlocked_at,
+        category_scores={},
+        error_counts={},
+        recent_scores=[],
+        updated_at=datetime.utcnow(),
+    )
+
+
+def _snapshot_from_records(records: list, unit_id: str | None) -> MasterySnapshot:
+    """Compute a MasterySnapshot from already-fetched SkillMastery records."""
+    if unit_id:
+        records = [r for r in records if r.unit_id == unit_id]
+    if not records:
+        return MasterySnapshot()
+
+    lesson_scores: list[float] = []
+    cat_acc = {k: 0.0 for k in MASTERY_CATEGORY_KEYS}
+    n_cat = 0
+    for r in records:
+        eff = _effective_mastery_score(r.mastery_score, r.category_scores)
+        lesson_scores.append(eff)
+        cs = r.category_scores or {}
+        if any(cs.get(k) is not None for k in MASTERY_CATEGORY_KEYS):
+            for k in MASTERY_CATEGORY_KEYS:
+                cat_acc[k] += float(cs.get(k, 0.0))
+            n_cat += 1
+
+    overall = sum(lesson_scores) / len(lesson_scores)
+    if n_cat > 0:
+        for k in MASTERY_CATEGORY_KEYS:
+            cat_acc[k] = round(cat_acc[k] / n_cat, 4)
+
+    return MasterySnapshot(
+        overall_mastery=round(overall, 4),
+        category_scores=CategorySnapshot(
+            conceptual=cat_acc["conceptual"],
+            procedural=cat_acc["procedural"],
+            computational=cat_acc["computational"],
+        ),
+        lessons_with_data=len(records),
+    )
+
+
+def _is_at_risk_from_records(records: list, unit_id: str) -> bool:
+    """Determine at-risk status from already-fetched SkillMastery records."""
+    chapter_records = [r for r in records if r.unit_id == unit_id]
+    if not chapter_records:
+        return False
+    eligible = [r for r in chapter_records if r.attempts_count >= _AT_RISK_MIN_ATTEMPTS]
+    if not eligible:
+        return False
+    avg = sum(r.mastery_score for r in eligible) / len(eligible)
+    return avg < _AT_RISK_THRESHOLD
+
 
 def _compute_mastery_banded(l2_scores: list[float], l3_scores: list[float]) -> float:
     """Band-filling mastery score.

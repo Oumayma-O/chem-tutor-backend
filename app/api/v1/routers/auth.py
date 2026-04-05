@@ -97,6 +97,7 @@ async def _build_me_response(user_id: uuid.UUID, db: AsyncSession) -> MeResponse
         grade=grade_name,
         course=course_name,
         interests=interest_slugs,
+        classroom_id=str(classroom.id) if classroom else None,
         classroom_name=classroom.name if classroom else None,
         classroom_code=classroom.code if classroom else None,
     )

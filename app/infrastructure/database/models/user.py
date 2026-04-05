@@ -26,8 +26,7 @@ class User(Base):
 
 class UserProfile(Base):
     """
-    Minimal user profile.  Auth (email/password) lives in Supabase.
-    user_id is the Supabase auth.users UUID — no FK constraint here.
+    Extended profile (grade, course, interests). ``user_id`` matches ``users.id`` from native auth.
     """
     __tablename__ = "user_profiles"
 

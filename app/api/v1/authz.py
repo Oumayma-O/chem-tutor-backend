@@ -62,3 +62,22 @@ def require_role(auth: AuthContext, *allowed_roles: str) -> None:
     if auth.role not in allowed_roles:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Insufficient role.")
 
+
+def require_teacher(auth: AuthContext) -> None:
+    require_role(auth, "teacher")
+
+
+def require_admin(auth: AuthContext) -> None:
+    require_role(auth, "admin")
+
+
+def require_teacher_or_admin(auth: AuthContext) -> None:
+    require_role(auth, "teacher", "admin")
+
+
+# FastAPI dependency alias (JWT role claim; extend later with DB is_active checks)
+async def get_current_active_user(
+    auth: AuthContext = Depends(get_auth_context),
+) -> AuthContext:
+    return auth
+

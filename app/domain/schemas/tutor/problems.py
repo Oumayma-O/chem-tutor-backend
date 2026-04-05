@@ -229,3 +229,13 @@ class ReferenceCardOutput(BaseModel):
     unit_id: str
     lesson_index: int
     steps: list[ReferenceStepCard] = Field(min_length=3, max_length=5)
+
+
+class NavigateProblemRequest(BaseModel):
+    user_id: uuid.UUID
+    unit_id: str
+    lesson_index: int
+    level: int
+    difficulty: Literal["easy", "medium", "hard"] = "medium"
+    direction: Literal["prev", "next"]
+

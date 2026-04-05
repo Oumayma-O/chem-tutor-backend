@@ -26,6 +26,7 @@ from app.infrastructure.database.models.teacher import (
     ExitTicket, ExitTicketResponse, CurriculumDocument,
 )
 from app.infrastructure.database.models.ai import GenerationLog, PromptVersion, FewShotExample
+from app.infrastructure.database.models.presence import PresenceHeartbeat
 
 __all__ = [
     # lookup
@@ -44,4 +45,6 @@ __all__ = [
     "ExitTicket", "ExitTicketResponse", "CurriculumDocument",
     # ai
     "GenerationLog", "PromptVersion", "FewShotExample",
+    # presence
+    "PresenceHeartbeat",
 ]

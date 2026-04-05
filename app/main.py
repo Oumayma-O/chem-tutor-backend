@@ -5,18 +5,23 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
 from app.api.v1.routers import (
+    admin,
     analytics,
     auth,
     classrooms,
+    exit_tickets,
     mastery,
     phases,
+    presence,
     problems,
     students,
+    teacher,
     units,
 )
 from app.core.config import get_settings
 from app.core.logging import configure_logging, get_logger
-from app.infrastructure.database.connection import engine, run_migrations
+from app.infrastructure.database.connection import AsyncSessionFactory, engine, run_migrations
+from app.services.auth.bootstrap import ensure_admin_user
 
 configure_logging()
 logger = get_logger(__name__)
@@ -30,6 +35,8 @@ if "*" in settings.allowed_origins:
 async def lifespan(app: FastAPI):
     logger.info("startup", environment=settings.environment, provider=settings.default_ai_provider)
     await run_migrations()
+    async with AsyncSessionFactory() as session:
+        await ensure_admin_user(session)
     yield
     logger.info("shutdown")
     await engine.dispose()
@@ -89,6 +96,12 @@ app.include_router(classrooms.router, prefix=prefix, tags=["Classrooms"])
 
 # Student profiles
 app.include_router(students.router, prefix=prefix, tags=["Students"])
+
+# Teacher & admin dashboards (JWT role guards)
+app.include_router(teacher.router, prefix=prefix, tags=["Teacher"])
+app.include_router(exit_tickets.router, prefix=prefix, tags=["Exit Tickets"])
+app.include_router(presence.router, prefix=prefix, tags=["Presence"])
+app.include_router(admin.router, prefix=prefix, tags=["Admin"])
 
 
 @app.get("/health", tags=["Health"])

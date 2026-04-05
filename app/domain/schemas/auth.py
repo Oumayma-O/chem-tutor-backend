@@ -60,5 +60,6 @@ class MeResponse(BaseModel):
     grade: Optional[str] = None
     course: Optional[str] = None
     interests: list[str] = Field(default_factory=list)
+    classroom_id: Optional[str] = None
     classroom_name: Optional[str] = None
     classroom_code: Optional[str] = None
