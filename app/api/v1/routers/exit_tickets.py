@@ -57,7 +57,7 @@ async def generate_exit_ticket(
 
     gen = get_exit_ticket_generation_service()
     raw_questions = await gen.generate_for_teacher(req.topic, question_count=req.question_count)
-    unit_key = req.unit_id or classroom.unit_id or "general"
+    unit_key = req.unit_id
     svc = ExitTicketPersistenceService(db)
     row = await svc.create_ticket(
         class_id=req.classroom_id,

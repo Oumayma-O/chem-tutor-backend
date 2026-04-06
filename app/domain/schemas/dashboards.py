@@ -277,10 +277,9 @@ class TeacherClassPatch(BaseModel):
 
 
 class ExitTicketGenerateRequest(BaseModel):
-    topic: str = Field(default="", max_length=500, description="Fallback label when lesson context unavailable")
     classroom_id: uuid.UUID
-    unit_id: str | None = None
-    lesson_index: int = 0
+    unit_id: str = Field(min_length=1, description="Curriculum unit (chapter) ID — required")
+    lesson_index: int = Field(ge=0, description="0-based lesson position within the unit — required")
     lesson_id: str | None = Field(default=None, description="Curriculum lesson slug, auto-resolved from unit_id + lesson_index")
     difficulty: str = "medium"
     question_count: int = Field(default=4, ge=1, le=10)
