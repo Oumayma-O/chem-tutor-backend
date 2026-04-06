@@ -16,6 +16,12 @@ class LiveSessionPublishRequest(BaseModel):
     lesson_index: int = Field(ge=0)
 
 
+class LiveSessionDismissIn(BaseModel):
+    """Student acknowledged closing timed / exit-ticket UI (analytics; optional future server state)."""
+
+    anchor_key: str = Field(min_length=1, max_length=512)
+
+
 class LiveSessionOut(BaseModel):
     """Matches frontend `MyClassroomLiveSession`."""
 

@@ -14,11 +14,14 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.v1.authz import AuthContext, get_auth_context, require_role
+from app.api.v1.router_utils import map_unexpected_errors
+from app.core.logging import get_logger
 from app.domain.schemas.dashboards import ExitTicketConfig
 from app.services.ai.exit_ticket.config_serialization import exit_ticket_row_to_config
 from app.infrastructure.database.connection import get_db
 from app.infrastructure.database.models import Classroom, ClassroomStudent, ExitTicket, ExitTicketResponse
 
+logger = get_logger(__name__)
 router = APIRouter(prefix="/student/exit-tickets")
 
 
@@ -69,6 +72,12 @@ async def _assert_ticket_published_for_class(db: AsyncSession, classroom_id: uui
 
 
 @router.get("/{ticket_id}", response_model=ExitTicketConfig)
+@map_unexpected_errors(
+    logger=logger,
+    event="get_exit_ticket_failed",
+    status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+    detail="Failed to load exit ticket.",
+)
 async def get_exit_ticket_for_student(
     ticket_id: uuid.UUID,
     db: AsyncSession = Depends(get_db),
@@ -85,6 +94,12 @@ async def get_exit_ticket_for_student(
 
 
 @router.post("/{ticket_id}/submit", status_code=status.HTTP_204_NO_CONTENT)
+@map_unexpected_errors(
+    logger=logger,
+    event="submit_exit_ticket_failed",
+    status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+    detail="Failed to submit exit ticket.",
+)
 async def submit_exit_ticket_attempt(
     ticket_id: uuid.UUID,
     body: ExitTicketSubmitBody,

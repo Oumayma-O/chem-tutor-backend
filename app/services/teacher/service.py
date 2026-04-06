@@ -11,6 +11,7 @@ from app.domain.schemas.dashboards import (
     RosterStudentEntry,
     TeacherClassCreate,
     TeacherClassOut,
+    TeacherClassPatch,
 )
 from app.infrastructure.database.models import Classroom, User
 from app.services.classroom.service import _to_classroom_out
@@ -49,6 +50,7 @@ class TeacherService:
                     unit_id=c.unit_id,
                     student_count=len(student_ids),
                     is_active=c.is_active,
+                    calculator_enabled=c.calculator_enabled,
                     created_at=c.created_at,
                     stats=stats,
                 )
@@ -96,6 +98,22 @@ class TeacherService:
                 )
             )
         return roster
+
+    async def patch_class(
+        self,
+        classroom_id: uuid.UUID,
+        teacher_id: uuid.UUID,
+        patch: TeacherClassPatch,
+    ) -> None:
+        """Raises LookupError if not found, PermissionError if not owner."""
+        classroom = await self._classrooms.get_by_id_with_students(classroom_id)
+        if classroom is None:
+            raise LookupError("Classroom not found.")
+        if classroom.teacher_id != teacher_id:
+            raise PermissionError("Not your class.")
+        if patch.calculator_enabled is not None:
+            classroom.calculator_enabled = patch.calculator_enabled
+        await self._session.commit()
 
     async def get_live(
         self,

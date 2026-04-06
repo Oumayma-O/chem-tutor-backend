@@ -41,6 +41,8 @@ class ExitTicketConfig(BaseModel):
     time_limit_minutes: int = 10
     is_active: bool = False
     questions: list[ExitTicketQuestion] = Field(default_factory=list)
+    # None = draft; set = published timestamp
+    published_at: datetime | None = None
     created_at: datetime
     updated_at: datetime
 
@@ -112,6 +114,7 @@ class TeacherClassOut(BaseModel):
     unit_id: str | None
     student_count: int
     is_active: bool
+    calculator_enabled: bool = True
     created_at: datetime
     stats: ClassSummaryStats
 
@@ -197,6 +200,31 @@ class CuratedProblem(BaseModel):
     """Unit title — used as the \"chapter\" in admin grouping."""
 
 
+# ── Student analytics (teacher view) ────────────────────────
+
+
+class StudentAttemptOut(BaseModel):
+    """One problem attempt row for the teacher's student detail panel."""
+
+    id: uuid.UUID
+    unit_id: str
+    lesson_index: int
+    level: int
+    score: float | None
+    is_complete: bool
+    started_at: datetime
+
+
+class StudentAnalyticsOut(BaseModel):
+    """Per-student analytics returned to the teacher dashboard."""
+
+    student_id: uuid.UUID
+    overall_mastery: float
+    category_scores: dict
+    recent_attempts: list[StudentAttemptOut]
+    lessons_with_data: int
+
+
 # ── Requests ────────────────────────────────────────────────
 
 
@@ -210,6 +238,12 @@ class TeacherClassCreate(BaseModel):
 
     name: str = Field(min_length=1, max_length=200)
     unit_id: str | None = None
+
+
+class TeacherClassPatch(BaseModel):
+    """Partial update for PATCH /teacher/classes/{id}."""
+
+    calculator_enabled: bool | None = None
 
 
 class ExitTicketGenerateRequest(BaseModel):
@@ -241,6 +275,8 @@ class ExitTicketBundleOut(BaseModel):
 class ExitTicketsForClassOut(BaseModel):
     analytics: ExitTicketAnalytics
     items: list[ExitTicketBundleOut]
+    page: int = 1
+    total_pages: int = 1
 
 
 class ExitTicketGenerateResponse(BaseModel):

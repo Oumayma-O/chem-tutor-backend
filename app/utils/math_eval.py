@@ -102,6 +102,17 @@ class _SafeVisitor(ast.NodeVisitor):
 _FRAC_SIMPLE = re.compile(r"\\frac\{([^{}]+)\}\{([^{}]+)\}")
 _POW_BRACED = re.compile(r"\^\{([^{}]+)\}")
 
+# Matches coefficient * 10**E produced after ^ → **.
+# Group 1: coefficient (leading decimal supported: .45 * 10^2)
+# Exponent alternatives (mutually exclusive):
+#   Group 2: exponent inside parens — 10**(23)  — consume BOTH parens
+#   Group 3: bare exponent          — 10**23    — consume NO trailing paren
+# Keeping them separate prevents eating a closing paren that belongs to an outer
+# group, e.g. (4.52*10^22 / 6.022*10^23) would otherwise lose its final ')'.
+_RE_SCI_COEFF = re.compile(
+    r"(\d*\.?\d+)\s*\*\s*10\s*\*\*\s*(?:\(\s*([+\-]?\d+)\s*\)|([+\-]?\d+))"
+)
+
 
 def latex_to_python_math(text: str) -> str:
     """Map common LaTeX math surface syntax to Python-evaluable text.
@@ -163,6 +174,16 @@ def _expand_unicode_superscript_exponents(expr: str) -> str:
     return re.sub(rf"(\d+(?:\.\d+)?)([{_UNICODE_SUPERSCRIPTS}]+)", repl, expr)
 
 
+def _collapse_sci_notation(expr: str) -> str:
+    """Fold  N * 10**E  →  NeE  so operator precedence cannot split the coefficient.
+
+    Without this, ``4.52*10^22 / 6.022*10^23`` is parsed left-to-right as
+    ``(4.52e22 / 6.022) * 1e23``, producing a result ~10^46 times too large.
+    Must be called *after* ``^`` has been replaced with ``**``.
+    """
+    return _RE_SCI_COEFF.sub(lambda m: f"{m.group(1)}e{m.group(2) or m.group(3)}", expr)
+
+
 def _preprocess(expr: str) -> str:
     """Normalise an expression before parsing."""
     # Unicode math aliases
@@ -174,8 +195,9 @@ def _preprocess(expr: str) -> str:
     # Caret exponent to Python power
     expr = expr.replace("^", "**")
 
-    # Scientific notation: 1.5*10^-3 or 1.5×10^-3 already handled above
-    # Also support 1.5e-3 (Python handles this natively)
+    # Collapse  N * 10**E  →  NeE  before any other rewriting so that mixed
+    # division/multiplication across scientific-notation terms evaluates correctly.
+    expr = _collapse_sci_notation(expr)
 
     # Implicit multiplication: (a)(b)  →  (a)*(b)
     # e.g. (0.025)(8) → (0.025)*(8)

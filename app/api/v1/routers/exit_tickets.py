@@ -5,10 +5,11 @@ POST /teacher/exit-tickets/generate
 GET  /teacher/exit-tickets/{class_id}
 """
 
+import math
 import uuid
 from datetime import datetime
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -67,6 +68,8 @@ async def generate_exit_ticket(
 @router.get("/{class_id}", response_model=ExitTicketsForClassOut)
 async def list_exit_tickets_for_class(
     class_id: uuid.UUID,
+    page: int = Query(default=1, ge=1),
+    limit: int = Query(default=10, ge=1, le=50),
     db: AsyncSession = Depends(get_db),
     auth: AuthContext = Depends(get_auth_context),
 ) -> ExitTicketsForClassOut:
@@ -79,13 +82,36 @@ async def list_exit_tickets_for_class(
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Not your class.")
 
     svc = ExitTicketPersistenceService(db)
-    tickets = await svc.list_for_class(class_id)
-    items: list[ExitTicketBundleOut] = []
+
+    # Analytics are computed across ALL published tickets (not just the current page).
+    all_tickets = await svc.list_all_published_for_class(class_id)
     total_submissions = 0
     scores: list[float] = []
     last_activity: datetime | None = None
+    for t in all_tickets:
+        for r in t.responses or []:
+            total_submissions += 1
+            if r.score is not None:
+                scores.append(r.score)
+            if last_activity is None or r.submitted_at > last_activity:
+                last_activity = r.submitted_at
 
-    for t in tickets:
+    avg = sum(scores) / len(scores) if scores else None
+    analytics = ExitTicketAnalytics(
+        class_id=class_id,
+        total_sessions=len(all_tickets),
+        total_submissions=total_submissions,
+        average_score=round(avg, 4) if avg is not None else None,
+        last_activity_at=last_activity,
+    )
+    total_pages = max(1, math.ceil(len(all_tickets) / limit))
+
+    # Page items — re-use the already-loaded slice to avoid a second query.
+    offset = (page - 1) * limit
+    page_tickets = list(all_tickets)[offset : offset + limit]
+
+    items: list[ExitTicketBundleOut] = []
+    for t in page_tickets:
         resp_out: list[ExitTicketResponseItem] = []
         if t.responses:
             user_ids = list({r.student_id for r in t.responses})
@@ -104,20 +130,6 @@ async def list_exit_tickets_for_class(
                         submitted_at=r.submitted_at,
                     )
                 )
-                total_submissions += 1
-                if r.score is not None:
-                    scores.append(r.score)
-                if last_activity is None or r.submitted_at > last_activity:
-                    last_activity = r.submitted_at
-
         items.append(ExitTicketBundleOut(ticket=exit_ticket_row_to_config(t), responses=resp_out))
 
-    avg = sum(scores) / len(scores) if scores else None
-    analytics = ExitTicketAnalytics(
-        class_id=class_id,
-        total_sessions=len(tickets),
-        total_submissions=total_submissions,
-        average_score=round(avg, 4) if avg is not None else None,
-        last_activity_at=last_activity,
-    )
-    return ExitTicketsForClassOut(analytics=analytics, items=items)
+    return ExitTicketsForClassOut(analytics=analytics, items=items, page=page, total_pages=total_pages)

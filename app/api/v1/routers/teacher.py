@@ -20,9 +20,13 @@ from app.domain.schemas.classrooms import ClassroomOut
 from app.domain.schemas.dashboards import (
     LiveStudentEntry,
     RosterStudentEntry,
+    StudentAnalyticsOut,
+    StudentAttemptOut,
     TeacherClassCreate,
     TeacherClassOut,
+    TeacherClassPatch,
 )
+from app.infrastructure.database.repositories.attempt_repo import AttemptRepository
 from app.infrastructure.database.repositories.attempt_repo import (
     AttemptRepository,
     MisconceptionRepository,
@@ -62,6 +66,22 @@ async def create_teacher_class(
     return await svc.create_class(req.name, auth.user_id, req.unit_id)
 
 
+@router.patch("/classes/{classroom_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def patch_teacher_class(
+    classroom_id: uuid.UUID,
+    req: TeacherClassPatch,
+    auth: AuthContext = Depends(get_auth_context),
+    svc: TeacherService = Depends(_teacher_service),
+) -> None:
+    require_teacher(auth)
+    try:
+        await svc.patch_class(classroom_id, auth.user_id, req)
+    except LookupError as exc:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc))
+    except PermissionError as exc:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=str(exc))
+
+
 @router.get("/classes/{classroom_id}/roster", response_model=list[RosterStudentEntry])
 async def get_class_roster(
     classroom_id: uuid.UUID,
@@ -75,6 +95,59 @@ async def get_class_roster(
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc))
     except PermissionError as exc:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=str(exc))
+
+
+@router.get("/classes/{classroom_id}/students/{student_id}/analytics", response_model=StudentAnalyticsOut)
+async def get_student_analytics(
+    classroom_id: uuid.UUID,
+    student_id: uuid.UUID,
+    auth: AuthContext = Depends(get_auth_context),
+    svc: TeacherService = Depends(_teacher_service),
+    db: AsyncSession = Depends(get_db),
+) -> StudentAnalyticsOut:
+    """Return recent attempts + mastery snapshot for one student (teacher-only)."""
+    require_teacher(auth)
+    try:
+        classroom = await svc._classrooms.get_by_id_with_students(classroom_id)
+    except Exception:
+        classroom = None
+    if classroom is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Classroom not found.")
+    if classroom.teacher_id != auth.user_id:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Not your class.")
+
+    snap = await svc._mastery.get_student_mastery_snapshot(student_id, classroom.unit_id)
+
+    attempt_repo = AttemptRepository(db)
+    # Fetch up to 10 most recent attempts across all lessons for this student/unit.
+    from sqlalchemy import select
+    from app.infrastructure.database.models.learning import ProblemAttempt
+    result = await db.execute(
+        select(ProblemAttempt)
+        .where(ProblemAttempt.user_id == student_id)
+        .order_by(ProblemAttempt.started_at.desc())
+        .limit(10)
+    )
+    rows = result.scalars().all()
+
+    return StudentAnalyticsOut(
+        student_id=student_id,
+        overall_mastery=snap.overall_mastery,
+        category_scores=snap.category_scores.model_dump() if hasattr(snap.category_scores, "model_dump") else dict(snap.category_scores),
+        recent_attempts=[
+            StudentAttemptOut(
+                id=r.id,
+                unit_id=r.unit_id,
+                lesson_index=r.lesson_index,
+                level=r.level,
+                score=r.score,
+                is_complete=r.is_complete,
+                started_at=r.started_at,
+            )
+            for r in rows
+        ],
+        lessons_with_data=snap.lessons_with_data,
+    )
 
 
 @router.get("/classes/{classroom_id}/live", response_model=list[LiveStudentEntry])

@@ -40,5 +40,20 @@ class ExitTicketPersistenceService:
         )
         return await self._repo.create(row)
 
-    async def list_for_class(self, class_id: uuid.UUID) -> Sequence[ExitTicket]:
-        return await self._repo.list_for_class(class_id)
+    async def mark_published(self, ticket_id: uuid.UUID) -> ExitTicket | None:
+        return await self._repo.mark_published(ticket_id)
+
+    async def list_for_class(
+        self,
+        class_id: uuid.UUID,
+        *,
+        page: int = 1,
+        limit: int = 10,
+    ) -> Sequence[ExitTicket]:
+        return await self._repo.list_for_class(class_id, page=page, limit=limit)
+
+    async def list_all_published_for_class(self, class_id: uuid.UUID) -> Sequence[ExitTicket]:
+        return await self._repo.list_all_published_for_class(class_id)
+
+    async def count_published_for_class(self, class_id: uuid.UUID) -> int:
+        return await self._repo.count_published_for_class(class_id)

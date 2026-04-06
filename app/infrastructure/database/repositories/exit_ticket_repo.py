@@ -1,9 +1,10 @@
 """Exit ticket sessions and student responses."""
 
 import uuid
+from datetime import datetime, timezone
 from typing import Sequence
 
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
@@ -19,12 +20,48 @@ class ExitTicketRepository:
         await self._session.flush()
         return row
 
-    async def list_for_class(self, class_id: uuid.UUID) -> Sequence[ExitTicket]:
+    async def mark_published(self, ticket_id: uuid.UUID) -> ExitTicket | None:
+        """Stamp published_at on a draft ticket. Idempotent — skips if already published."""
+        row = await self.get(ticket_id)
+        if row is not None and row.published_at is None:
+            row.published_at = datetime.now(timezone.utc)
+            await self._session.flush()
+        return row
+
+    async def count_published_for_class(self, class_id: uuid.UUID) -> int:
+        result = await self._session.execute(
+            select(func.count())
+            .select_from(ExitTicket)
+            .where(ExitTicket.class_id == class_id, ExitTicket.published_at.is_not(None))
+        )
+        return result.scalar_one()
+
+    async def list_for_class(
+        self,
+        class_id: uuid.UUID,
+        *,
+        page: int = 1,
+        limit: int = 10,
+    ) -> Sequence[ExitTicket]:
+        """Return published tickets only, newest-first, with optional pagination."""
+        offset = (page - 1) * limit
         result = await self._session.execute(
             select(ExitTicket)
-            .where(ExitTicket.class_id == class_id)
+            .where(ExitTicket.class_id == class_id, ExitTicket.published_at.is_not(None))
             .options(selectinload(ExitTicket.responses))
-            .order_by(ExitTicket.created_at.desc())
+            .order_by(ExitTicket.published_at.desc())
+            .offset(offset)
+            .limit(limit)
+        )
+        return result.scalars().all()
+
+    async def list_all_published_for_class(self, class_id: uuid.UUID) -> Sequence[ExitTicket]:
+        """All published tickets without pagination — used for analytics aggregation."""
+        result = await self._session.execute(
+            select(ExitTicket)
+            .where(ExitTicket.class_id == class_id, ExitTicket.published_at.is_not(None))
+            .options(selectinload(ExitTicket.responses))
+            .order_by(ExitTicket.published_at.desc())
         )
         return result.scalars().all()
 

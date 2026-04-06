@@ -78,6 +78,7 @@ def exit_ticket_row_to_config(row: ExitTicket) -> ExitTicketConfig:
         time_limit_minutes=row.time_limit_minutes,
         is_active=row.is_active,
         questions=questions,
+        published_at=row.published_at,
         created_at=row.created_at,
         updated_at=row.updated_at,
     )

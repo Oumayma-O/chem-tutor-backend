@@ -17,7 +17,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.infrastructure.database.connection import get_db
 from app.api.v1.authz import AuthContext, get_auth_context, require_role, require_self
-from app.domain.schemas.live_session import LiveSessionOut
+from app.domain.schemas.live_session import LiveSessionDismissIn, LiveSessionOut
 from app.services.classroom.live_session import get_live_session_for_student
 from app.api.v1.router_utils import map_unexpected_errors
 from app.core.logging import get_logger
@@ -51,6 +51,21 @@ async def get_my_classroom_live_session(
             detail="Not enrolled in any active classroom.",
         )
     return out
+
+
+@router.post("/me/live-session/dismiss", status_code=status.HTTP_204_NO_CONTENT)
+async def dismiss_my_live_session_overlay(
+    body: LiveSessionDismissIn,
+    auth: AuthContext = Depends(get_auth_context),
+) -> None:
+    """Student closed timed practice / exit ticket overlays; logs anchor for analytics (no DB write)."""
+    require_role(auth, "student")
+    logger.info(
+        "student_live_session_overlay_dismissed",
+        user_id=str(auth.user_id),
+        anchor_key=body.anchor_key[:200],
+    )
+    return None
 
 
 # ── Teacher: create / manage classrooms ───────────────────────

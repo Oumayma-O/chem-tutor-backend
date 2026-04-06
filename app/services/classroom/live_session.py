@@ -83,6 +83,10 @@ async def publish_live_session(
     if t_row is None or t_row.class_id != classroom_id or t_row.teacher_id != teacher_id:
         raise LookupError("Exit ticket not found for this class.")
 
+    # Mark ticket as published the first time it is pushed to students.
+    if t_row.published_at is None:
+        t_row.published_at = datetime.now(timezone.utc)
+
     now = datetime.now(timezone.utc).isoformat()
     if timed_practice_enabled:
         phase: str = "timed_practice"

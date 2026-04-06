@@ -12,7 +12,11 @@ from app.infrastructure.database.models._helpers import _now, _uuid
 
 
 class ExitTicket(Base):
-    """Exit ticket session generated for a class by a teacher."""
+    """Exit ticket session generated for a class by a teacher.
+
+    Lifecycle: generated → draft (published_at=NULL) → published (published_at=<timestamp>).
+    Only published tickets appear in the teacher history and are available to students.
+    """
     __tablename__ = "exit_tickets"
 
     id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=_uuid)
@@ -26,6 +30,11 @@ class ExitTicket(Base):
     is_active: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
 
     questions: Mapped[list] = mapped_column(JSONB, nullable=False, default=list)
+
+    # NULL = draft (generated but never published); non-NULL = published timestamp.
+    published_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True, default=None, index=True
+    )
 
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now)
     updated_at: Mapped[datetime] = mapped_column(

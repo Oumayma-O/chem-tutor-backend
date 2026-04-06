@@ -72,10 +72,19 @@ async def global_exception_handler(request: Request, exc: Exception) -> JSONResp
         error=str(exc),
         exc_info=True,
     )
-    return JSONResponse(
+    response = JSONResponse(
         status_code=500,
         content={"detail": "An internal error occurred. Please try again."},
     )
+    # Starlette's CORSMiddleware does not inject headers into responses returned
+    # from exception handlers (the handler fires inside the middleware's call chain,
+    # so the wrapped send() is never reached).  Manually mirror the CORS headers so
+    # browser clients always receive them, even on 500s.
+    origin = request.headers.get("origin")
+    if origin and origin in settings.allowed_origins:
+        response.headers["Access-Control-Allow-Origin"] = origin
+        response.headers["Access-Control-Allow-Credentials"] = "true"
+    return response
 
 
 # ── Routers ──────────────────────────────────────────────────
