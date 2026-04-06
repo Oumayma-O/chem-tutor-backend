@@ -10,6 +10,7 @@ GET  /teacher/classes/{classroom_id}/live
 import uuid
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.v1.authz import AuthContext, get_auth_context, require_teacher
@@ -26,7 +27,7 @@ from app.domain.schemas.dashboards import (
     TeacherClassOut,
     TeacherClassPatch,
 )
-from app.infrastructure.database.repositories.attempt_repo import AttemptRepository
+from app.infrastructure.database.models.learning import ProblemAttempt
 from app.infrastructure.database.repositories.attempt_repo import (
     AttemptRepository,
     MisconceptionRepository,
@@ -101,11 +102,15 @@ async def get_class_roster(
 async def get_student_analytics(
     classroom_id: uuid.UUID,
     student_id: uuid.UUID,
+    unit_id: str | None = Query(default=None, description="Filter by chapter/unit. Omit or 'all' for all chapters."),
     auth: AuthContext = Depends(get_auth_context),
     svc: TeacherService = Depends(_teacher_service),
     db: AsyncSession = Depends(get_db),
 ) -> StudentAnalyticsOut:
-    """Return recent attempts + mastery snapshot for one student (teacher-only)."""
+    """Return recent attempts + mastery snapshot for one student (teacher-only).
+
+    Pass ?unit_id=<id> to scope mastery and attempts to a specific chapter.
+    """
     require_teacher(auth)
     try:
         classroom = await svc._classrooms.get_by_id_with_students(classroom_id)
@@ -116,18 +121,22 @@ async def get_student_analytics(
     if classroom.teacher_id != auth.user_id:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Not your class.")
 
-    snap = await svc._mastery.get_student_mastery_snapshot(student_id, classroom.unit_id)
+    # Use the requested unit_id for filtering; fall back to classroom unit when unset.
+    filter_unit = unit_id if (unit_id and unit_id != "all") else None
+    snap = await svc._mastery.get_student_mastery_snapshot(student_id, filter_unit)
 
-    attempt_repo = AttemptRepository(db)
-    # Fetch up to 10 most recent attempts across all lessons for this student/unit.
-    from sqlalchemy import select
-    from app.infrastructure.database.models.learning import ProblemAttempt
-    result = await db.execute(
+    query = (
         select(ProblemAttempt)
         .where(ProblemAttempt.user_id == student_id)
         .order_by(ProblemAttempt.started_at.desc())
-        .limit(10)
     )
+    if filter_unit:
+        query = query.where(ProblemAttempt.unit_id == filter_unit).limit(200)
+    else:
+        # Wider sample so "all chapters" can aggregate per-unit averages and show last-N with labels.
+        query = query.limit(120)
+
+    result = await db.execute(query)
     rows = result.scalars().all()
 
     return StudentAnalyticsOut(

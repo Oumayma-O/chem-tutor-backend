@@ -20,13 +20,14 @@ class ExitTicketQuestion(BaseModel):
     id: str = Field(description="Stable id within the ticket session")
     prompt: str
     question_type: str = Field(default="short_answer", description="mcq | short_answer | numeric")
-    options: list[str] = Field(default_factory=list, description="For MCQ")
+    options: list[str] = Field(default_factory=list, description="For MCQ: option texts in order")
     option_misconception_tags: list[str | None] | None = Field(
         default=None,
-        description="Index-aligned distractor tags for MCQ options.",
+        description="Index-aligned distractor tags for MCQ options. Null for the correct option.",
     )
     correct_answer: str | None = None
     points: float = 1.0
+    unit: str | None = Field(default=None, description="Physical unit for numeric questions (e.g. 'g', 'kJ/mol')")
 
 
 class ExitTicketConfig(BaseModel):
@@ -37,6 +38,7 @@ class ExitTicketConfig(BaseModel):
     teacher_id: uuid.UUID
     unit_id: str
     lesson_index: int = 0
+    lesson_id: str | None = Field(default=None, description="Curriculum lesson slug (e.g. 'L-kinetics-zero-order')")
     difficulty: str = "medium"
     time_limit_minutes: int = 10
     is_active: bool = False
@@ -117,6 +119,14 @@ class TeacherClassOut(BaseModel):
     calculator_enabled: bool = True
     created_at: datetime
     stats: ClassSummaryStats
+    # Snapshot of `classrooms.live_session` for Exit Tickets tab (timed practice + exit-only sessions).
+    timed_mode_active: bool = False
+    timed_practice_minutes: int | None = None
+    timed_started_at: str | None = None
+    active_exit_ticket_id: str | None = None
+    session_phase: str | None = None
+    exit_ticket_time_limit_minutes: int | None = None
+    exit_ticket_window_started_at: str | None = None
 
 
 class LiveStudentEntry(BaseModel):
@@ -251,6 +261,7 @@ class ExitTicketGenerateRequest(BaseModel):
     classroom_id: uuid.UUID
     unit_id: str | None = None
     lesson_index: int = 0
+    lesson_id: str | None = Field(default=None, description="Curriculum lesson slug (e.g. 'L-kinetics-zero-order')")
     difficulty: str = "medium"
     question_count: int = Field(default=4, ge=3, le=5)
     time_limit_minutes: int = 10
@@ -283,4 +294,30 @@ class ExitTicketGenerateResponse(BaseModel):
     """Returned after AI generation; ticket is persisted."""
 
     ticket: ExitTicketConfig
+
+
+# ── Misconception analytics ────────────────────────────────
+
+
+class MisconceptionHit(BaseModel):
+    """One distractor tag and the number of students who chose it."""
+
+    tag: str
+    count: int
+
+
+class QuestionMisconceptionSummary(BaseModel):
+    """Aggregated misconception hits for a single exit-ticket question."""
+
+    question_id: str
+    prompt: str
+    hits: list[MisconceptionHit]  # sorted descending by count
+
+
+class MisconceptionAnalytics(BaseModel):
+    """Full misconception breakdown for one exit-ticket session."""
+
+    class_id: uuid.UUID
+    ticket_id: uuid.UUID
+    questions: list[QuestionMisconceptionSummary]
 

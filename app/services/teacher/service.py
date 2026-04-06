@@ -23,6 +23,37 @@ from app.infrastructure.database.repositories.presence_repo import PresenceRepos
 from app.services.mastery_service import MasteryService
 
 
+def _live_session_teacher_snapshot(raw: object) -> dict:
+    """Extract teacher-dashboard fields from `classrooms.live_session` JSON."""
+    d = raw if isinstance(raw, dict) else {}
+    phase = d.get("session_phase")
+    if phase not in ("idle", "timed_practice", "exit_ticket", None):
+        phase = None
+    aid = d.get("active_exit_ticket_id")
+    tpm = d.get("timed_practice_minutes")
+    if isinstance(tpm, float) and tpm.is_integer():
+        tpm = int(tpm)
+    elif not isinstance(tpm, int):
+        tpm = None
+    et_lim = d.get("exit_ticket_time_limit_minutes")
+    if isinstance(et_lim, float) and et_lim.is_integer():
+        et_lim = int(et_lim)
+    elif not isinstance(et_lim, int):
+        et_lim = None
+    sp = phase if isinstance(phase, str) else None
+    return {
+        "timed_mode_active": bool(d.get("timed_mode_active")),
+        "timed_practice_minutes": tpm,
+        "timed_started_at": d.get("timed_started_at") if isinstance(d.get("timed_started_at"), str) else None,
+        "active_exit_ticket_id": str(aid) if aid else None,
+        "session_phase": sp,
+        "exit_ticket_time_limit_minutes": et_lim,
+        "exit_ticket_window_started_at": d.get("exit_ticket_window_started_at")
+        if isinstance(d.get("exit_ticket_window_started_at"), str)
+        else None,
+    }
+
+
 class TeacherService:
     def __init__(self, session: AsyncSession, mastery: MasteryService) -> None:
         self._session = session
@@ -42,6 +73,7 @@ class TeacherService:
             members = await self._students.get_class_students(c.id)
             student_ids = [m.student_id for m in members]
             stats = await self._mastery.get_class_summary_stats(c.id, student_ids, c.unit_id)
+            snap = _live_session_teacher_snapshot(c.live_session)
             out.append(
                 TeacherClassOut(
                     id=c.id,
@@ -53,6 +85,7 @@ class TeacherService:
                     calculator_enabled=c.calculator_enabled,
                     created_at=c.created_at,
                     stats=stats,
+                    **snap,
                 )
             )
         return out

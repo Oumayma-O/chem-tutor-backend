@@ -55,14 +55,28 @@ class ExitTicketRepository:
         )
         return result.scalars().all()
 
-    async def list_all_published_for_class(self, class_id: uuid.UUID) -> Sequence[ExitTicket]:
-        """All published tickets without pagination — used for analytics aggregation."""
-        result = await self._session.execute(
+    async def list_all_published_for_class(
+        self,
+        class_id: uuid.UUID,
+        *,
+        unit_id: str | None = None,
+        lesson_id: str | None = None,
+    ) -> Sequence[ExitTicket]:
+        """All published tickets without pagination — used for analytics aggregation.
+
+        Optional `unit_id` and `lesson_id` narrow the results to a specific curriculum scope.
+        """
+        stmt = (
             select(ExitTicket)
             .where(ExitTicket.class_id == class_id, ExitTicket.published_at.is_not(None))
             .options(selectinload(ExitTicket.responses))
             .order_by(ExitTicket.published_at.desc())
         )
+        if unit_id:
+            stmt = stmt.where(ExitTicket.unit_id == unit_id)
+        if lesson_id:
+            stmt = stmt.where(ExitTicket.lesson_id == lesson_id)
+        result = await self._session.execute(stmt)
         return result.scalars().all()
 
     async def get(self, ticket_id: uuid.UUID) -> ExitTicket | None:

@@ -4,18 +4,13 @@ from typing import Literal
 from pydantic import BaseModel, Field
 
 
-class QCMOption(BaseModel):
-    id: str
-    text: str
-
-
 class ExitTicketQuestion(BaseModel):
     id: str
     question: str
     type: Literal["mcq", "short_answer"] = "mcq"
-    options: list[QCMOption] | None = None
     correct_answer: str
     explanation: str | None = None
+    unit: str | None = None
 
 
 class GenerateExitTicketRequest(BaseModel):
@@ -33,12 +28,26 @@ class ExitTicketOutput(BaseModel):
 
 # ── LLM generation bundle (teacher topic-based flow) ─────────
 
+class MCQOption(BaseModel):
+    """Object-based MCQ option for LLM output — avoids parallel-array alignment issues."""
+    text: str
+    is_correct: bool
+    misconception_tag: str | None = Field(
+        default=None,
+        description="Snake_case slug of the chemistry misconception this distractor targets. MUST be null if is_correct is true.",
+    )
+
+
 class ExitTicketQuestionLLM(BaseModel):
     """Raw LLM output shape for a single teacher exit ticket question."""
     id: str = ""
     prompt: str
     question_type: str = "short_answer"
-    options: list[str] = Field(default_factory=list)
+    # MCQ: list of MCQOption objects (each carries text + is_correct + misconception_tag).
+    # Numeric/short-answer: leave empty.
+    mcq_options: list[MCQOption] = Field(default_factory=list)
+    # For numeric questions: the expected physical unit (e.g. 'g', 'mol/L', 'kJ/mol').
+    unit: str | None = None
     correct_answer: str | None = None
     points: float = 1.0
 

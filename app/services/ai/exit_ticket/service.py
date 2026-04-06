@@ -75,13 +75,26 @@ class ExitTicketGenerationService:
         out: list[dict] = []
         for i, q in enumerate(raw.questions):
             qid = (q.id or "").strip() or f"q{i + 1}"
+            # Normalize MCQOption objects → flat string options + parallel misconception tags.
+            flat_options: list[str] = []
+            flat_tags: list[str | None] = []
+            correct_from_options: str | None = None
+            for opt in q.mcq_options or []:
+                flat_options.append(opt.text)
+                flat_tags.append(opt.misconception_tag if not opt.is_correct else None)
+                if opt.is_correct:
+                    correct_from_options = opt.text
+            # Prefer the derived correct answer from the structured option objects.
+            resolved_correct = correct_from_options or q.correct_answer
             out.append(
                 {
                     "id": qid,
                     "prompt": q.prompt.strip(),
                     "question_type": q.question_type or "short_answer",
-                    "options": list(q.options or []),
-                    "correct_answer": q.correct_answer,
+                    "options": flat_options,
+                    "option_misconception_tags": flat_tags if flat_tags else None,
+                    "unit": q.unit or None,
+                    "correct_answer": resolved_correct,
                     "points": float(q.points or 1.0),
                 }
             )

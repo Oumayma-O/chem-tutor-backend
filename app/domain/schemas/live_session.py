@@ -34,3 +34,6 @@ class LiveSessionOut(BaseModel):
     unit_id: str | None = None
     lesson_index: int | None = None
     exit_ticket: ExitTicketConfig | None = None
+    # When phase is exit_ticket (no timed practice): quiz window for teacher countdown UI.
+    exit_ticket_time_limit_minutes: int | None = None
+    exit_ticket_window_started_at: str | None = None

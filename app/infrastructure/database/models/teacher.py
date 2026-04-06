@@ -24,6 +24,7 @@ class ExitTicket(Base):
     teacher_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), nullable=False)
     unit_id: Mapped[str] = mapped_column(String(100), nullable=False)
     lesson_index: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    lesson_id: Mapped[str | None] = mapped_column(String(200), nullable=True, default=None, index=True)
 
     difficulty: Mapped[str] = mapped_column(String(20), nullable=False, default="medium")
     time_limit_minutes: Mapped[int] = mapped_column(Integer, nullable=False, default=10)

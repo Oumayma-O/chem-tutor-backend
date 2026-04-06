@@ -558,6 +558,38 @@ def _fix_bare_words_in_math(s: str) -> str:
     return re.sub(r'\$([^$]+)\$', fix_block, s)
 
 
+# Lone $ sign adjacent to a LaTeX command — LLM wrote the closing $ but forgot the opening.
+# Pattern: a non-$ char, then one or more LaTeX commands, then a lone closing $.
+# e.g. "mass of\mathrm{SO_2}$" → "mass of $\mathrm{SO_2}$"
+_RE_LATEX_BEFORE_LONE_DOLLAR = re.compile(
+    r"([^$\\])"                                 # preceding non-$ char (group 1)
+    r"((?:\\[a-zA-Z]+(?:\{[^{}]*\})*\s*)+)"     # one or more LaTeX commands (group 2)
+    r"\$(?!\$)"                                  # lone closing $ (not $$)
+)
+
+
+def _fix_lone_dollar_adjacent_to_latex(s: str) -> str:
+    """
+    Fix strings where a LaTeX command sits immediately before an unmatched closing $.
+
+    Common LLM mistake: "mass of\\mathrm{SO_2}$" → "mass of $\\mathrm{SO_2}$".
+
+    Only applies when the targeted pattern is found AND the substitution produces an
+    even $ count.  Does NOT blindly strip stray $ — leaving odd-count strings intact
+    allows the downstream KaTeX validator to detect genuinely malformed math.
+    Idempotent: no-op when $ count is already even.
+    """
+    if not isinstance(s, str) or s.count("$") % 2 == 0:
+        return s
+
+    fixed = _RE_LATEX_BEFORE_LONE_DOLLAR.sub(
+        lambda m: f"{m.group(1)} ${m.group(2).rstrip()}$",
+        s,
+    )
+    # Only commit the change if it actually balanced the $ count.
+    return fixed if fixed.count("$") % 2 == 0 else s
+
+
 def _convert_slashes_to_fractions(s: str) -> str:
     """
     Convert LLM inline division (/) into \\frac{}{} for kinetics / Arrhenius patterns only.
@@ -623,6 +655,7 @@ def _normalize_string(s: str, *, for_hint: bool = False) -> str:
     s = _fix_orphan_mathrm(s)
     s = _fix_unclosed_mathrm(s)
     s = _normalize_math_wrappers(s)
+    s = _fix_lone_dollar_adjacent_to_latex(s)
     if not for_hint:
         s = _wrap_bare_sub_super(s)
         s = _wrap_bare_latex(s)

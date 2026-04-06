@@ -23,6 +23,7 @@ class ExitTicketPersistenceService:
         teacher_id: uuid.UUID,
         unit_id: str,
         lesson_index: int,
+        lesson_id: str | None = None,
         difficulty: str,
         time_limit_minutes: int,
         questions: list[dict],
@@ -33,6 +34,7 @@ class ExitTicketPersistenceService:
             teacher_id=teacher_id,
             unit_id=unit_id,
             lesson_index=lesson_index,
+            lesson_id=lesson_id,
             difficulty=difficulty,
             time_limit_minutes=time_limit_minutes,
             is_active=is_active,
@@ -52,8 +54,16 @@ class ExitTicketPersistenceService:
     ) -> Sequence[ExitTicket]:
         return await self._repo.list_for_class(class_id, page=page, limit=limit)
 
-    async def list_all_published_for_class(self, class_id: uuid.UUID) -> Sequence[ExitTicket]:
-        return await self._repo.list_all_published_for_class(class_id)
+    async def list_all_published_for_class(
+        self,
+        class_id: uuid.UUID,
+        *,
+        unit_id: str | None = None,
+        lesson_id: str | None = None,
+    ) -> Sequence[ExitTicket]:
+        return await self._repo.list_all_published_for_class(
+            class_id, unit_id=unit_id, lesson_id=lesson_id
+        )
 
     async def count_published_for_class(self, class_id: uuid.UUID) -> int:
         return await self._repo.count_published_for_class(class_id)

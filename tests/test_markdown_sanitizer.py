@@ -276,6 +276,49 @@ def test_fix_bare_words_in_math() -> None:
     assert out4["v"].count("\\text{") == 0
 
 
+# ── Bug regressions ────────────────────────────────────────────────────────────
+
+
+def test_fix_lone_dollar_missing_opening_in_hint() -> None:
+    """
+    Bug 2 regression: LLM writes closing $ without opening (odd $ count).
+    e.g. "mass of\\mathrm{SO_2}$" → "mass of $\\mathrm{SO_2}$".
+    The $ count must be even after sanitization so remark-math pairs them correctly.
+    """
+    raw = r"Target quantity: mass of\mathrm{SO_2}$"
+    out = normalize_hint_text(raw)
+    # Even $ count → remark-math can pair them
+    assert out.count("$") % 2 == 0, f"Odd $ count in: {out!r}"
+    # The chemical formula must still be present (not silently dropped)
+    assert "SO_2" in out or "\\mathrm{SO_2}" in out
+
+
+def test_fix_lone_dollar_missing_opening_in_problem_field() -> None:
+    """Lone $ fix also runs on non-hint problem fields."""
+    from app.utils.markdown_sanitizer import normalize_strings
+    raw = r"Identify: mass of\mathrm{H_2O}$"
+    out = normalize_strings({"v": raw})["v"]
+    assert out.count("$") % 2 == 0, f"Odd $ count in: {out!r}"
+    assert "H_2O" in out or "\\mathrm{H_2O}" in out
+
+
+def test_fix_lone_dollar_no_op_when_balanced() -> None:
+    """_fix_lone_dollar_adjacent_to_latex must be a no-op when $ count is even."""
+    from app.utils.markdown_sanitizer import _fix_lone_dollar_adjacent_to_latex
+    balanced = r"Use $\mathrm{SO_2}$ and $k_1$."
+    assert _fix_lone_dollar_adjacent_to_latex(balanced) == balanced
+
+
+def test_fix_lone_dollar_no_op_when_no_latex_adjacent() -> None:
+    """Stray $ with no adjacent LaTeX command → string returned unchanged (odd count preserved).
+    The downstream validator will catch genuinely malformed math; we must not hide it."""
+    from app.utils.markdown_sanitizer import _fix_lone_dollar_adjacent_to_latex
+    stray = "price is 5$ total"
+    out = _fix_lone_dollar_adjacent_to_latex(stray)
+    # No LaTeX adjacent to the $ → no change; validator will flag this if inside a problem
+    assert out == stray
+
+
 def _minimal_problem_dict() -> dict:
     return {
         "id": "test-id",

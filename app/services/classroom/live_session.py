@@ -36,6 +36,8 @@ def _empty_live_session() -> dict:
         "session_phase": "idle",
         "unit_id": None,
         "lesson_index": None,
+        "exit_ticket_time_limit_minutes": None,
+        "exit_ticket_window_started_at": None,
     }
 
 
@@ -51,6 +53,12 @@ def _to_out(classroom_id: uuid.UUID, raw: dict | None) -> LiveSessionOut:
     elif not isinstance(tpm, int):
         tpm = None
 
+    et_lim = d.get("exit_ticket_time_limit_minutes")
+    if isinstance(et_lim, float) and et_lim.is_integer():
+        et_lim = int(et_lim)
+    elif not isinstance(et_lim, int):
+        et_lim = None
+
     return LiveSessionOut(
         classroom_id=classroom_id,
         timed_mode_active=bool(d.get("timed_mode_active")),
@@ -60,6 +68,10 @@ def _to_out(classroom_id: uuid.UUID, raw: dict | None) -> LiveSessionOut:
         session_phase=phase,
         unit_id=d.get("unit_id") if isinstance(d.get("unit_id"), str) else None,
         lesson_index=_coerce_optional_int(d.get("lesson_index")),
+        exit_ticket_time_limit_minutes=et_lim,
+        exit_ticket_window_started_at=d.get("exit_ticket_window_started_at")
+        if isinstance(d.get("exit_ticket_window_started_at"), str)
+        else None,
     )
 
 
@@ -92,10 +104,14 @@ async def publish_live_session(
         phase: str = "timed_practice"
         timed_started = now
         timed_mode = True
+        et_window_start = None
+        et_limit_minutes = None
     else:
         phase = "exit_ticket"
         timed_started = None
         timed_mode = False
+        et_window_start = now
+        et_limit_minutes = int(t_row.time_limit_minutes) if t_row.time_limit_minutes is not None else 10
 
     c_row.live_session = {
         "active_exit_ticket_id": str(exit_ticket_id),
@@ -105,6 +121,8 @@ async def publish_live_session(
         "session_phase": phase,
         "unit_id": unit_id,
         "lesson_index": lesson_index,
+        "exit_ticket_time_limit_minutes": et_limit_minutes,
+        "exit_ticket_window_started_at": et_window_start,
     }
     await session.flush()
     return _to_out(classroom_id, c_row.live_session)

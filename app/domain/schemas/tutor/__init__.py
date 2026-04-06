@@ -14,7 +14,7 @@ from app.domain.schemas.tutor.exit_ticket import (
     ExitTicketOutput,
     ExitTicketQuestion,
     GenerateExitTicketRequest,
-    QCMOption,
+    MCQOption,
 )
 from app.domain.schemas.tutor.hints import GenerateHintRequest, HintOutput
 from app.domain.schemas.tutor.insights import ClassInsightsOutput, GenerateInsightsRequest
@@ -49,7 +49,7 @@ __all__ = [
     "ProblemDeliveryResponse",
     "ProblemOutput",
     "ProblemStep",
-    "QCMOption",
+    "MCQOption",
     "StepError",
     "ThinkingEntry",
     "ValidateAnswerRequest",

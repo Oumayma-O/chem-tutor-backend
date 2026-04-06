@@ -45,6 +45,11 @@ def _normalize_question_dict(raw: dict[str, Any]) -> dict[str, Any]:
         d["option_misconception_tags"] = [None if t is None else str(t) for t in tags]
     else:
         d.pop("option_misconception_tags", None)
+    unit = d.get("unit")
+    if unit and isinstance(unit, str) and unit.strip():
+        d["unit"] = unit.strip()
+    else:
+        d.pop("unit", None)
     return d
 
 
@@ -64,6 +69,7 @@ def exit_ticket_row_to_config(row: ExitTicket) -> ExitTicketConfig:
                     question_type=str(nd.get("question_type") or "short_answer"),
                     options=list(nd.get("options") or []),
                     option_misconception_tags=nd.get("option_misconception_tags"),
+                    unit=nd.get("unit") or None,
                     correct_answer=nd.get("correct_answer"),
                     points=float(nd.get("points", 1.0) or 1.0),
                 )
@@ -74,6 +80,7 @@ def exit_ticket_row_to_config(row: ExitTicket) -> ExitTicketConfig:
         teacher_id=row.teacher_id,
         unit_id=row.unit_id,
         lesson_index=row.lesson_index,
+        lesson_id=row.lesson_id,
         difficulty=row.difficulty,
         time_limit_minutes=row.time_limit_minutes,
         is_active=row.is_active,
