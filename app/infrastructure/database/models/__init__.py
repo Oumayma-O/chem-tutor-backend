@@ -23,7 +23,7 @@ from app.infrastructure.database.models.learning import (
     UserLessonPlaylist, LessonProgress,
 )
 from app.infrastructure.database.models.teacher import (
-    ExitTicket, ExitTicketResponse, CurriculumDocument,
+    ExitTicket, ExitTicketResponse, ClassroomSession, CurriculumDocument,
 )
 from app.infrastructure.database.models.ai import GenerationLog, PromptVersion, FewShotExample
 from app.infrastructure.database.models.presence import PresenceHeartbeat
@@ -42,7 +42,7 @@ __all__ = [
     "ThinkingTrackerLog", "MisconceptionLog",
     "UserLessonPlaylist", "LessonProgress",
     # teacher
-    "ExitTicket", "ExitTicketResponse", "CurriculumDocument",
+    "ExitTicket", "ExitTicketResponse", "ClassroomSession", "CurriculumDocument",
     # ai
     "GenerationLog", "PromptVersion", "FewShotExample",
     # presence

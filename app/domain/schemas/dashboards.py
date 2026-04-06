@@ -71,6 +71,26 @@ class ExitTicketAnalytics(BaseModel):
     last_activity_at: datetime | None = None
 
 
+# ── Per-ticket misconception analytics ────────────────────────
+
+
+class MisconceptionHit(BaseModel):
+    tag: str
+    count: int
+
+
+class QuestionMisconceptionSummary(BaseModel):
+    question_id: str
+    prompt: str
+    hits: list[MisconceptionHit]
+
+
+class MisconceptionAnalytics(BaseModel):
+    class_id: uuid.UUID
+    ticket_id: uuid.UUID
+    questions: list[QuestionMisconceptionSummary]
+
+
 # ── Teacher dashboard ─────────────────────────────────────────
 
 
@@ -257,13 +277,13 @@ class TeacherClassPatch(BaseModel):
 
 
 class ExitTicketGenerateRequest(BaseModel):
-    topic: str = Field(min_length=3, max_length=500)
+    topic: str = Field(default="", max_length=500, description="Fallback label when lesson context unavailable")
     classroom_id: uuid.UUID
     unit_id: str | None = None
     lesson_index: int = 0
-    lesson_id: str | None = Field(default=None, description="Curriculum lesson slug (e.g. 'L-kinetics-zero-order')")
+    lesson_id: str | None = Field(default=None, description="Curriculum lesson slug, auto-resolved from unit_id + lesson_index")
     difficulty: str = "medium"
-    question_count: int = Field(default=4, ge=3, le=5)
+    question_count: int = Field(default=4, ge=1, le=10)
     time_limit_minutes: int = 10
 
 
@@ -296,28 +316,56 @@ class ExitTicketGenerateResponse(BaseModel):
     ticket: ExitTicketConfig
 
 
-# ── Misconception analytics ────────────────────────────────
+# ── Classroom sessions (persisted history) ───────────────────
 
 
-class MisconceptionHit(BaseModel):
-    """One distractor tag and the number of students who chose it."""
+class ClassroomSessionOut(BaseModel):
+    """One persisted session row for GET /teacher/classes/{id}/sessions."""
 
+    id: uuid.UUID
+    classroom_id: uuid.UUID
+    session_type: str
+    exit_ticket_id: uuid.UUID | None = None
+    unit_id: str
+    lesson_index: int
+    timed_practice_minutes: int | None = None
+    started_at: datetime
+    ended_at: datetime | None = None
+
+
+# ── Aggregate misconception analytics ────────────────────────
+
+
+class AggregateMisconceptionItem(BaseModel):
     tag: str
     count: int
+    pct: float = Field(description="Percentage of total wrong answers attributed to this tag")
 
 
-class QuestionMisconceptionSummary(BaseModel):
-    """Aggregated misconception hits for a single exit-ticket question."""
-
-    question_id: str
-    prompt: str
-    hits: list[MisconceptionHit]  # sorted descending by count
-
-
-class MisconceptionAnalytics(BaseModel):
-    """Full misconception breakdown for one exit-ticket session."""
-
+class AggregateMisconceptionAnalytics(BaseModel):
     class_id: uuid.UUID
-    ticket_id: uuid.UUID
-    questions: list[QuestionMisconceptionSummary]
+    total_wrong: int
+    items: list[AggregateMisconceptionItem]
+
+
+# ── Timed practice analytics ─────────────────────────────────
+
+
+class LevelStats(BaseModel):
+    count: int = 0
+    avg_score: float = 0.0
+
+
+class StudentTimedPracticeRow(BaseModel):
+    student_id: uuid.UUID
+    student_name: str | None = None
+    levels: dict[int, LevelStats] = Field(default_factory=dict)
+    total_count: int = 0
+
+
+class TimedPracticeAnalytics(BaseModel):
+    session_id: uuid.UUID
+    unit_id: str
+    lesson_index: int
+    rows: list[StudentTimedPracticeRow]
 

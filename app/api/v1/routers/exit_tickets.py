@@ -4,6 +4,7 @@ Exit tickets — AI generation and class-scoped listing.
 POST /teacher/exit-tickets/generate
 GET  /teacher/exit-tickets/{class_id}
 GET  /teacher/exit-tickets/{class_id}/misconceptions
+GET  /teacher/exit-tickets/{class_id}/misconceptions/aggregate
 """
 
 import math
@@ -17,6 +18,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.v1.authz import AuthContext, get_auth_context, require_teacher
 from app.domain.schemas.dashboards import (
+    AggregateMisconceptionAnalytics,
+    AggregateMisconceptionItem,
     ExitTicketAnalytics,
     ExitTicketBundleOut,
     ExitTicketConfig,
@@ -71,6 +74,78 @@ async def generate_exit_ticket(
     return ExitTicketGenerateResponse(ticket=cfg)
 
 
+@router.get("/{class_id}/misconceptions/aggregate", response_model=AggregateMisconceptionAnalytics)
+async def get_aggregate_misconception_analytics(
+    class_id: uuid.UUID,
+    db: AsyncSession = Depends(get_db),
+    auth: AuthContext = Depends(get_auth_context),
+) -> AggregateMisconceptionAnalytics:
+    """Cross-ticket aggregate: rank misconception tags by how often students chose them across ALL published tickets."""
+    require_teacher(auth)
+    c_repo = ClassroomRepository(db)
+    classroom = await c_repo.get_by_id_with_students(class_id)
+    if classroom is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Classroom not found.")
+    if classroom.teacher_id != auth.user_id:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Not your class.")
+
+    from app.infrastructure.database.repositories.exit_ticket_repo import ExitTicketRepository
+
+    repo = ExitTicketRepository(db)
+    all_tickets = await repo.list_all_published_for_class(class_id)
+
+    tag_counts: dict[str, int] = defaultdict(int)
+    total_wrong = 0
+
+    for ticket in all_tickets:
+        q_tag_map: dict[str, dict[str, str | None]] = {}
+        correct_map: dict[str, str | None] = {}
+        for q_dict in ticket.questions or []:
+            if not isinstance(q_dict, dict):
+                continue
+            qid = str(q_dict.get("id") or "")
+            correct_map[qid] = q_dict.get("correct_answer")
+            tags = q_dict.get("option_misconception_tags") or []
+            opts = q_dict.get("options") or []
+            q_tag_map[qid] = {
+                str(opt): (str(tags[j]) if j < len(tags) and tags[j] else None)
+                for j, opt in enumerate(opts)
+            }
+
+        for response in ticket.responses or []:
+            for ans in response.answers or []:
+                if not isinstance(ans, dict):
+                    continue
+                qid = str(ans.get("question_id") or ans.get("id") or "")
+                chosen = str(ans.get("answer") or ans.get("value") or "")
+                correct = correct_map.get(qid)
+                if correct is not None and chosen == str(correct):
+                    continue
+                tag = q_tag_map.get(qid, {}).get(chosen)
+                if tag:
+                    tag_counts[tag] += 1
+                    total_wrong += 1
+
+    items = sorted(
+        [
+            AggregateMisconceptionItem(
+                tag=t,
+                count=c,
+                pct=round(100 * c / total_wrong, 1) if total_wrong else 0.0,
+            )
+            for t, c in tag_counts.items()
+        ],
+        key=lambda x: x.count,
+        reverse=True,
+    )
+
+    return AggregateMisconceptionAnalytics(
+        class_id=class_id,
+        total_wrong=total_wrong,
+        items=items,
+    )
+
+
 @router.get("/{class_id}/misconceptions", response_model=MisconceptionAnalytics)
 async def get_misconception_analytics(
     class_id: uuid.UUID,
@@ -96,14 +171,11 @@ async def get_misconception_analytics(
         if ticket is None or ticket.class_id != class_id:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Ticket not found.")
     else:
-        # Fall back to most recently published ticket for this class.
         all_t = await repo.list_all_published_for_class(class_id)
         if not all_t:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="No published tickets.")
         ticket = all_t[0]
 
-    # Build option → misconception_tag map from stored question data.
-    # {question_id: {option_text: misconception_tag | None}}
     q_tag_map: dict[str, dict[str, str | None]] = {}
     q_prompt_map: dict[str, str] = {}
     for q_dict in ticket.questions or []:
@@ -118,7 +190,6 @@ async def get_misconception_analytics(
             for j, opt in enumerate(opts)
         }
 
-    # Aggregate: {question_id: {tag: count}}
     agg: dict[str, dict[str, int]] = defaultdict(lambda: defaultdict(int))
     for response in ticket.responses or []:
         for ans in response.answers or []:
@@ -174,7 +245,6 @@ async def list_exit_tickets_for_class(
 
     svc = ExitTicketPersistenceService(db)
 
-    # Analytics are computed across ALL published tickets (not just the current page).
     all_tickets = await svc.list_all_published_for_class(class_id, unit_id=unit_id, lesson_id=lesson_id)
     total_submissions = 0
     scores: list[float] = []
@@ -197,7 +267,6 @@ async def list_exit_tickets_for_class(
     )
     total_pages = max(1, math.ceil(len(all_tickets) / limit))
 
-    # Page items — re-use the already-loaded slice to avoid a second query.
     offset = (page - 1) * limit
     page_tickets = list(all_tickets)[offset : offset + limit]
 

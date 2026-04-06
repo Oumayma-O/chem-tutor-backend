@@ -1,4 +1,4 @@
-"""Teacher tools: ExitTicket, ExitTicketResponse, CurriculumDocument."""
+"""Teacher tools: ExitTicket, ExitTicketResponse, ClassroomSession, CurriculumDocument."""
 
 import uuid
 from datetime import datetime
@@ -63,6 +63,39 @@ class ExitTicketResponse(Base):
     submitted_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now)
 
     exit_ticket: Mapped["ExitTicket"] = relationship(back_populates="responses")
+
+
+class ClassroomSession(Base):
+    """Persisted record of a teacher-initiated session (timed practice, exit ticket, or both).
+
+    Created on publish, ended_at set on stop.  Allows historical analytics
+    and timed-practice per-student breakdowns long after the live_session JSONB is cleared.
+    """
+    __tablename__ = "classroom_sessions"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=_uuid)
+    classroom_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("classrooms.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    teacher_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), nullable=False)
+    session_type: Mapped[str] = mapped_column(String(40), nullable=False, default="exit_ticket")
+    exit_ticket_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("exit_tickets.id", ondelete="SET NULL"),
+        nullable=True,
+    )
+    unit_id: Mapped[str] = mapped_column(String(100), nullable=False)
+    lesson_index: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    timed_practice_minutes: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    started_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now)
+    ended_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+
+    __table_args__ = (
+        Index("ix_classroom_sessions_class_started", "classroom_id", "started_at"),
+    )
 
 
 class CurriculumDocument(Base):

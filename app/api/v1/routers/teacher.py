@@ -1,13 +1,17 @@
 """
-Teacher dashboard API — classes, roster, live presence.
+Teacher dashboard API — classes, roster, live presence, session history.
 
 GET  /teacher/classes
 POST /teacher/classes
 GET  /teacher/classes/{classroom_id}/roster
 GET  /teacher/classes/{classroom_id}/live
+GET  /teacher/classes/{classroom_id}/sessions
+GET  /teacher/classes/{classroom_id}/sessions/{session_id}/practice-analytics
 """
 
 import uuid
+from collections import defaultdict
+from datetime import datetime, timezone
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy import select
@@ -19,19 +23,25 @@ from app.infrastructure.database.connection import get_db
 from app.services.classroom import live_session as live_session_svc
 from app.domain.schemas.classrooms import ClassroomOut
 from app.domain.schemas.dashboards import (
+    ClassroomSessionOut,
+    LevelStats,
     LiveStudentEntry,
     RosterStudentEntry,
     StudentAnalyticsOut,
     StudentAttemptOut,
+    StudentTimedPracticeRow,
     TeacherClassCreate,
     TeacherClassOut,
     TeacherClassPatch,
+    TimedPracticeAnalytics,
 )
+from app.infrastructure.database.models import ClassroomSession, User
 from app.infrastructure.database.models.learning import ProblemAttempt
 from app.infrastructure.database.repositories.attempt_repo import (
     AttemptRepository,
     MisconceptionRepository,
 )
+from app.infrastructure.database.repositories.classroom_repo import ClassroomRepository
 from app.infrastructure.database.repositories.mastery_repo import MasteryRepository
 from app.services.mastery_service import MasteryService
 from app.services.teacher.service import TeacherService
@@ -121,7 +131,6 @@ async def get_student_analytics(
     if classroom.teacher_id != auth.user_id:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Not your class.")
 
-    # Use the requested unit_id for filtering; fall back to classroom unit when unset.
     filter_unit = unit_id if (unit_id and unit_id != "all") else None
     snap = await svc._mastery.get_student_mastery_snapshot(student_id, filter_unit)
 
@@ -133,7 +142,6 @@ async def get_student_analytics(
     if filter_unit:
         query = query.where(ProblemAttempt.unit_id == filter_unit).limit(200)
     else:
-        # Wider sample so "all chapters" can aggregate per-unit averages and show last-N with labels.
         query = query.limit(120)
 
     result = await db.execute(query)
@@ -220,3 +228,129 @@ async def stop_classroom_live_session(
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc)) from exc
     except PermissionError as exc:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=str(exc)) from exc
+
+
+# ── Session history ────────────────────────────────────────────
+
+
+async def _verify_classroom_owner(
+    classroom_id: uuid.UUID,
+    auth: AuthContext,
+    db: AsyncSession,
+) -> None:
+    c_repo = ClassroomRepository(db)
+    classroom = await c_repo.get_by_id_with_students(classroom_id)
+    if classroom is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Classroom not found.")
+    if classroom.teacher_id != auth.user_id:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Not your class.")
+
+
+@router.get("/classes/{classroom_id}/sessions", response_model=list[ClassroomSessionOut])
+async def list_classroom_sessions(
+    classroom_id: uuid.UUID,
+    limit: int = Query(default=20, ge=1, le=100),
+    offset: int = Query(default=0, ge=0),
+    auth: AuthContext = Depends(get_auth_context),
+    db: AsyncSession = Depends(get_db),
+) -> list[ClassroomSessionOut]:
+    """Paginated list of persisted sessions (timed practice / exit ticket / both)."""
+    require_teacher(auth)
+    await _verify_classroom_owner(classroom_id, auth, db)
+
+    result = await db.execute(
+        select(ClassroomSession)
+        .where(ClassroomSession.classroom_id == classroom_id)
+        .order_by(ClassroomSession.started_at.desc())
+        .offset(offset)
+        .limit(limit)
+    )
+    rows = result.scalars().all()
+    return [
+        ClassroomSessionOut(
+            id=r.id,
+            classroom_id=r.classroom_id,
+            session_type=r.session_type,
+            exit_ticket_id=r.exit_ticket_id,
+            unit_id=r.unit_id,
+            lesson_index=r.lesson_index,
+            timed_practice_minutes=r.timed_practice_minutes,
+            started_at=r.started_at,
+            ended_at=r.ended_at,
+        )
+        for r in rows
+    ]
+
+
+@router.get(
+    "/classes/{classroom_id}/sessions/{session_id}/practice-analytics",
+    response_model=TimedPracticeAnalytics,
+)
+async def get_timed_practice_analytics(
+    classroom_id: uuid.UUID,
+    session_id: uuid.UUID,
+    auth: AuthContext = Depends(get_auth_context),
+    db: AsyncSession = Depends(get_db),
+) -> TimedPracticeAnalytics:
+    """Per-student, per-level problem attempt stats for a specific timed-practice session."""
+    require_teacher(auth)
+    await _verify_classroom_owner(classroom_id, auth, db)
+
+    sess = await db.scalar(
+        select(ClassroomSession).where(
+            ClassroomSession.id == session_id,
+            ClassroomSession.classroom_id == classroom_id,
+        )
+    )
+    if sess is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Session not found.")
+
+    end_bound = sess.ended_at or datetime.now(timezone.utc)
+    result = await db.execute(
+        select(ProblemAttempt).where(
+            ProblemAttempt.class_id == classroom_id,
+            ProblemAttempt.unit_id == sess.unit_id,
+            ProblemAttempt.started_at >= sess.started_at,
+            ProblemAttempt.started_at <= end_bound,
+        )
+    )
+    attempts = result.scalars().all()
+
+    user_ids = list({a.user_id for a in attempts})
+    users: dict[uuid.UUID, User] = {}
+    if user_ids:
+        res_u = await db.execute(select(User).where(User.id.in_(user_ids)))
+        users = {u.id: u for u in res_u.scalars().all()}
+
+    # {user_id: {level: [scores]}}
+    grouped: dict[uuid.UUID, dict[int, list[float | None]]] = defaultdict(lambda: defaultdict(list))
+    for a in attempts:
+        grouped[a.user_id][a.level].append(a.score)
+
+    rows: list[StudentTimedPracticeRow] = []
+    for uid, levels in grouped.items():
+        level_stats: dict[int, LevelStats] = {}
+        total = 0
+        for lvl, scores in levels.items():
+            valid = [s for s in scores if s is not None]
+            level_stats[lvl] = LevelStats(
+                count=len(scores),
+                avg_score=round(sum(valid) / len(valid), 1) if valid else 0.0,
+            )
+            total += len(scores)
+        u = users.get(uid)
+        rows.append(StudentTimedPracticeRow(
+            student_id=uid,
+            student_name=u.name if u else None,
+            levels=level_stats,
+            total_count=total,
+        ))
+
+    rows.sort(key=lambda r: r.total_count, reverse=True)
+
+    return TimedPracticeAnalytics(
+        session_id=sess.id,
+        unit_id=sess.unit_id,
+        lesson_index=sess.lesson_index,
+        rows=rows,
+    )

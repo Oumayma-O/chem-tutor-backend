@@ -45,26 +45,56 @@ class ExitTicketGenerationService:
         logger.info("exit_ticket_generated", lesson=lesson_name, unit=unit_id)
         return result
 
-    # ── Teacher flow: topic-based generation ─────────────────
+    # ── Teacher flow: lesson-context-aware generation ────────
 
     @llm_retry
     async def generate_for_teacher(
         self,
         topic: str,
         question_count: int = 4,
+        difficulty: str = "medium",
+        lesson_name: str | None = None,
+        lesson_context: dict | None = None,
+        unit_id: str | None = None,
+        grade_level: str | None = None,
     ) -> list[dict]:
-        """Generate exit ticket questions from a free-form topic string (teacher dashboard)."""
-        qc = max(3, min(5, question_count))
+        """Generate exit ticket questions for the teacher dashboard.
+
+        When ``lesson_context`` is provided (fetched from the DB), the richer
+        lesson-aware prompt is used so questions target the lesson's actual
+        equations, rules, and misconceptions.  Falls back to the generic
+        topic-based prompt when no curriculum context is available.
+        """
+        qc = max(1, min(10, question_count))
+        display_name = lesson_name or topic
+
+        if lesson_context:
+            # Use the same context-rich prompt as the tutor flow.
+            system = prompts.GENERATE_EXIT_TICKET_SYSTEM.format(
+                question_count=qc,
+                difficulty=difficulty,
+                lesson_name=display_name,
+                chapter_id=unit_id or "",
+                grade_block=f"Student level: {grade_level}." if grade_level else "",
+                lesson_guidance_block=build_lesson_guidance_block(lesson_context),
+            )
+            user_content = (
+                f"Lesson: {display_name}\n"
+                f"Generate exactly {qc} exit-ticket questions at {difficulty} difficulty.\n"
+                "Use question_type 'mcq' or 'numeric' or 'short_answer' as appropriate."
+            )
+        else:
+            system = prompts.GENERATE_TEACHER_EXIT_TICKET_SYSTEM
+            user_content = (
+                f"Topic / focus: {display_name}\n"
+                f"Difficulty: {difficulty}\n"
+                f"Generate exactly {qc} questions. "
+                "Use question_type 'mcq' or 'short_answer' or 'numeric' as appropriate."
+            )
+
         messages = [
-            {"role": "system", "content": prompts.GENERATE_TEACHER_EXIT_TICKET_SYSTEM},
-            {
-                "role": "user",
-                "content": (
-                    f"Topic / focus: {topic}\n"
-                    f"Generate exactly {qc} questions. "
-                    "Use question_type 'mcq' or 'short_answer' or 'numeric' as appropriate."
-                ),
-            },
+            {"role": "system", "content": system},
+            {"role": "user", "content": user_content},
         ]
         raw = await generate_structured(
             messages,
@@ -98,7 +128,12 @@ class ExitTicketGenerationService:
                     "points": float(q.points or 1.0),
                 }
             )
-        logger.info("teacher_exit_ticket_generated", topic=topic, question_count=qc)
+        logger.info(
+            "teacher_exit_ticket_generated",
+            lesson=display_name,
+            question_count=qc,
+            context_aware=lesson_context is not None,
+        )
         return out
 
 

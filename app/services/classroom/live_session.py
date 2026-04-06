@@ -7,7 +7,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.domain.schemas.live_session import LiveSessionOut
-from app.infrastructure.database.models import Classroom, ClassroomStudent, ExitTicket
+from app.infrastructure.database.models import Classroom, ClassroomSession, ClassroomStudent, ExitTicket
 from app.services.ai.exit_ticket.config_serialization import exit_ticket_row_to_config
 
 
@@ -124,6 +124,22 @@ async def publish_live_session(
         "exit_ticket_time_limit_minutes": et_limit_minutes,
         "exit_ticket_window_started_at": et_window_start,
     }
+
+    if timed_practice_enabled:
+        s_type = "timed_practice_with_exit"
+    else:
+        s_type = "exit_ticket"
+    session.add(ClassroomSession(
+        classroom_id=classroom_id,
+        teacher_id=teacher_id,
+        session_type=s_type,
+        exit_ticket_id=exit_ticket_id,
+        unit_id=unit_id,
+        lesson_index=lesson_index,
+        timed_practice_minutes=timed_practice_minutes if timed_practice_enabled else None,
+        started_at=datetime.now(timezone.utc),
+    ))
+
     await session.flush()
     return _to_out(classroom_id, c_row.live_session)
 
@@ -138,6 +154,18 @@ async def stop_live_session(
         raise LookupError("Classroom not found.")
     if c_row.teacher_id != teacher_id:
         raise PermissionError("Not your class.")
+
+    active_session = await session.scalar(
+        select(ClassroomSession)
+        .where(
+            ClassroomSession.classroom_id == classroom_id,
+            ClassroomSession.ended_at.is_(None),
+        )
+        .order_by(ClassroomSession.started_at.desc())
+        .limit(1)
+    )
+    if active_session is not None:
+        active_session.ended_at = datetime.now(timezone.utc)
 
     c_row.live_session = _empty_live_session()
     await session.flush()
