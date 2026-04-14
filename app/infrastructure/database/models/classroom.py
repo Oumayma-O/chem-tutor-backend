@@ -26,6 +26,9 @@ class Classroom(Base):
     code: Mapped[str] = mapped_column(String(10), nullable=False, unique=True)
     is_active: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
     calculator_enabled: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
+    allow_answer_reveal: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
+    max_answer_reveals_per_lesson: Mapped[int] = mapped_column(Integer, nullable=False, default=6)
+    min_level1_examples_for_level2: Mapped[int] = mapped_column(Integer, nullable=False, default=2)
 
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now)
     updated_at: Mapped[datetime] = mapped_column(
@@ -40,7 +43,10 @@ class Classroom(Base):
 
 
 class ClassroomStudent(Base):
-    """Junction: classroom ↔ student (many-to-many)."""
+    """Junction: classroom ↔ student (many-to-many).
+
+    Composite primary key (classroom_id, student_id) — no surrogate ``id`` column.
+    """
     __tablename__ = "classroom_students"
 
     classroom_id: Mapped[uuid.UUID] = mapped_column(

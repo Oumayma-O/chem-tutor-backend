@@ -37,3 +37,14 @@ class LiveSessionOut(BaseModel):
     # When phase is exit_ticket (no timed practice): quiz window for teacher countdown UI.
     exit_ticket_time_limit_minutes: int | None = None
     exit_ticket_window_started_at: str | None = None
+    allow_answer_reveal: bool = True
+    max_answer_reveals_per_lesson: int = Field(
+        default=6,
+        ge=1,
+        description="Cap on 3-strikes answer reveals per lesson for this class.",
+    )
+    min_level1_examples_for_level2: int = Field(
+        default=2,
+        ge=1,
+        description="Unique Level 1 worked examples required before Level 2 is available.",
+    )

@@ -1,8 +1,9 @@
 """Teacher dashboard service — class overview, roster, live presence."""
 
 import uuid
+from datetime import datetime, time, timezone
 
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.domain.schemas.classrooms import ClassroomOut
@@ -14,6 +15,8 @@ from app.domain.schemas.dashboards import (
     TeacherClassPatch,
 )
 from app.infrastructure.database.models import Classroom, User
+from app.infrastructure.database.models.learning import ProblemAttempt
+from app.infrastructure.database.models.user_session import UserSessionActivity
 from app.services.classroom.service import _to_classroom_out
 from app.infrastructure.database.repositories.classroom_repo import (
     ClassroomRepository,
@@ -61,6 +64,36 @@ class TeacherService:
         self._classrooms = ClassroomRepository(session)
         self._students = ClassroomStudentRepository(session)
 
+    async def _last_activity_times(self, user_ids: list[uuid.UUID]) -> dict[uuid.UUID, datetime | None]:
+        """Best-effort last activity: max(problem attempt time, last session day from heartbeats)."""
+        if not user_ids:
+            return {}
+        att = await self._session.execute(
+            select(ProblemAttempt.user_id, func.max(ProblemAttempt.started_at))
+            .where(ProblemAttempt.user_id.in_(user_ids))
+            .group_by(ProblemAttempt.user_id)
+        )
+        attempt_max: dict[uuid.UUID, datetime] = {row[0]: row[1] for row in att.all() if row[1] is not None}
+
+        sess = await self._session.execute(
+            select(UserSessionActivity.user_id, func.max(UserSessionActivity.session_date))
+            .where(UserSessionActivity.user_id.in_(user_ids))
+            .group_by(UserSessionActivity.user_id)
+        )
+        session_max: dict[uuid.UUID, datetime] = {}
+        for uid, d in sess.all():
+            if d is None:
+                continue
+            session_max[uid] = datetime.combine(d, time.min, tzinfo=timezone.utc)
+
+        out: dict[uuid.UUID, datetime | None] = {}
+        for uid in user_ids:
+            a_t = attempt_max.get(uid)
+            s_t = session_max.get(uid)
+            candidates = [x for x in (a_t, s_t) if x is not None]
+            out[uid] = max(candidates) if candidates else None
+        return out
+
     async def create_class(self, name: str, teacher_id: uuid.UUID, unit_id: str | None) -> ClassroomOut:
         classroom = Classroom(name=name, teacher_id=teacher_id, unit_id=unit_id, code="")
         created = await self._classrooms.create_with_code(classroom)
@@ -83,6 +116,9 @@ class TeacherService:
                     student_count=len(student_ids),
                     is_active=c.is_active,
                     calculator_enabled=c.calculator_enabled,
+                    allow_answer_reveal=c.allow_answer_reveal,
+                    max_answer_reveals_per_lesson=c.max_answer_reveals_per_lesson,
+                    min_level1_examples_for_level2=c.min_level1_examples_for_level2,
                     created_at=c.created_at,
                     stats=stats,
                     **snap,
@@ -97,13 +133,14 @@ class TeacherService:
     async def get_roster(
         self,
         classroom_id: uuid.UUID,
-        teacher_id: uuid.UUID,
+        teacher_id: uuid.UUID | None,
     ) -> list[RosterStudentEntry]:
-        """Raises LookupError if classroom not found, PermissionError if not owner."""
+        """Raises LookupError if classroom not found, PermissionError if not owner.
+        Pass teacher_id=None to bypass ownership check (admin path)."""
         classroom = await self._classrooms.get_by_id_with_students(classroom_id)
         if classroom is None:
             raise LookupError("Classroom not found.")
-        if classroom.teacher_id != teacher_id:
+        if teacher_id is not None and classroom.teacher_id != teacher_id:
             raise PermissionError("Not your class.")
 
         members = await self._students.get_class_students(classroom_id)
@@ -111,6 +148,7 @@ class TeacherService:
             return []
 
         users = await self._fetch_users_by_ids([m.student_id for m in members])
+        last_by = await self._last_activity_times([m.student_id for m in members])
 
         roster: list[RosterStudentEntry] = []
         for m in members:
@@ -128,6 +166,7 @@ class TeacherService:
                     joined_at=m.joined_at,
                     mastery=snap,
                     at_risk=at_risk,
+                    last_activity_at=last_by.get(m.student_id),
                 )
             )
         return roster
@@ -146,19 +185,26 @@ class TeacherService:
             raise PermissionError("Not your class.")
         if patch.calculator_enabled is not None:
             classroom.calculator_enabled = patch.calculator_enabled
+        if patch.allow_answer_reveal is not None:
+            classroom.allow_answer_reveal = patch.allow_answer_reveal
+        if patch.max_answer_reveals_per_lesson is not None:
+            classroom.max_answer_reveals_per_lesson = patch.max_answer_reveals_per_lesson
+        if patch.min_level1_examples_for_level2 is not None:
+            classroom.min_level1_examples_for_level2 = patch.min_level1_examples_for_level2
         await self._session.commit()
 
     async def get_live(
         self,
         classroom_id: uuid.UUID,
-        teacher_id: uuid.UUID,
+        teacher_id: uuid.UUID | None,
         within_seconds: int,
     ) -> list[LiveStudentEntry]:
-        """Raises LookupError if classroom not found, PermissionError if not owner."""
+        """Raises LookupError if classroom not found, PermissionError if not owner.
+        Pass teacher_id=None to bypass ownership check (admin path)."""
         classroom = await self._classrooms.get_by_id_with_students(classroom_id)
         if classroom is None:
             raise LookupError("Classroom not found.")
-        if classroom.teacher_id != teacher_id:
+        if teacher_id is not None and classroom.teacher_id != teacher_id:
             raise PermissionError("Not your class.")
 
         p_repo = PresenceRepository(self._session)

@@ -18,12 +18,19 @@ logger = get_logger(__name__)
 class PlaylistCoordinator:
     def __init__(self, db: AsyncSession) -> None:
         self._db = db
+        # Cache the last playlist fetched by try_resume so get_previous_problem_summaries
+        # can reuse it without a duplicate DB query.
+        self._last_playlist_problems: list[dict] | None = None
 
     async def try_resume(
         self,
         req: GenerateProblemRequest,
         effective_difficulty: str,
         max_problems: int,
+        *,
+        allow_answer_reveal: bool | None = None,
+        max_answer_reveals_per_lesson: int | None = None,
+        min_level1_examples_for_level2: int | None = None,
     ) -> ProblemDeliveryResponse | None:
         if not req.user_id or req.force_regenerate:
             return None
@@ -37,7 +44,10 @@ class PlaylistCoordinator:
             effective_difficulty,
         )
         if not playlist or not playlist.problems:
+            self._last_playlist_problems = None
             return None
+
+        self._last_playlist_problems = list(playlist.problems)
 
         ci = playlist.current_index
         total = len(playlist.problems)
@@ -56,6 +66,9 @@ class PlaylistCoordinator:
                 has_prev=ci > 0,
                 has_next=ci < total - 1,
                 at_limit=total >= max_problems,
+                allow_answer_reveal=allow_answer_reveal,
+                max_answer_reveals_per_lesson=max_answer_reveals_per_lesson,
+                min_level1_examples_for_level2=min_level1_examples_for_level2,
             )
 
         if total >= max_problems:
@@ -69,6 +82,9 @@ class PlaylistCoordinator:
                 has_prev=ci > 0,
                 has_next=ci < total - 1,
                 at_limit=True,
+                allow_answer_reveal=allow_answer_reveal,
+                max_answer_reveals_per_lesson=max_answer_reveals_per_lesson,
+                min_level1_examples_for_level2=min_level1_examples_for_level2,
             )
         return None
 
@@ -95,4 +111,38 @@ class PlaylistCoordinator:
                 )
 
         return await asyncio.shield(_persist())
+
+    async def get_previous_problem_summaries(
+        self,
+        user_id: uuid.UUID | None,
+        unit_id: str,
+        lesson_index: int,
+        level: int,
+        difficulty: str,
+    ) -> list[str]:
+        """Return short summaries (title + first sentence of statement) of problems
+        the student has already seen in this playlist slot. Used to tell the LLM
+        what scenarios to avoid repeating.
+
+        Reuses the playlist fetched by try_resume() when available to avoid a duplicate query.
+        """
+        problems: list = []
+        if self._last_playlist_problems is not None:
+            problems = self._last_playlist_problems
+        elif user_id:
+            repo = UserLessonPlaylistRepository(self._db)
+            playlist = await repo.get(user_id, unit_id, lesson_index, level, difficulty)
+            problems = list(playlist.problems) if playlist and playlist.problems else []
+
+        summaries: list[str] = []
+        for p in problems:
+            if not isinstance(p, dict):
+                continue
+            title = p.get("title", "")
+            statement = p.get("statement", "")
+            first_sentence = statement.split(".")[0].strip() if statement else ""
+            summary = f"{title}: {first_sentence}" if first_sentence else title
+            if summary:
+                summaries.append(summary)
+        return summaries
 

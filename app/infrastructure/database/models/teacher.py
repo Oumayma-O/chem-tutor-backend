@@ -3,7 +3,7 @@
 import uuid
 from datetime import datetime
 
-from sqlalchemy import Boolean, DateTime, Float, ForeignKey, Index, Integer, String, Text
+from sqlalchemy import Boolean, DateTime, Float, ForeignKey, Index, Integer, String, Text, UniqueConstraint
 from sqlalchemy.dialects.postgresql import JSONB, UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -63,6 +63,10 @@ class ExitTicketResponse(Base):
     submitted_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now)
 
     exit_ticket: Mapped["ExitTicket"] = relationship(back_populates="responses")
+
+    __table_args__ = (
+        UniqueConstraint("exit_ticket_id", "student_id", name="uq_exit_ticket_responses_ticket_student"),
+    )
 
 
 class ClassroomSession(Base):

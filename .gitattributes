@@ -1,0 +1,7 @@
+# Stable cross-platform line endings for Python tooling and CI.
+* text=auto
+*.py text eol=lf
+*.yml text eol=lf
+*.yaml text eol=lf
+*.toml text eol=lf
+*.md text eol=lf

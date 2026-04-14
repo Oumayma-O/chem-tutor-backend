@@ -9,8 +9,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import get_settings
 from app.core.logging import get_logger
-from app.infrastructure.database.models import User, UserProfile
-from app.services.auth.security import hash_password
+from app.infrastructure.database.models import User
+from app.services.auth.user_factory import create_user
 
 logger = get_logger(__name__)
 
@@ -27,26 +27,22 @@ async def ensure_admin_user(session: AsyncSession) -> None:
     result = await session.execute(select(User).where(User.email == email))
     existing = result.scalar_one_or_none()
     if existing:
-        if existing.role != "admin":
+        if existing.role != "superadmin":
             logger.warning(
-                "admin_bootstrap_skipped_wrong_role",
+                "superadmin_bootstrap_skipped_wrong_role",
                 email=email,
                 current_role=existing.role,
             )
         return  # already exists, nothing to do
 
-    user = User(
+    user = await create_user(
+        session,
         email=email,
-        password_hash=hash_password(settings.admin_password),
-        role="admin",
-        name="Admin",
-        is_active=True,
+        password=settings.admin_password,
+        role="superadmin",
+        name="Super Admin",
+        commit=False,
     )
-    session.add(user)
-    await session.flush()
-
-    profile = UserProfile(user_id=user.id, role="admin", name="Admin")
-    session.add(profile)
     await session.commit()
 
-    logger.info("admin_user_created", email=email, user_id=str(user.id))
+    logger.info("superadmin_user_created", email=email, user_id=str(user.id))

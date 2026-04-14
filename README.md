@@ -15,8 +15,11 @@ FastAPI + PostgreSQL + LangChain. AI-powered mastery-based chemistry tutor.
 ```bash
 docker compose build   # required after any code change in app/
 docker compose up -d
+docker compose exec app alembic upgrade head   # apply DB migrations (after pulling new revisions)
 # API → http://localhost:8000   Docs → http://localhost:8000/docs
 ```
+
+`docker-compose.yml` bind-mounts `./alembic` so migration files match the repo; run `alembic upgrade head` whenever you add migrations.
 
 > `develop.watch` in docker-compose is NOT a volume mount — always rebuild after editing `app/`.
 
@@ -41,12 +44,16 @@ EOF
 python -m scripts.seed
 ```
 
-### Logs & reload
+### Logs & restart
+The API runs **without** `uvicorn --reload` (avoids breaking long AI requests and SSE during file sync). After editing code, restart:
+
 ```bash
 docker logs chem-backend -f          # live logs
-docker restart chem-backend          # restart (after env change)
+docker compose restart app           # pick up code/env (compose service name)
 docker compose build && docker compose up -d   # rebuild image
 ```
+
+To use **hot reload** again locally, override the command, e.g. add `--reload` to the `uvicorn` line in `docker-compose.yml` (not recommended while testing exit-ticket generate or live streams).
 
 ---
 

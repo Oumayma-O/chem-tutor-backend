@@ -1,26 +1,32 @@
 """
 Classrooms router — classroom management and student enrollment.
 
-POST /classrooms                       → teacher creates classroom
-GET  /classrooms/{id}                  → get classroom detail (teacher)
-GET  /classrooms/teacher/{id}          → list teacher's classrooms
-POST /classrooms/join                  → student joins by code
-GET  /classrooms/student/{id}          → list student's classrooms
-GET  /classrooms/{id}/students         → list enrolled students
-DELETE /classrooms/{id}/students/{sid} → remove student
+POST   /classrooms                             → teacher creates classroom
+DELETE /classrooms/{id}                        → teacher soft-deletes classroom
+GET    /classrooms/{id}                        → get classroom detail (teacher)
+GET    /classrooms/teacher/{id}               → list teacher's classrooms
+POST   /classrooms/join                        → student joins by code
+GET    /classrooms/student/{id}               → list student's classrooms
+GET    /classrooms/{id}/students              → list enrolled students
+DELETE /classrooms/{id}/students/{sid}        → remove student
+GET    /classrooms/me/live-session            → poll live session (student)
+GET    /classrooms/me/live-session/stream     → SSE stream live session (student)
+POST   /classrooms/me/live-session/dismiss    → dismiss overlay (student)
 """
 
 import uuid
 
 from fastapi import APIRouter, Depends, HTTPException, Response, status
+from fastapi.responses import StreamingResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.infrastructure.database.connection import get_db
-from app.api.v1.authz import AuthContext, get_auth_context, require_role, require_self
+from app.infrastructure.database.connection import get_db, sse_poll_session
+from app.api.v1.authz import AuthContext, get_auth_context, get_auth_context_from_query, require_role, require_self
 from app.domain.schemas.live_session import LiveSessionDismissIn, LiveSessionOut
 from app.services.classroom.live_session import get_live_session_for_student
 from app.api.v1.router_utils import map_unexpected_errors
 from app.core.logging import get_logger
+from app.core.sse_stream import SSE_STREAM_HEADERS, sse_json_poll_events
 from app.domain.schemas.classrooms import (
     ClassroomCreate,
     ClassroomListItem,
@@ -68,6 +74,41 @@ async def dismiss_my_live_session_overlay(
     return None
 
 
+@router.get("/me/live-session/stream")
+async def stream_my_classroom_live_session(
+    auth: AuthContext = Depends(get_auth_context_from_query),
+) -> StreamingResponse:
+    """
+    SSE stream that pushes live session state to a student in real time.
+
+    Sends a `data:` event whenever the session changes, and a comment heartbeat
+    every ~25 s to keep the connection alive through proxies.
+    The client should reconnect (EventSource does this automatically) on error.
+    """
+    require_role(auth, "student")
+    user_id = auth.user_id
+
+    async def event_stream():
+        async def poll_json() -> str | None:
+            async with sse_poll_session() as db:
+                out = await get_live_session_for_student(db, user_id)
+            if out is None:
+                return None
+            return out.model_dump_json()
+
+        async for chunk in sse_json_poll_events(
+            poll_json=poll_json,
+            log_event="live_session_sse_error",
+        ):
+            yield chunk
+
+    return StreamingResponse(
+        event_stream(),
+        media_type="text/event-stream",
+        headers=dict(SSE_STREAM_HEADERS),
+    )
+
+
 # ── Teacher: create / manage classrooms ───────────────────────
 
 @router.post("", response_model=ClassroomOut, status_code=status.HTTP_201_CREATED)
@@ -96,6 +137,23 @@ async def list_teacher_classrooms(
     require_role(auth, "teacher")
     require_self(teacher_id, auth)
     return await ClassroomService(db).list_for_teacher(teacher_id)
+
+
+@router.delete("/{classroom_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_classroom(
+    classroom_id: uuid.UUID,
+    db: AsyncSession = Depends(get_db),
+    auth: AuthContext = Depends(get_auth_context),
+) -> Response:
+    """Soft-delete a classroom (sets is_active=False). Only the owning teacher may do this."""
+    require_role(auth, "teacher")
+    try:
+        await ClassroomService(db).delete(classroom_id, auth.user_id)
+    except LookupError as exc:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc))
+    except PermissionError as exc:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=str(exc))
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 
 @router.get("/{classroom_id}", response_model=ClassroomOut)

@@ -44,7 +44,7 @@ class ClassroomRepository(BaseRepository[Classroom]):
     async def get_by_teacher(self, teacher_id: uuid.UUID) -> Sequence[Classroom]:
         result = await self._session.execute(
             select(Classroom)
-            .where(Classroom.teacher_id == teacher_id)
+            .where(Classroom.teacher_id == teacher_id, Classroom.is_active == True)  # noqa: E712
             .options(selectinload(Classroom.students))
             .order_by(Classroom.created_at.desc())
         )
@@ -63,7 +63,7 @@ class ClassroomRepository(BaseRepository[Classroom]):
         result = await self._session.execute(
             select(Classroom)
             .join(ClassroomStudent, ClassroomStudent.classroom_id == Classroom.id)
-            .where(ClassroomStudent.student_id == student_id, Classroom.is_active)
+            .where(ClassroomStudent.student_id == student_id, Classroom.is_active == True)  # noqa: E712
             .order_by(Classroom.created_at.desc())
         )
         return result.scalars().all()

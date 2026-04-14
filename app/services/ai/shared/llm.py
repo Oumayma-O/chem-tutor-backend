@@ -30,20 +30,46 @@ def get_llm(fast: bool = False, temperature: float = 0.3) -> BaseChatModel:
         "mistral":   s.fast_mistral_model   if fast else s.mistral_model,
     }[provider]
 
+    t = s.llm_timeout_seconds
+
     if provider == "openai":
         from langchain_openai import ChatOpenAI
-        return ChatOpenAI(model=model, api_key=s.openai_api_key, temperature=temperature)
+
+        return ChatOpenAI(
+            model=model,
+            api_key=s.openai_api_key,
+            temperature=temperature,
+            timeout=t,
+        )
 
     if provider == "anthropic":
         from langchain_anthropic import ChatAnthropic
-        return ChatAnthropic(model=model, api_key=s.anthropic_api_key, temperature=temperature)
+
+        return ChatAnthropic(
+            model=model,
+            api_key=s.anthropic_api_key,
+            temperature=temperature,
+            default_request_timeout=t,
+        )
 
     if provider == "mistral":
         from langchain_mistralai import ChatMistralAI
-        return ChatMistralAI(model=model, api_key=s.mistral_api_key, temperature=temperature)
+
+        return ChatMistralAI(
+            model=model,
+            api_key=s.mistral_api_key,
+            temperature=temperature,
+            timeout=t,
+        )
 
     from langchain_google_genai import ChatGoogleGenerativeAI
-    return ChatGoogleGenerativeAI(model=model, google_api_key=s.google_api_key, temperature=temperature)
+
+    return ChatGoogleGenerativeAI(
+        model=model,
+        google_api_key=s.google_api_key,
+        temperature=temperature,
+        timeout=t,
+    )
 
 
 async def generate_structured(

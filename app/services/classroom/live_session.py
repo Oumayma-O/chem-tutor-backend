@@ -41,7 +41,14 @@ def _empty_live_session() -> dict:
     }
 
 
-def _to_out(classroom_id: uuid.UUID, raw: dict | None) -> LiveSessionOut:
+def _to_out(
+    classroom_id: uuid.UUID,
+    raw: dict | None,
+    *,
+    allow_answer_reveal: bool = True,
+    max_answer_reveals_per_lesson: int = 6,
+    min_level1_examples_for_level2: int = 2,
+) -> LiveSessionOut:
     d = raw if isinstance(raw, dict) else {}
     phase = d.get("session_phase") or "idle"
     if phase not in ("idle", "timed_practice", "exit_ticket"):
@@ -72,6 +79,9 @@ def _to_out(classroom_id: uuid.UUID, raw: dict | None) -> LiveSessionOut:
         exit_ticket_window_started_at=d.get("exit_ticket_window_started_at")
         if isinstance(d.get("exit_ticket_window_started_at"), str)
         else None,
+        allow_answer_reveal=allow_answer_reveal,
+        max_answer_reveals_per_lesson=max(1, int(max_answer_reveals_per_lesson)),
+        min_level1_examples_for_level2=max(1, int(min_level1_examples_for_level2)),
     )
 
 
@@ -141,7 +151,13 @@ async def publish_live_session(
     ))
 
     await session.flush()
-    return _to_out(classroom_id, c_row.live_session)
+    return _to_out(
+        classroom_id,
+        c_row.live_session,
+        allow_answer_reveal=c_row.allow_answer_reveal,
+        max_answer_reveals_per_lesson=c_row.max_answer_reveals_per_lesson,
+        min_level1_examples_for_level2=c_row.min_level1_examples_for_level2,
+    )
 
 
 async def stop_live_session(
@@ -169,7 +185,13 @@ async def stop_live_session(
 
     c_row.live_session = _empty_live_session()
     await session.flush()
-    return _to_out(classroom_id, c_row.live_session)
+    return _to_out(
+        classroom_id,
+        c_row.live_session,
+        allow_answer_reveal=c_row.allow_answer_reveal,
+        max_answer_reveals_per_lesson=c_row.max_answer_reveals_per_lesson,
+        min_level1_examples_for_level2=c_row.min_level1_examples_for_level2,
+    )
 
 
 async def get_live_session_for_student(
@@ -188,7 +210,13 @@ async def get_live_session_for_student(
     if c_row is None:
         return None
     raw = c_row.live_session if isinstance(c_row.live_session, dict) else {}
-    base = _to_out(c_row.id, raw)
+    base = _to_out(
+        c_row.id,
+        raw,
+        allow_answer_reveal=c_row.allow_answer_reveal,
+        max_answer_reveals_per_lesson=c_row.max_answer_reveals_per_lesson,
+        min_level1_examples_for_level2=c_row.min_level1_examples_for_level2,
+    )
     exit_cfg = None
     aid = raw.get("active_exit_ticket_id") if isinstance(raw, dict) else None
     if aid:

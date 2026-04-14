@@ -172,7 +172,11 @@ class GenerateProblemRequest(BaseModel):
         key_rules: list[str] = Field(default_factory=list)
         misconceptions: list[str] = Field(default_factory=list)
 
-    user_id: uuid.UUID | None = None   # enables playlist tracking when provided
+    user_id: uuid.UUID | None = None  # enables playlist tracking when provided
+    class_id: uuid.UUID | None = Field(
+        default=None,
+        description="When set, responses include allow_answer_reveal and max_answer_reveals_per_lesson from this classroom.",
+    )
     unit_id: str
     lesson_index: int
     lesson_name: str  # human-readable lesson name
@@ -204,6 +208,9 @@ class ProblemDeliveryResponse(BaseModel):
     has_prev: bool = False         # can navigate back
     has_next: bool = False         # can navigate forward (through seen problems)
     at_limit: bool = False         # reached max; generate will return current
+    allow_answer_reveal: bool | None = None  # from classroom when ``class_id`` sent on generate/navigate
+    max_answer_reveals_per_lesson: int | None = None  # from classroom when ``class_id`` sent
+    min_level1_examples_for_level2: int | None = None  # from classroom when ``class_id`` sent
 
 
 # ── Reference Card ────────────────────────────────────────────
@@ -238,4 +245,5 @@ class NavigateProblemRequest(BaseModel):
     level: int
     difficulty: Literal["easy", "medium", "hard"] = "medium"
     direction: Literal["prev", "next"]
+    class_id: uuid.UUID | None = None
 

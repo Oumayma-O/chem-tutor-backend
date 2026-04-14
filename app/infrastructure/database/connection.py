@@ -24,6 +24,7 @@ engine: AsyncEngine = create_async_engine(
     pool_pre_ping=True,        # Detect stale connections before checkout
     pool_recycle=300,          # Recycle connections every 5 min (Neon drops idle ~5–10 min)
     pool_timeout=30,           # Raise after 30s waiting for a connection
+    pool_reset_on_return="rollback",  # return clean connections to pool (SSE read ticks)
     echo=settings.log_level.lower() == "debug",
     connect_args={"timeout": 30},  # Neon free-tier can take ~15s to wake from suspend
 )
@@ -39,6 +40,25 @@ AsyncSessionFactory = async_sessionmaker(
 # ── Base class for all ORM models ─────────────────────────────
 class Base(DeclarativeBase):
     pass
+
+
+# ── SSE / long-poll: read-only ticks ──────────────────────────
+@asynccontextmanager
+async def sse_poll_session() -> AsyncGenerator[AsyncSession, None]:
+    """
+    Short-lived session for SSE polling loops.
+
+    Rely on :class:`AsyncSession` context manager exit (``close()`` → pool check-in).
+    Do **not** add a manual ``rollback()`` here: double-cleanup can interact badly
+    with cancellation during uvicorn ``--reload`` / client disconnect; the pool's
+    ``pool_reset_on_return`` still resets connections when they are returned.
+
+    If you see "non-checked-in connection" warnings during dev reload, that is usually
+    abrupt process shutdown while an SSE tick still holds a connection — use reload
+    excludes or disable ``--reload`` when testing long streams.
+    """
+    async with AsyncSessionFactory() as session:
+        yield session
 
 
 # ── Reusable context manager for background tasks ─────────────
@@ -60,20 +80,30 @@ async def fresh_session() -> AsyncGenerator[AsyncSession, None]:
 
 # ── Dependency for FastAPI routes ─────────────────────────────
 async def get_db() -> AsyncSession:  # type: ignore[return]
+    """
+    Commit successful requests after the route returns. Routes may also call
+    ``await session.commit()`` earlier so writes are visible before the response
+    is finalized (FastAPI runs code after ``yield`` in this dependency after the
+    response is sent for streaming/long-poll cases).
+    """
     async with AsyncSessionFactory() as session:
         try:
             yield session
-            await session.commit()
         except Exception:
             await session.rollback()
             raise
+        else:
+            if session.in_transaction():
+                await session.commit()
 
 
 # ── Migration readiness check ─────────────────────────────────
 async def run_migrations() -> None:
     """
-    Ensure Alembic migrations have been applied before app startup.
-    This performs a read-only check and never mutates schema at runtime.
+    Verify the database has Alembic metadata (``alembic_version`` table).
+
+    Does **not** run ``alembic upgrade``; deploy pipelines must apply migrations
+    separately so the schema matches the ORM (e.g. ``alembic upgrade head``).
     """
     async with engine.begin() as conn:
         try:

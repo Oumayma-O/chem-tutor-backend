@@ -27,6 +27,7 @@ from app.infrastructure.database.models.teacher import (
 )
 from app.infrastructure.database.models.ai import GenerationLog, PromptVersion, FewShotExample
 from app.infrastructure.database.models.presence import PresenceHeartbeat
+from app.infrastructure.database.models.user_session import UserSessionActivity
 
 __all__ = [
     # lookup
@@ -47,4 +48,6 @@ __all__ = [
     "GenerationLog", "PromptVersion", "FewShotExample",
     # presence
     "PresenceHeartbeat",
+    # engagement tracking
+    "UserSessionActivity",
 ]

@@ -8,6 +8,11 @@ from app.domain.schemas.tutor import ProblemDeliveryResponse, ProblemOutput
 from app.domain.schemas.tutor.problems import NavigateProblemRequest
 from app.infrastructure.database.connection import get_db
 from app.infrastructure.database.repositories.playlist_repo import UserLessonPlaylistRepository
+from app.services.classroom.class_settings import (
+    get_allow_answer_reveal,
+    get_max_answer_reveals_per_lesson,
+    get_min_level1_examples_for_level2,
+)
 from app.services.ai.shared.step_types import enforce_step_types
 from app.services.problem_delivery.limits import max_problems_for_level
 from app.utils.markdown_sanitizer import normalize_strings
@@ -32,6 +37,9 @@ async def navigate_problem(
     Returns 400 if already at the boundary.
     """
     require_self(req.user_id, auth)
+    reveal = await get_allow_answer_reveal(db, req.class_id)
+    max_reveals = await get_max_answer_reveals_per_lesson(db, req.class_id)
+    min_l1 = await get_min_level1_examples_for_level2(db, req.class_id)
     repo = UserLessonPlaylistRepository(db)
     playlist = await repo.get(
         req.user_id, req.unit_id, req.lesson_index, req.level, req.difficulty
@@ -74,4 +82,7 @@ async def navigate_problem(
         has_prev=new_index > 0,
         has_next=new_index < total - 1,
         at_limit=total >= max_p,
+        allow_answer_reveal=reveal,
+        max_answer_reveals_per_lesson=max_reveals,
+        min_level1_examples_for_level2=min_l1,
     )

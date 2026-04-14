@@ -2,63 +2,35 @@
 Student exit tickets — fetch published ticket + submit attempt.
 
 GET  /student/exit-tickets/{ticket_id}
-POST /student/exit-tickets/{ticket_id}/submit
+POST  /student/exit-tickets/{ticket_id}/submit
 """
 
 import uuid
 from datetime import datetime, timezone
 
 from fastapi import APIRouter, Depends, HTTPException, status
-from pydantic import BaseModel, Field
 from sqlalchemy import select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.v1.authz import AuthContext, get_auth_context, require_role
+from app.api.v1.classroom_access import ensure_student_enrolled
 from app.api.v1.router_utils import map_unexpected_errors
 from app.core.logging import get_logger
 from app.domain.schemas.dashboards import ExitTicketConfig
-from app.services.ai.exit_ticket.config_serialization import exit_ticket_row_to_config
+from app.domain.schemas.student_exit_ticket import ExitTicketSubmitBody
 from app.infrastructure.database.connection import get_db
-from app.infrastructure.database.models import Classroom, ClassroomStudent, ExitTicket, ExitTicketResponse
+from app.infrastructure.database.models import Classroom, ExitTicket, ExitTicketResponse
+from app.services.ai.exit_ticket.config_serialization import exit_ticket_row_to_config
+from app.services.exit_ticket.mastery_bridge import apply_exit_ticket_to_mastery
+from app.services.exit_ticket.scoring import score_exit_ticket_submission
 
 logger = get_logger(__name__)
 router = APIRouter(prefix="/student/exit-tickets")
 
 
-class ExitTicketSubmitBody(BaseModel):
-    answers: dict[str, str] = Field(default_factory=dict)
-
-
-def _score_submission(questions: list, answers: dict[str, str]) -> float | None:
-    total = 0.0
-    earned = 0.0
-    for raw in questions or []:
-        if not isinstance(raw, dict):
-            continue
-        qid = str(raw.get("id", ""))
-        pts = float(raw.get("points", 1.0) or 1.0)
-        total += pts
-        ca = (raw.get("correct_answer") or "").strip().lower()
-        sa = (answers.get(qid) or "").strip().lower()
-        if ca and sa == ca:
-            earned += pts
-    if total <= 0:
-        return None
-    return round(100.0 * earned / total, 4)
-
-
-async def _assert_student_enrolled(db: AsyncSession, student_id: uuid.UUID, class_id: uuid.UUID) -> None:
-    r = await db.execute(
-        select(ClassroomStudent.id).where(
-            ClassroomStudent.student_id == student_id,
-            ClassroomStudent.classroom_id == class_id,
-        )
-    )
-    if r.scalar_one_or_none() is None:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Not enrolled in this class.")
-
-
 async def _assert_ticket_published_for_class(db: AsyncSession, classroom_id: uuid.UUID, ticket_id: uuid.UUID) -> None:
+    """Used by GET only — requires the ticket to be currently active in the live session."""
     c_row = await db.scalar(select(Classroom).where(Classroom.id == classroom_id))
     if c_row is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Classroom not found.")
@@ -88,7 +60,7 @@ async def get_exit_ticket_for_student(
     if t_row is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Exit ticket not found.")
 
-    await _assert_student_enrolled(db, auth.user_id, t_row.class_id)
+    await ensure_student_enrolled(db, auth.user_id, t_row.class_id)
     await _assert_ticket_published_for_class(db, t_row.class_id, ticket_id)
     return exit_ticket_row_to_config(t_row)
 
@@ -111,16 +83,85 @@ async def submit_exit_ticket_attempt(
     if t_row is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Exit ticket not found.")
 
-    await _assert_student_enrolled(db, auth.user_id, t_row.class_id)
-    await _assert_ticket_published_for_class(db, t_row.class_id, ticket_id)
+    await ensure_student_enrolled(db, auth.user_id, t_row.class_id)
 
-    score = _score_submission(list(t_row.questions or []), body.answers)
+    # Allow submission if the ticket was ever published (published_at set), regardless of whether
+    # the live session is still active.  Using _assert_ticket_published_for_class here would
+    # reject submissions from students who answered just after the teacher stopped the session,
+    # silently dropping their work.
+    if t_row.published_at is None:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="This exit ticket has not been published yet.",
+        )
+
+    # Idempotency: if this student already submitted, return 204 without creating a duplicate row.
+    existing = await db.scalar(
+        select(ExitTicketResponse.id).where(
+            ExitTicketResponse.exit_ticket_id == ticket_id,
+            ExitTicketResponse.student_id == auth.user_id,
+        )
+    )
+    if existing is not None:
+        logger.info("exit_ticket_already_submitted", ticket=str(ticket_id), student=str(auth.user_id))
+        return
+
+    # Prefer the frontend-computed score/results when provided — they were derived from the same
+    # validateStep API the student saw, so they match the student's experience exactly.
+    # Fall back to server-side scoring only when the client omits them.
+    if body.score_percent is not None and body.results:
+        score: float | None = body.score_percent
+        per_question: dict[str, bool] = body.results
+    else:
+        score, per_question = await score_exit_ticket_submission(list(t_row.questions or []), body.answers)
+
+    answers_list = [
+        {
+            "question_id": k,
+            "answer": v,
+            **({"is_correct": per_question[k]} if k in per_question else {}),
+        }
+        for k, v in body.answers.items()
+    ]
     row = ExitTicketResponse(
         exit_ticket_id=ticket_id,
         student_id=auth.user_id,
-        answers=[{"question_id": k, "answer": v} for k, v in body.answers.items()],
+        answers=answers_list,
         score=score,
         submitted_at=datetime.now(timezone.utc),
     )
     db.add(row)
-    await db.flush()
+    try:
+        await db.flush()
+    except IntegrityError:
+        # Concurrent duplicate submit — unique (exit_ticket_id, student_id); treat as idempotent 204.
+        await db.rollback()
+        logger.info(
+            "exit_ticket_submit_integrity_duplicate",
+            ticket=str(ticket_id),
+            student=str(auth.user_id),
+        )
+        return
+    # Persist before response: dependency commit runs after the response is sent, so without
+    # this the teacher can poll/SSE before the row is visible.
+    await db.commit()
+    logger.info("exit_ticket_submitted", ticket=str(ticket_id), student=str(auth.user_id), score=score)
+
+    # Feed the exit ticket score into the mastery model (fills the top band: 85%→100%).
+    if score is not None:
+        try:
+            await apply_exit_ticket_to_mastery(
+                db,
+                user_id=auth.user_id,
+                unit_id=t_row.unit_id,
+                lesson_index=t_row.lesson_index,
+                exit_ticket_score_percent=score,
+            )
+            await db.commit()
+        except Exception:
+            logger.warning(
+                "exit_ticket_mastery_bridge_failed",
+                ticket=str(ticket_id),
+                student=str(auth.user_id),
+                exc_info=True,
+            )

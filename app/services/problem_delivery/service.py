@@ -18,6 +18,11 @@ from app.services.problem_delivery.delivery_telemetry import DeliveryTelemetry
 from app.services.problem_delivery.difficulty_policy import DifficultyPolicy
 from app.services.problem_delivery.generation_orchestrator import LessonContextLoader
 from app.services.problem_delivery.limits import max_problems_for_level
+from app.services.classroom.class_settings import (
+    get_allow_answer_reveal,
+    get_max_answer_reveals_per_lesson,
+    get_min_level1_examples_for_level2,
+)
 from app.services.problem_delivery.playlist_coordinator import PlaylistCoordinator
 
 logger = get_logger(__name__)
@@ -85,8 +90,18 @@ class ProblemDeliveryService:
         context_tag = req.interests[0] if req.interests else None
         exclude = set(req.exclude_ids or [])
         effective_difficulty = await self._difficulty.resolve(req)
+        reveal = await get_allow_answer_reveal(self._db, req.class_id)
+        max_reveals = await get_max_answer_reveals_per_lesson(self._db, req.class_id)
+        min_l1 = await get_min_level1_examples_for_level2(self._db, req.class_id)
 
-        resumed = await self._playlist.try_resume(req, effective_difficulty, max_p)
+        resumed = await self._playlist.try_resume(
+            req,
+            effective_difficulty,
+            max_p,
+            allow_answer_reveal=reveal,
+            max_answer_reveals_per_lesson=max_reveals,
+            min_level1_examples_for_level2=min_l1,
+        )
         if resumed:
             return resumed
 
@@ -122,6 +137,15 @@ class ProblemDeliveryService:
                 )
             blueprint = getattr(lesson_obj, "blueprint", None) or "solver"
             t0 = perf_now()
+            # Collect titles/statements of problems the student already saw in this slot
+            # so the LLM avoids repeating the same scenario.
+            previous_problems = await self._playlist.get_previous_problem_summaries(
+                user_id=req.user_id,
+                unit_id=req.unit_id,
+                lesson_index=req.lesson_index,
+                level=req.level,
+                difficulty=effective_difficulty,
+            )
             problem = await self._gen.generate(
                 unit_id=req.unit_id,
                 lesson_index=req.lesson_index,
@@ -135,6 +159,7 @@ class ProblemDeliveryService:
                 lesson_context=lesson_context,
                 blueprint=blueprint,
                 db=self._db,
+                previous_problems=previous_problems,
             )
             # Fill step.category from canonical labels when the LLM omits it; must run before cache/playlist.
             enforce_step_types(problem, req.level)
@@ -173,7 +198,15 @@ class ProblemDeliveryService:
                 has_prev=ci > 0,
                 has_next=ci < total - 1,
                 at_limit=total >= max_p,
+                allow_answer_reveal=reveal,
+                max_answer_reveals_per_lesson=max_reveals,
+                min_level1_examples_for_level2=min_l1,
             )
 
-        return ProblemDeliveryResponse(problem=problem)
+        return ProblemDeliveryResponse(
+            problem=problem,
+            allow_answer_reveal=reveal,
+            max_answer_reveals_per_lesson=max_reveals,
+            min_level1_examples_for_level2=min_l1,
+        )
 

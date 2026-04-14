@@ -1,4 +1,5 @@
 from contextlib import asynccontextmanager
+from typing import Any
 
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
@@ -16,6 +17,7 @@ from app.api.v1.routers import (
     problems,
     student_exit_tickets,
     students,
+    superadmin,
     teacher,
     units,
 )
@@ -65,6 +67,9 @@ app.add_middleware(
 # ── Global error handler ─────────────────────────────────────
 @app.exception_handler(Exception)
 async def global_exception_handler(request: Request, exc: Exception) -> JSONResponse:
+    # Let process signals through; do not convert to JSON 500.
+    if isinstance(exc, (KeyboardInterrupt, SystemExit)):
+        raise exc
     logger.error(
         "unhandled_exception",
         path=request.url.path,
@@ -72,10 +77,13 @@ async def global_exception_handler(request: Request, exc: Exception) -> JSONResp
         error=str(exc),
         exc_info=True,
     )
-    response = JSONResponse(
-        status_code=500,
-        content={"detail": "An internal error occurred. Please try again."},
-    )
+    payload: dict[str, Any] = {"detail": "An internal error occurred. Please try again."}
+    if settings.environment == "development":
+        payload["debug"] = {
+            "type": exc.__class__.__name__,
+            "message": str(exc)[:500],
+        }
+    response = JSONResponse(status_code=500, content=payload)
     # Starlette's CORSMiddleware does not inject headers into responses returned
     # from exception handlers (the handler fires inside the middleware's call chain,
     # so the wrapped send() is never reached).  Manually mirror the CORS headers so
@@ -113,6 +121,7 @@ app.include_router(exit_tickets.router, prefix=prefix, tags=["Exit Tickets"])
 app.include_router(student_exit_tickets.router, prefix=prefix, tags=["Student Exit Tickets"])
 app.include_router(presence.router, prefix=prefix, tags=["Presence"])
 app.include_router(admin.router, prefix=prefix, tags=["Admin"])
+app.include_router(superadmin.router, prefix=prefix, tags=["Super Admin"])
 
 
 @app.get("/health", tags=["Health"])

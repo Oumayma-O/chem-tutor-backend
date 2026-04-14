@@ -6,13 +6,19 @@ services:
     ports:
       - "8000:8000"
     env_file: .env
-    command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+    # No --reload: hot reload interrupts long LLM calls and SSE streams and can leak pool
+    # connections on shutdown. Restart the container after code changes: docker compose restart app
+    command: >
+      sh -c "alembic upgrade head && uvicorn app.main:app --host 0.0.0.0 --port 8000
+      --timeout-graceful-shutdown 8"
     volumes:
       - ./app:/app/app          # bind mount — changes sync instantly, no docker compose watch needed
       - ./scripts:/app/scripts  # bind mount — seed script changes sync without rebuild
+      - ./alembic:/app/alembic  # migrations always match repo (image COPY can go stale)
+      - ./alembic.ini:/app/alembic.ini
     develop:
       watch:
-        - action: sync          # sync code → uvicorn --reload picks it up
+        - action: sync          # sync code into container; restart app to load changes
           path: ./app
           target: /app/app
         - action: rebuild       # rebuild image when deps change

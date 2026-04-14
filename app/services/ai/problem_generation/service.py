@@ -66,6 +66,7 @@ class ProblemGenerationService:
         lesson_context: dict | None = None,
         db: "AsyncSession | None" = None,
         blueprint: str | None = None,
+        previous_problems: list[str] | None = None,
     ) -> ProblemOutput:
         resolved_blueprint = blueprint or "solver"
         step_count = prompts.get_step_count_for_prompt(resolved_blueprint)
@@ -88,6 +89,7 @@ class ProblemGenerationService:
             problem_style=problem_style,
             lesson_context=lesson_context,
             db_examples=db_examples,
+            previous_problems=previous_problems,
         )
         messages = [
             {"role": "system", "content": system},

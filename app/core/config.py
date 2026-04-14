@@ -66,6 +66,9 @@ class Settings(BaseSettings):
     fast_gemini_model: str = ""
     fast_mistral_model: str = "mistral-small-latest"
 
+    # Max seconds for a single LLM HTTP request (OpenAI client). Prevents indefinite hangs.
+    llm_timeout_seconds: float = 180.0
+
     # ── Mastery ──────────────────────────────────────────────
     mastery_window: int = 5
     # Minimum attempt score to count toward band-filling (below this = ignored)
@@ -82,6 +85,9 @@ class Settings(BaseSettings):
     l1_max_problems: int = 3   # worked examples — see pattern, then do it yourself
     l2_max_problems: int = 5   # faded practice — variety before mastery check
     l3_max_problems: int = 5   # challenge — high-effort; spaced practice elsewhere
+
+    # Default for new classrooms: max “3-strikes” answer reveals per lesson (teachers can override per class).
+    default_max_answer_reveals_per_lesson: int = Field(default=6, ge=1, le=200)
 
     # ── Auth ─────────────────────────────────────────────────
     jwt_secret_key: str = "chemtutor-dev-secret-key-change-in-production-32chars"

@@ -5,8 +5,10 @@ GET  /teacher/classes
 POST /teacher/classes
 GET  /teacher/classes/{classroom_id}/roster
 GET  /teacher/classes/{classroom_id}/live
+GET  /teacher/classes/{classroom_id}/live/stream
 GET  /teacher/classes/{classroom_id}/sessions
 GET  /teacher/classes/{classroom_id}/sessions/{session_id}/practice-analytics
+GET  /teacher/classes/{classroom_id}/sessions/{session_id}/practice-analytics/stream
 """
 
 import uuid
@@ -14,12 +16,16 @@ from collections import defaultdict
 from datetime import datetime, timezone
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
-from sqlalchemy import select
+from fastapi.responses import StreamingResponse
+from pydantic import TypeAdapter
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.api.v1.authz import AuthContext, get_auth_context, require_teacher
+from app.api.v1.authz import AuthContext, get_auth_context, get_auth_context_from_query, require_teacher, require_teacher_or_admin
+from app.api.v1.classroom_access import ensure_teacher_classroom
 from app.domain.schemas.live_session import LiveSessionOut, LiveSessionPublishRequest
-from app.infrastructure.database.connection import get_db
+from app.core.sse_stream import SSE_STREAM_HEADERS, sse_json_poll_events
+from app.infrastructure.database.connection import get_db, sse_poll_session
 from app.services.classroom import live_session as live_session_svc
 from app.domain.schemas.classrooms import ClassroomOut
 from app.domain.schemas.dashboards import (
@@ -41,7 +47,6 @@ from app.infrastructure.database.repositories.attempt_repo import (
     AttemptRepository,
     MisconceptionRepository,
 )
-from app.infrastructure.database.repositories.classroom_repo import ClassroomRepository
 from app.infrastructure.database.repositories.mastery_repo import MasteryRepository
 from app.services.mastery_service import MasteryService
 from app.services.teacher.service import TeacherService
@@ -49,7 +54,47 @@ from app.services.teacher.service import TeacherService
 router = APIRouter(prefix="/teacher")
 
 
+# ── Helpers for student attempt metrics ────────────────────────────────────
+
+def _compute_time_spent(attempt: ProblemAttempt) -> int:
+    """Seconds between started_at and completed_at. 0 if incomplete or missing."""
+    if not attempt.completed_at or not attempt.started_at:
+        return 0
+    delta = attempt.completed_at - attempt.started_at
+    return max(0, int(delta.total_seconds()))
+
+
+def _count_hints(step_log: list | dict | None) -> int:
+    """Sum hints_used across all steps in the step_log JSONB array."""
+    if not isinstance(step_log, list):
+        return 0
+    return sum(
+        int(step.get("hints_used", 0) or 0)
+        for step in step_log
+        if isinstance(step, dict)
+    )
+
+
+def _count_reveals(step_log: list | dict | None) -> int:
+    """Count steps where the student used an answer reveal."""
+    if not isinstance(step_log, list):
+        return 0
+    return sum(
+        1 for step in step_log
+        if isinstance(step, dict) and step.get("was_revealed") is True
+    )
+
+
 def _teacher_service(db: AsyncSession = Depends(get_db)) -> TeacherService:
+    mastery = MasteryService(
+        mastery_repo=MasteryRepository(db),
+        attempt_repo=AttemptRepository(db),
+        misconception_repo=MisconceptionRepository(db),
+    )
+    return TeacherService(db, mastery)
+
+
+def _teacher_service_from_session(db: AsyncSession) -> TeacherService:
     mastery = MasteryService(
         mastery_repo=MasteryRepository(db),
         attempt_repo=AttemptRepository(db),
@@ -98,10 +143,13 @@ async def get_class_roster(
     classroom_id: uuid.UUID,
     auth: AuthContext = Depends(get_auth_context),
     svc: TeacherService = Depends(_teacher_service),
+    db: AsyncSession = Depends(get_db),
 ) -> list[RosterStudentEntry]:
-    require_teacher(auth)
+    require_teacher_or_admin(auth)
+    await ensure_teacher_classroom(db, auth, classroom_id)
+    teacher_id = auth.user_id if auth.role == "teacher" else None
     try:
-        return await svc.get_roster(classroom_id, auth.user_id)
+        return await svc.get_roster(classroom_id, teacher_id)
     except LookupError as exc:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc))
     except PermissionError as exc:
@@ -113,6 +161,8 @@ async def get_student_analytics(
     classroom_id: uuid.UUID,
     student_id: uuid.UUID,
     unit_id: str | None = Query(default=None, description="Filter by chapter/unit. Omit or 'all' for all chapters."),
+    limit: int = Query(default=20, ge=1, le=200),
+    offset: int = Query(default=0, ge=0),
     auth: AuthContext = Depends(get_auth_context),
     svc: TeacherService = Depends(_teacher_service),
     db: AsyncSession = Depends(get_db),
@@ -120,29 +170,27 @@ async def get_student_analytics(
     """Return recent attempts + mastery snapshot for one student (teacher-only).
 
     Pass ?unit_id=<id> to scope mastery and attempts to a specific chapter.
+    Supports pagination via ?limit=20&offset=0.
     """
-    require_teacher(auth)
-    try:
-        classroom = await svc._classrooms.get_by_id_with_students(classroom_id)
-    except Exception:
-        classroom = None
-    if classroom is None:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Classroom not found.")
-    if classroom.teacher_id != auth.user_id:
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Not your class.")
+    await ensure_teacher_classroom(db, auth, classroom_id)
 
     filter_unit = unit_id if (unit_id and unit_id != "all") else None
     snap = await svc._mastery.get_student_mastery_snapshot(student_id, filter_unit)
+
+    count_q = select(func.count()).select_from(ProblemAttempt).where(ProblemAttempt.user_id == student_id)
+    if filter_unit:
+        count_q = count_q.where(ProblemAttempt.unit_id == filter_unit)
+    total_attempts = await db.scalar(count_q) or 0
 
     query = (
         select(ProblemAttempt)
         .where(ProblemAttempt.user_id == student_id)
         .order_by(ProblemAttempt.started_at.desc())
+        .limit(limit)
+        .offset(offset)
     )
     if filter_unit:
-        query = query.where(ProblemAttempt.unit_id == filter_unit).limit(200)
-    else:
-        query = query.limit(120)
+        query = query.where(ProblemAttempt.unit_id == filter_unit)
 
     result = await db.execute(query)
     rows = result.scalars().all()
@@ -160,10 +208,15 @@ async def get_student_analytics(
                 score=r.score,
                 is_complete=r.is_complete,
                 started_at=r.started_at,
+                completed_at=r.completed_at,
+                time_spent_s=_compute_time_spent(r),
+                hints_used=_count_hints(r.step_log),
+                reveals_used=_count_reveals(r.step_log),
             )
             for r in rows
         ],
         lessons_with_data=snap.lessons_with_data,
+        total_attempts=total_attempts,
     )
 
 
@@ -172,15 +225,61 @@ async def get_class_live(
     classroom_id: uuid.UUID,
     auth: AuthContext = Depends(get_auth_context),
     svc: TeacherService = Depends(_teacher_service),
+    db: AsyncSession = Depends(get_db),
     within_seconds: int = Query(default=60, ge=10, le=300),
 ) -> list[LiveStudentEntry]:
-    require_teacher(auth)
+    require_teacher_or_admin(auth)
+    await ensure_teacher_classroom(db, auth, classroom_id)
+    teacher_id = auth.user_id if auth.role == "teacher" else None
     try:
-        return await svc.get_live(classroom_id, auth.user_id, within_seconds)
+        return await svc.get_live(classroom_id, teacher_id, within_seconds)
     except LookupError as exc:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc))
     except PermissionError as exc:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=str(exc))
+
+
+_live_rows_adapter = TypeAdapter(list[LiveStudentEntry])
+
+
+@router.get("/classes/{classroom_id}/live/stream")
+async def stream_class_live(
+    classroom_id: uuid.UUID,
+    auth: AuthContext = Depends(get_auth_context_from_query),
+    db: AsyncSession = Depends(get_db),
+    within_seconds: int = Query(default=60, ge=10, le=300),
+) -> StreamingResponse:
+    """SSE: push live presence rows when they change (replaces teacher polling)."""
+    require_teacher_or_admin(auth)
+    await ensure_teacher_classroom(db, auth, classroom_id)
+    teacher_id = auth.user_id if auth.role == "teacher" else None
+    async with sse_poll_session() as db:
+        svc = _teacher_service_from_session(db)
+        try:
+            await svc.get_live(classroom_id, teacher_id, within_seconds)
+        except LookupError as exc:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc)) from exc
+        except PermissionError as exc:
+            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=str(exc)) from exc
+
+    async def event_stream():
+        async def poll_json() -> str:
+            async with sse_poll_session() as sdb:
+                ssvc = _teacher_service_from_session(sdb)
+                rows = await ssvc.get_live(classroom_id, teacher_id, within_seconds)
+            return _live_rows_adapter.dump_json(rows).decode()
+
+        async for chunk in sse_json_poll_events(
+            poll_json=poll_json,
+            log_event="teacher_live_sse_error",
+        ):
+            yield chunk
+
+    return StreamingResponse(
+        event_stream(),
+        media_type="text/event-stream",
+        headers=dict(SSE_STREAM_HEADERS),
+    )
 
 
 @router.post(
@@ -233,19 +332,6 @@ async def stop_classroom_live_session(
 # ── Session history ────────────────────────────────────────────
 
 
-async def _verify_classroom_owner(
-    classroom_id: uuid.UUID,
-    auth: AuthContext,
-    db: AsyncSession,
-) -> None:
-    c_repo = ClassroomRepository(db)
-    classroom = await c_repo.get_by_id_with_students(classroom_id)
-    if classroom is None:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Classroom not found.")
-    if classroom.teacher_id != auth.user_id:
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Not your class.")
-
-
 @router.get("/classes/{classroom_id}/sessions", response_model=list[ClassroomSessionOut])
 async def list_classroom_sessions(
     classroom_id: uuid.UUID,
@@ -255,8 +341,7 @@ async def list_classroom_sessions(
     db: AsyncSession = Depends(get_db),
 ) -> list[ClassroomSessionOut]:
     """Paginated list of persisted sessions (timed practice / exit ticket / both)."""
-    require_teacher(auth)
-    await _verify_classroom_owner(classroom_id, auth, db)
+    await ensure_teacher_classroom(db, auth, classroom_id)
 
     result = await db.execute(
         select(ClassroomSession)
@@ -282,20 +367,11 @@ async def list_classroom_sessions(
     ]
 
 
-@router.get(
-    "/classes/{classroom_id}/sessions/{session_id}/practice-analytics",
-    response_model=TimedPracticeAnalytics,
-)
-async def get_timed_practice_analytics(
+async def _fetch_timed_practice_analytics(
+    db: AsyncSession,
     classroom_id: uuid.UUID,
     session_id: uuid.UUID,
-    auth: AuthContext = Depends(get_auth_context),
-    db: AsyncSession = Depends(get_db),
-) -> TimedPracticeAnalytics:
-    """Per-student, per-level problem attempt stats for a specific timed-practice session."""
-    require_teacher(auth)
-    await _verify_classroom_owner(classroom_id, auth, db)
-
+) -> TimedPracticeAnalytics | None:
     sess = await db.scalar(
         select(ClassroomSession).where(
             ClassroomSession.id == session_id,
@@ -303,7 +379,7 @@ async def get_timed_practice_analytics(
         )
     )
     if sess is None:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Session not found.")
+        return None
 
     end_bound = sess.ended_at or datetime.now(timezone.utc)
     result = await db.execute(
@@ -353,4 +429,56 @@ async def get_timed_practice_analytics(
         unit_id=sess.unit_id,
         lesson_index=sess.lesson_index,
         rows=rows,
+    )
+
+
+@router.get(
+    "/classes/{classroom_id}/sessions/{session_id}/practice-analytics",
+    response_model=TimedPracticeAnalytics,
+)
+async def get_timed_practice_analytics(
+    classroom_id: uuid.UUID,
+    session_id: uuid.UUID,
+    auth: AuthContext = Depends(get_auth_context),
+    db: AsyncSession = Depends(get_db),
+) -> TimedPracticeAnalytics:
+    """Per-student, per-level problem attempt stats for a specific timed-practice session."""
+    await ensure_teacher_classroom(db, auth, classroom_id)
+
+    out = await _fetch_timed_practice_analytics(db, classroom_id, session_id)
+    if out is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Session not found.")
+    return out
+
+
+@router.get("/classes/{classroom_id}/sessions/{session_id}/practice-analytics/stream")
+async def stream_timed_practice_analytics(
+    classroom_id: uuid.UUID,
+    session_id: uuid.UUID,
+    auth: AuthContext = Depends(get_auth_context_from_query),
+) -> StreamingResponse:
+    """SSE: push timed practice analytics when attempt counts change."""
+    async with sse_poll_session() as db:
+        await ensure_teacher_classroom(db, auth, classroom_id)
+        if await _fetch_timed_practice_analytics(db, classroom_id, session_id) is None:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Session not found.")
+
+    async def event_stream():
+        async def poll_json() -> str | None:
+            async with sse_poll_session() as sdb:
+                out = await _fetch_timed_practice_analytics(sdb, classroom_id, session_id)
+            if out is None:
+                return None
+            return out.model_dump_json()
+
+        async for chunk in sse_json_poll_events(
+            poll_json=poll_json,
+            log_event="teacher_practice_analytics_sse_error",
+        ):
+            yield chunk
+
+    return StreamingResponse(
+        event_stream(),
+        media_type="text/event-stream",
+        headers=dict(SSE_STREAM_HEADERS),
     )

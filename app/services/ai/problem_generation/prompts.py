@@ -273,12 +273,22 @@ def build_system_prompt(
     problem_style: str | None,
     lesson_context: dict | None,
     db_examples: list[dict],
+    previous_problems: list[str] | None = None,
 ) -> str:
     config = BLUEPRINT_CONFIG.get(resolved_blueprint, BLUEPRINT_CONFIG["solver"])
     labels_block = " | ".join(config["labels"])
     blueprint_logic = config["logic"]
     interest_slug = (interests[0] if interests else "general chemistry").strip() or "general chemistry"
     skill_list = collect_skills_from_lesson_objectives(lesson_context, resolved_blueprint)
+
+    dedup_block = ""
+    if previous_problems:
+        items = "\n".join(f"  - {p}" for p in previous_problems[:5])
+        dedup_block = (
+            f"\n\n### DO NOT REPEAT ###\n"
+            f"The student has already seen these problems. You MUST use a DIFFERENT scenario, "
+            f"context, substance, and numeric values:\n{items}\n"
+        )
 
     return GENERATE_PROBLEM_SYSTEM.format(
         blueprint=resolved_blueprint,
@@ -299,5 +309,5 @@ def build_system_prompt(
         grade_block=f"Student grade level: {grade_level}." if grade_level else "",
         skills_block=build_skills_block(skill_list),
         lesson_guidance_block=build_lesson_guidance_block(lesson_context),
-    ) + get_few_shot_block(db_examples)
+    ) + dedup_block + get_few_shot_block(db_examples)
 

@@ -2,6 +2,7 @@
 
 import uuid
 
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.logging import get_logger
@@ -11,7 +12,7 @@ from app.domain.schemas.classrooms import (
     ClassroomStudentOut,
     JoinClassroomResponse,
 )
-from app.infrastructure.database.models import Classroom
+from app.infrastructure.database.models import Classroom, User
 from app.infrastructure.database.repositories.classroom_repo import (
     ClassroomRepository,
     ClassroomStudentRepository,
@@ -75,6 +76,19 @@ class ClassroomService:
         if classroom is None or not classroom.is_active:
             raise LookupError("No active classroom found with that code.")
         await self._students.enroll(classroom.id, student_id)
+
+        # Inherit district/school from the teacher who owns the classroom.
+        teacher = await self._session.scalar(
+            select(User).where(User.id == classroom.teacher_id)
+        )
+        if teacher:
+            student = await self._session.scalar(
+                select(User).where(User.id == student_id)
+            )
+            if student:
+                student.district = teacher.district
+                student.school = teacher.school
+
         logger.info("student_joined_classroom", student=str(student_id), classroom=str(classroom.id))
         return JoinClassroomResponse(
             classroom_id=classroom.id,
@@ -114,6 +128,17 @@ class ClassroomService:
             ClassroomStudentOut(student_id=m.student_id, joined_at=m.joined_at)
             for m in members
         ]
+
+    async def delete(self, classroom_id: uuid.UUID, teacher_id: uuid.UUID) -> None:
+        """Soft-delete: set is_active=False. Raises LookupError / PermissionError."""
+        classroom = await self._repo.get_by_id_with_students(classroom_id)
+        if classroom is None:
+            raise LookupError("Classroom not found.")
+        if classroom.teacher_id != teacher_id:
+            raise PermissionError("Not your classroom.")
+        classroom.is_active = False
+        await self._session.commit()
+        logger.info("classroom_deleted", classroom=str(classroom_id), teacher=str(teacher_id))
 
     async def get_raw(self, classroom_id: uuid.UUID):
         """Return raw ORM model (with students loaded) for ownership checks."""

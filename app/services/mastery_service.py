@@ -173,12 +173,19 @@ class MasteryService:
         self,
         attempt_id: uuid.UUID,
         step_log: list[dict],
+        *,
+        was_revealed: bool = False,
     ) -> tuple[MasteryState, float, int]:
         """
         Persist in-progress step_log and return a live mastery snapshot.
 
         This does NOT increment attempts_count and does NOT write preview values
         into SkillMastery. Final mastery is committed on complete_attempt().
+
+        When ``was_revealed`` is True (student used teacher-approved answer reveal),
+        we still persist ``step_log`` for resume/analytics but return the committed
+        mastery snapshot without blending this step into error/category previews
+        (anti-inflation).
         """
         attempt = await self._attempts.get(attempt_id)
         if attempt is None:
@@ -198,6 +205,10 @@ class MasteryService:
             )
 
         attempt_score, attempted_steps = _compute_attempt_score_from_step_log(step_log)
+
+        if was_revealed:
+            state = _to_mastery_state(mastery_record, settings.l3_mastery_ceiling)
+            return state, attempt_score, attempted_steps
 
         # Mastery preview uses only committed (completed) attempts.
         # Blending the in-progress score inflates mastery on partial step data.

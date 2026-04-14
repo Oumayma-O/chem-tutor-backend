@@ -92,6 +92,7 @@ class SaveStepRequest(BaseModel):
     """Checkpoint: persist the current step_log for an in-progress attempt."""
     attempt_id: uuid.UUID
     step_log: list[dict]
+    was_revealed: bool = False
 
 
 class SaveStepResponse(BaseModel):

@@ -8,19 +8,15 @@ from pydantic import BaseModel, EmailStr, Field, field_validator
 class RegisterRequest(BaseModel):
     email: EmailStr
     password: str
-    role: str  # "student" | "teacher"
+    role: str  # "student" only (public signup)
     name: str
-    grade_level: Optional[str] = None   # display string e.g. "High School (9–10)"
-    grade: Optional[str] = None         # grade name for profile (e.g. "12th Grade")
-    course: Optional[str] = None        # course name for profile (e.g. "AP Chemistry")
-    class_name: Optional[str] = None    # teacher only
     interests: Optional[list[str]] = None  # interest slugs
 
     @field_validator("role")
     @classmethod
     def validate_role(cls, v: str) -> str:
-        if v not in ("student", "teacher"):
-            raise ValueError("role must be 'student' or 'teacher'")
+        if v != "student":
+            raise ValueError("Public registration is for students only.")
         return v
 
     @field_validator("password")
@@ -49,6 +45,8 @@ class ProfileUpdateRequest(BaseModel):
     grade: Optional[str] = None
     course: Optional[str] = None
     interests: Optional[list[str]] = None
+    district: Optional[str] = Field(default=None, max_length=300)
+    school: Optional[str] = Field(default=None, max_length=300)
 
 
 class MeResponse(BaseModel):
@@ -63,3 +61,12 @@ class MeResponse(BaseModel):
     classroom_id: Optional[str] = None
     classroom_name: Optional[str] = None
     classroom_code: Optional[str] = None
+    district: Optional[str] = None
+    school: Optional[str] = None
+
+
+class AccountUpdateRequest(BaseModel):
+    """PUT/PATCH /auth/me — update email and/or password."""
+    email: Optional[EmailStr] = None
+    current_password: Optional[str] = Field(default=None, min_length=1)
+    new_password: Optional[str] = Field(default=None, min_length=6)

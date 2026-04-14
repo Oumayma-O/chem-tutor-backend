@@ -6,7 +6,8 @@ generation_logs, few_shot_examples, presence_heartbeats.
 """
 
 import uuid
-from datetime import datetime
+from datetime import date, datetime
+from typing import Literal
 
 from pydantic import BaseModel, Field
 
@@ -115,6 +116,10 @@ class RosterStudentEntry(BaseModel):
     joined_at: datetime
     mastery: MasterySnapshot
     at_risk: bool = False
+    last_activity_at: datetime | None = Field(
+        default=None,
+        description="Latest of problem attempts and session heartbeats.",
+    )
 
 
 class ClassSummaryStats(BaseModel):
@@ -137,6 +142,9 @@ class TeacherClassOut(BaseModel):
     student_count: int
     is_active: bool
     calculator_enabled: bool = True
+    allow_answer_reveal: bool = True
+    max_answer_reveals_per_lesson: int = 6
+    min_level1_examples_for_level2: int = 2
     created_at: datetime
     stats: ClassSummaryStats
     # Snapshot of `classrooms.live_session` for Exit Tickets tab (timed practice + exit-only sessions).
@@ -172,6 +180,23 @@ class SystemStats(BaseModel):
     total_classrooms: int = 0
 
 
+class SuperadminStats(BaseModel):
+    total_admins: int = 0
+    total_teachers: int = 0
+    total_classes: int = 0
+    total_students: int = 0
+    total_districts: int = 0
+    """Count of distinct district values across all admin accounts."""
+    total_schools: int = 0
+    """Count of distinct school values across all admin accounts."""
+
+
+class AdminStats(BaseModel):
+    total_teachers: int = 0
+    total_classes: int = 0
+    total_students: int = 0
+
+
 class AdminTeacherClassSummary(BaseModel):
     """One classroom row for admin teacher list."""
 
@@ -186,7 +211,12 @@ class AdminTeacherOut(BaseModel):
     user_id: uuid.UUID
     display_name: str
     email: str
-    grade_level: str | None = None
+    district: str | None = None
+    school: str | None = None
+    total_students: int = 0
+    total_classes: int = 0
+    is_online: bool = False
+    is_active: bool = True
     created_at: datetime
     classes: list[AdminTeacherClassSummary] = Field(default_factory=list)
 
@@ -243,6 +273,10 @@ class StudentAttemptOut(BaseModel):
     score: float | None
     is_complete: bool
     started_at: datetime
+    completed_at: datetime | None = None
+    time_spent_s: int = 0
+    hints_used: int = 0
+    reveals_used: int = 0
 
 
 class StudentAnalyticsOut(BaseModel):
@@ -253,6 +287,7 @@ class StudentAnalyticsOut(BaseModel):
     category_scores: dict
     recent_attempts: list[StudentAttemptOut]
     lessons_with_data: int
+    total_attempts: int = 0
 
 
 # ── Requests ────────────────────────────────────────────────
@@ -274,15 +309,23 @@ class TeacherClassPatch(BaseModel):
     """Partial update for PATCH /teacher/classes/{id}."""
 
     calculator_enabled: bool | None = None
+    allow_answer_reveal: bool | None = None
+    max_answer_reveals_per_lesson: int | None = Field(default=None, ge=1, le=200)
+    min_level1_examples_for_level2: int | None = Field(default=None, ge=1, le=20)
 
 
 class ExitTicketGenerateRequest(BaseModel):
+    topic: str = Field(default="", max_length=500, description="Fallback label when lesson context unavailable")
     classroom_id: uuid.UUID
-    unit_id: str = Field(min_length=1, description="Curriculum unit (chapter) ID — required")
-    lesson_index: int = Field(ge=0, description="0-based lesson position within the unit — required")
+    unit_id: str | None = None
+    lesson_index: int = 0
     lesson_id: str | None = Field(default=None, description="Curriculum lesson slug, auto-resolved from unit_id + lesson_index")
     difficulty: str = "medium"
     question_count: int = Field(default=4, ge=1, le=10)
+    question_format: str = Field(
+        default="mixed",
+        description="'mcq' | 'structured' | 'mixed'. When mixed, balance MCQ vs structured evenly.",
+    )
     time_limit_minutes: int = 10
 
 
@@ -367,4 +410,48 @@ class TimedPracticeAnalytics(BaseModel):
     unit_id: str
     lesson_index: int
     rows: list[StudentTimedPracticeRow]
+
+
+# ── Engagement analytics (admin / superadmin) ────────────────
+
+
+class DailyEngagementMetric(BaseModel):
+    """Login count and minutes active for one calendar day."""
+    date: date
+    logins: int
+    minutes: int
+
+
+class TeacherEngagementRow(BaseModel):
+    """Per-teacher engagement summary within the requested timeframe."""
+    teacher_id: uuid.UUID
+    teacher_name: str
+    email: str
+    school: str | None = None
+    district: str | None = None
+    daily: list[DailyEngagementMetric] = Field(default_factory=list)
+    total_logins: int = 0
+    total_minutes: int = 0
+
+
+class ClassQuestionsMetric(BaseModel):
+    """Published exit-ticket questions assigned to one classroom."""
+    classroom_id: uuid.UUID
+    class_name: str
+    teacher_id: uuid.UUID
+    teacher_name: str
+    question_count: int
+
+
+class EngagementAnalyticsOut(BaseModel):
+    """Response for GET /admin/analytics/engagement and GET /superadmin/analytics/engagement."""
+    scope: Literal["teacher", "school", "district"]
+    target: str
+    timeframe: Literal["last_7_days", "last_30_days", "last_90_days"]
+    since: date
+    teachers: list[TeacherEngagementRow] = Field(default_factory=list)
+    questions_by_class: list[ClassQuestionsMetric] = Field(default_factory=list)
+    total_logins: int = 0
+    total_minutes: int = 0
+    total_questions_assigned: int = 0
 

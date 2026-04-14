@@ -1,6 +1,7 @@
 """Exit ticket persistence and listing (PostgreSQL)."""
 
 import uuid
+from datetime import datetime
 from typing import Sequence
 
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -60,9 +61,10 @@ class ExitTicketPersistenceService:
         *,
         unit_id: str | None = None,
         lesson_id: str | None = None,
+        since: datetime | None = None,
     ) -> Sequence[ExitTicket]:
         return await self._repo.list_all_published_for_class(
-            class_id, unit_id=unit_id, lesson_id=lesson_id
+            class_id, unit_id=unit_id, lesson_id=lesson_id, since=since
         )
 
     async def count_published_for_class(self, class_id: uuid.UUID) -> int:

@@ -30,7 +30,7 @@ def map_unexpected_errors(
             except HTTPException:
                 raise
             except Exception as exc:
-                logger.error(event, error=str(exc))
+                logger.error(event, error=str(exc), exc_info=True)
                 raise HTTPException(status_code=status_code, detail=detail) from exc
 
         return _wrapper

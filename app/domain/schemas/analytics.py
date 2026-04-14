@@ -2,6 +2,47 @@ import uuid
 from pydantic import BaseModel, Field
 
 
+# ── Standards mastery schemas ─────────────────────────────────────────────────
+
+class StudentStandardScore(BaseModel):
+    """One student's average mastery across all lessons that map to a standard."""
+    student_id: uuid.UUID
+    mastery_score: float
+
+
+class StandardMasteryItem(BaseModel):
+    """Aggregated mastery for a single standard across the class."""
+    standard_code: str
+    standard_title: str | None
+    framework: str
+    class_avg: float
+    at_risk_count: int
+    student_scores: list[StudentStandardScore]
+
+
+class ClassStandardsMasteryResponse(BaseModel):
+    class_id: uuid.UUID
+    unit_id: str | None
+    standards: list[StandardMasteryItem]
+
+
+class StudentStandardMasteryItem(BaseModel):
+    """One standard's mastery from a student's own perspective."""
+    standard_code: str
+    standard_title: str | None
+    framework: str
+    mastery_score: float
+    lesson_count: int
+    is_mastered: bool
+
+
+class StudentStandardsMasteryResponse(BaseModel):
+    student_id: uuid.UUID
+    standards: list[StudentStandardMasteryItem]
+
+
+# ── Existing class analytics schemas ─────────────────────────────────────────
+
 class StudentMasterySummary(BaseModel):
     student_id: uuid.UUID
     mastery_score: float

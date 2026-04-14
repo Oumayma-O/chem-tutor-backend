@@ -12,6 +12,21 @@ logger = get_logger(__name__)
 
 
 class ExitTicketGenerationService:
+
+    @staticmethod
+    def _build_format_instruction(question_count: int, question_format: str) -> str:
+        if question_format == "mcq":
+            return "All questions MUST use question_type 'mcq'."
+        if question_format == "structured":
+            return "All questions MUST use question_type 'numeric' or 'short_answer' (no MCQ)."
+        # "mixed" — balanced split
+        mcq_count = question_count // 2
+        structured_count = question_count - mcq_count
+        return (
+            f"Use a balanced mix: exactly {mcq_count} questions with question_type 'mcq' "
+            f"and exactly {structured_count} questions with question_type 'numeric' or 'short_answer'."
+        )
+
     # ── Tutor flow: lesson-aware generation ──────────────────
 
     @llm_retry
@@ -50,9 +65,10 @@ class ExitTicketGenerationService:
     @llm_retry
     async def generate_for_teacher(
         self,
-        topic: str,
+        topic: str | None = None,
         question_count: int = 4,
         difficulty: str = "medium",
+        question_format: str = "mixed",
         lesson_name: str | None = None,
         lesson_context: dict | None = None,
         unit_id: str | None = None,
@@ -66,10 +82,11 @@ class ExitTicketGenerationService:
         topic-based prompt when no curriculum context is available.
         """
         qc = max(1, min(10, question_count))
-        display_name = lesson_name or topic
+        display_name = (lesson_name or topic or "").strip() or "(lesson)"
+
+        format_instruction = self._build_format_instruction(qc, question_format)
 
         if lesson_context:
-            # Use the same context-rich prompt as the tutor flow.
             system = prompts.GENERATE_EXIT_TICKET_SYSTEM.format(
                 question_count=qc,
                 difficulty=difficulty,
@@ -81,7 +98,7 @@ class ExitTicketGenerationService:
             user_content = (
                 f"Lesson: {display_name}\n"
                 f"Generate exactly {qc} exit-ticket questions at {difficulty} difficulty.\n"
-                "Use question_type 'mcq' or 'numeric' or 'short_answer' as appropriate."
+                f"{format_instruction}"
             )
         else:
             system = prompts.GENERATE_TEACHER_EXIT_TICKET_SYSTEM
@@ -89,7 +106,7 @@ class ExitTicketGenerationService:
                 f"Topic / focus: {display_name}\n"
                 f"Difficulty: {difficulty}\n"
                 f"Generate exactly {qc} questions. "
-                "Use question_type 'mcq' or 'short_answer' or 'numeric' as appropriate."
+                f"{format_instruction}"
             )
 
         messages = [

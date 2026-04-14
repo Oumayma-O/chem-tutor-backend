@@ -1,7 +1,7 @@
 """Exit ticket sessions and student responses."""
 
 import uuid
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from typing import Sequence
 
 from sqlalchemy import func, select
@@ -61,10 +61,12 @@ class ExitTicketRepository:
         *,
         unit_id: str | None = None,
         lesson_id: str | None = None,
+        since: datetime | None = None,
     ) -> Sequence[ExitTicket]:
         """All published tickets without pagination — used for analytics aggregation.
 
         Optional `unit_id` and `lesson_id` narrow the results to a specific curriculum scope.
+        Optional `since` filters to tickets published on or after that datetime.
         """
         stmt = (
             select(ExitTicket)
@@ -76,6 +78,8 @@ class ExitTicketRepository:
             stmt = stmt.where(ExitTicket.unit_id == unit_id)
         if lesson_id:
             stmt = stmt.where(ExitTicket.lesson_id == lesson_id)
+        if since:
+            stmt = stmt.where(ExitTicket.published_at >= since)
         result = await self._session.execute(stmt)
         return result.scalars().all()
 

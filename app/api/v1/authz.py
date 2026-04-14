@@ -3,7 +3,7 @@
 import uuid
 from dataclasses import dataclass
 
-from fastapi import Depends, HTTPException, status
+from fastapi import Depends, HTTPException, Query, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from jose import JWTError
 
@@ -34,13 +34,10 @@ def _parse_subject(sub: str | None) -> uuid.UUID:
         ) from exc
 
 
-async def get_auth_context(
-    credentials: HTTPAuthorizationCredentials | None = Depends(_bearer),
-) -> AuthContext:
-    if not credentials:
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Not authenticated.")
+def _auth_context_from_token(raw_token: str) -> AuthContext:
+    """Shared decode logic used by both header-based and query-param auth."""
     try:
-        payload = decode_token(credentials.credentials)
+        payload = decode_token(raw_token)
     except JWTError as exc:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
@@ -51,6 +48,25 @@ async def get_auth_context(
         role=str(payload.get("role") or ""),
         email=payload.get("email"),
     )
+
+
+async def get_auth_context(
+    credentials: HTTPAuthorizationCredentials | None = Depends(_bearer),
+) -> AuthContext:
+    if not credentials:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Not authenticated.")
+    return _auth_context_from_token(credentials.credentials)
+
+
+async def get_auth_context_from_query(
+    token: str = Query(..., description="JWT access token (used by SSE endpoints that cannot send an Authorization header)"),
+) -> AuthContext:
+    """
+    FastAPI dependency for endpoints where the client cannot set request headers
+    (e.g. EventSource / SSE).  Validates the JWT using identical logic to
+    `get_auth_context`; the only difference is where the token is read from.
+    """
+    return _auth_context_from_token(token)
 
 
 def require_self(target_user_id: uuid.UUID, auth: AuthContext) -> None:
@@ -68,11 +84,15 @@ def require_teacher(auth: AuthContext) -> None:
 
 
 def require_admin(auth: AuthContext) -> None:
-    require_role(auth, "admin")
+    require_role(auth, "admin", "superadmin")
+
+
+def require_superadmin(auth: AuthContext) -> None:
+    require_role(auth, "superadmin")
 
 
 def require_teacher_or_admin(auth: AuthContext) -> None:
-    require_role(auth, "teacher", "admin")
+    require_role(auth, "teacher", "admin", "superadmin")
 
 
 # FastAPI dependency alias (JWT role claim; extend later with DB is_active checks)

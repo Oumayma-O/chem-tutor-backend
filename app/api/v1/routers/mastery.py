@@ -118,7 +118,7 @@ async def save_step(
     """
     try:
         mastery_state, attempt_score, attempted_steps = await service.preview_step_progress(
-            req.attempt_id, req.step_log
+            req.attempt_id, req.step_log, was_revealed=req.was_revealed
         )
     except ValueError as exc:
         # Specific domain case: attempt not found or already complete → 404

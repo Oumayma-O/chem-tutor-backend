@@ -4,7 +4,8 @@ Business logic extracted from the analytics router so it is independently
 testable and reusable without spinning up FastAPI.
 """
 
-from collections import Counter
+import uuid
+from collections import Counter, defaultdict
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -13,14 +14,23 @@ from app.core.logging import get_logger
 from app.domain.schemas.analytics import (
     ClassAnalyticsRequest,
     ClassAnalyticsResponse,
+    ClassStandardsMasteryResponse,
     LessonBreakdown,
+    StandardMasteryItem,
     StudentMasterySummary,
+    StudentStandardMasteryItem,
+    StudentStandardScore,
+    StudentStandardsMasteryResponse,
 )
 from app.infrastructure.database.repositories.attempt_repo import (
     AttemptRepository,
     MisconceptionRepository,
 )
 from app.infrastructure.database.repositories.mastery_repo import MasteryRepository
+from app.infrastructure.database.repositories.standards_mastery_repo import (
+    StandardsMasteryRepository,
+    _AT_RISK_THRESHOLD,
+)
 from app.services.ai.thinking_analysis.service import ThinkingAnalysisService
 
 logger = get_logger(__name__)
@@ -142,4 +152,80 @@ class AnalyticsService:
             lesson_breakdown=lesson_breakdowns,
             students=student_summaries,
             ai_insights=ai_insights,
+        )
+
+    async def aggregate_class_standards(
+        self,
+        class_id: uuid.UUID,
+        unit_id: str | None = None,
+    ) -> ClassStandardsMasteryResponse:
+        """
+        Return per-standard mastery for every student in a class, gated by
+        which lessons the teacher has run (exit tickets / timed practice).
+        """
+        repo = StandardsMasteryRepository(self._db)
+        rows = await repo.get_class_standards_mastery(class_id=class_id, unit_id=unit_id)
+
+        # Group rows by standard code
+        by_std: dict[str, list] = defaultdict(list)
+        std_meta: dict[str, tuple] = {}  # code → (framework, title)
+        for row in rows:
+            by_std[row.code].append(row)
+            std_meta[row.code] = (row.framework, row.title)
+
+        standards: list[StandardMasteryItem] = []
+        for code, std_rows in sorted(by_std.items()):
+            scores = [row.avg_mastery for row in std_rows]
+            class_avg = sum(scores) / len(scores) if scores else 0.0
+            at_risk = sum(1 for s in scores if s < _AT_RISK_THRESHOLD)
+            framework, title = std_meta[code]
+            standards.append(
+                StandardMasteryItem(
+                    standard_code=code,
+                    standard_title=title,
+                    framework=framework,
+                    class_avg=class_avg,
+                    at_risk_count=at_risk,
+                    student_scores=[
+                        StudentStandardScore(
+                            student_id=r.user_id,
+                            mastery_score=r.avg_mastery,
+                        )
+                        for r in std_rows
+                    ],
+                )
+            )
+
+        return ClassStandardsMasteryResponse(
+            class_id=class_id,
+            unit_id=unit_id,
+            standards=standards,
+        )
+
+    async def aggregate_student_standards(
+        self,
+        student_id: uuid.UUID,
+    ) -> StudentStandardsMasteryResponse:
+        """
+        Return per-standard mastery for a single student, derived from all
+        lessons the student has a SkillMastery record for.
+        """
+        repo = StandardsMasteryRepository(self._db)
+        rows = await repo.get_student_standards_mastery(user_id=student_id)
+
+        standards = [
+            StudentStandardMasteryItem(
+                standard_code=row.code,
+                standard_title=row.title,
+                framework=row.framework,
+                mastery_score=row.avg_mastery,
+                lesson_count=row.lesson_count,
+                is_mastered=row.avg_mastery >= 0.75,
+            )
+            for row in rows
+        ]
+
+        return StudentStandardsMasteryResponse(
+            student_id=student_id,
+            standards=standards,
         )
