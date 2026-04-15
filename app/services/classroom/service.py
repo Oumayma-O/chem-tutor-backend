@@ -46,6 +46,9 @@ class ClassroomService:
         teacher_id: uuid.UUID,
         unit_id: str | None,
     ) -> ClassroomOut:
+        existing = await self._repo.get_active_by_teacher_and_name(teacher_id, name)
+        if existing is not None:
+            raise ValueError(f"You already have an active class named '{existing.name}'.")
         classroom = Classroom(name=name, teacher_id=teacher_id, unit_id=unit_id, code="")
         created = await self._repo.create_with_code(classroom)
         logger.info("classroom_created", classroom=str(created.id), teacher=str(teacher_id))

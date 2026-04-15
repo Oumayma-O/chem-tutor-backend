@@ -134,9 +134,13 @@ class TeacherService:
         self,
         classroom_id: uuid.UUID,
         teacher_id: uuid.UUID | None,
+        *,
+        unit_id: str | None = None,
+        lesson_index: int | None = None,
     ) -> list[RosterStudentEntry]:
         """Raises LookupError if classroom not found, PermissionError if not owner.
-        Pass teacher_id=None to bypass ownership check (admin path)."""
+        Pass teacher_id=None to bypass ownership check (admin path).
+        Optional unit_id/lesson_index scope the mastery calculation to match dashboard filters."""
         classroom = await self._classrooms.get_by_id_with_students(classroom_id)
         if classroom is None:
             raise LookupError("Classroom not found.")
@@ -147,16 +151,22 @@ class TeacherService:
         if not members:
             return []
 
+        # When no unit filter is provided, default to the classroom's active unit
+        # so the roster mastery matches the class overview context.
+        effective_unit = unit_id or classroom.unit_id
+
         users = await self._fetch_users_by_ids([m.student_id for m in members])
         last_by = await self._last_activity_times([m.student_id for m in members])
 
         roster: list[RosterStudentEntry] = []
         for m in members:
             u = users.get(m.student_id)
-            snap = await self._mastery.get_student_mastery_snapshot(m.student_id, classroom.unit_id)
+            snap = await self._mastery.get_student_mastery_snapshot(
+                m.student_id, effective_unit, lesson_index=lesson_index,
+            )
             at_risk = (
-                bool(classroom.unit_id)
-                and await self._mastery.is_at_risk(m.student_id, classroom.unit_id)  # type: ignore[arg-type]
+                bool(effective_unit)
+                and await self._mastery.is_at_risk(m.student_id, effective_unit)
             )
             roster.append(
                 RosterStudentEntry(

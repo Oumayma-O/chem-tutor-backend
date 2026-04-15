@@ -31,9 +31,9 @@ class CompleteAttemptRequest(BaseModel):
 
 class CategoryScores(BaseModel):
     """Per-dimension mastery breakdown shown in the Mastery Score panel."""
-    conceptual: float = 0.0
-    procedural: float = 0.0
-    computational: float = 0.0
+    conceptual: float | None = None
+    procedural: float | None = None
+    computational: float | None = None
 
 
 class MasteryState(BaseModel):

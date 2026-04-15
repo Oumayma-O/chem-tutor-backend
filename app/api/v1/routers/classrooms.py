@@ -125,7 +125,10 @@ async def create_classroom(
 ) -> ClassroomOut:
     require_role(auth, "teacher")
     require_self(req.teacher_id, auth)
-    return await ClassroomService(db).create(req.name, req.teacher_id, req.unit_id)
+    try:
+        return await ClassroomService(db).create(req.name, req.teacher_id, req.unit_id)
+    except ValueError as exc:
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(exc))
 
 
 @router.get("/teacher/{teacher_id}", response_model=list[ClassroomListItem])

@@ -129,6 +129,7 @@ async def submit_exit_ticket_attempt(
         answers=answers_list,
         score=score,
         submitted_at=datetime.now(timezone.utc),
+        time_spent_s=max(0, body.time_spent_s),
     )
     db.add(row)
     try:

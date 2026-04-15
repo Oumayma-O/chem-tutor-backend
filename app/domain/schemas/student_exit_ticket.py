@@ -12,6 +12,8 @@ class ExitTicketSubmitBody(BaseModel):
     # Overall score 0–100 pre-computed by the frontend.  Stored directly when present so the value
     # shown to the teacher matches exactly what the student saw.
     score_percent: float | None = Field(default=None, ge=0, le=100)
+    # Seconds spent on the exit ticket from first question shown to submission.
+    time_spent_s: int = Field(default=0, ge=0)
 
     @field_validator("answers", mode="before")
     @classmethod

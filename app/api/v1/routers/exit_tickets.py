@@ -137,6 +137,7 @@ async def build_exit_tickets_for_class_out(
                         answers=list(r.answers or []),
                         score=_effective_score(r),
                         submitted_at=r.submitted_at,
+                        time_spent_s=r.time_spent_s or 0,
                     )
                 )
         items.append(ExitTicketBundleOut(ticket=exit_ticket_row_to_config(t), responses=resp_out))

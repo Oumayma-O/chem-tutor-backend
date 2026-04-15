@@ -347,13 +347,16 @@ class MasteryService:
         self,
         user_id: uuid.UUID,
         unit_id: str | None,
+        *,
+        lesson_index: int | None = None,
     ) -> MasterySnapshot:
         """
         Aggregate mastery for one student across lessons.
         When unit_id is set, only lessons in that unit are included (class context).
+        When lesson_index is also set, narrows to that single lesson.
         """
         records = list(await self._mastery.get_all_for_user(user_id))
-        return _snapshot_from_records(records, unit_id)
+        return _snapshot_from_records(records, unit_id, lesson_index=lesson_index)
 
     async def get_class_summary_stats(
         self,
@@ -386,11 +389,15 @@ class MasteryService:
         avg_m = sum(s.overall_mastery for s in snapshots) / len(snapshots)
         cb = CategorySnapshot()
         if snapshots:
-            cb.conceptual = round(sum(s.category_scores.conceptual for s in snapshots) / len(snapshots), 4)
-            cb.procedural = round(sum(s.category_scores.procedural for s in snapshots) / len(snapshots), 4)
-            cb.computational = round(
-                sum(s.category_scores.computational for s in snapshots) / len(snapshots), 4
-            )
+            c_vals = [s.category_scores.conceptual for s in snapshots if s.category_scores.conceptual is not None]
+            p_vals = [s.category_scores.procedural for s in snapshots if s.category_scores.procedural is not None]
+            comp_vals = [s.category_scores.computational for s in snapshots if s.category_scores.computational is not None]
+            if c_vals:
+                cb.conceptual = round(sum(c_vals) / len(c_vals), 4)
+            if p_vals:
+                cb.procedural = round(sum(p_vals) / len(p_vals), 4)
+            if comp_vals:
+                cb.computational = round(sum(comp_vals) / len(comp_vals), 4)
 
         return ClassSummaryStats(
             classroom_id=classroom_id,
@@ -430,36 +437,43 @@ def _default_skill_mastery(
     )
 
 
-def _snapshot_from_records(records: list, unit_id: str | None) -> MasterySnapshot:
+def _snapshot_from_records(records: list, unit_id: str | None, *, lesson_index: int | None = None) -> MasterySnapshot:
     """Compute a MasterySnapshot from already-fetched SkillMastery records."""
     if unit_id:
         records = [r for r in records if r.unit_id == unit_id]
+    if lesson_index is not None:
+        records = [r for r in records if r.lesson_index == lesson_index]
     if not records:
         return MasterySnapshot()
 
     lesson_scores: list[float] = []
-    cat_acc = {k: 0.0 for k in MASTERY_CATEGORY_KEYS}
-    n_cat = 0
+    cat_acc: dict[str, float] = {k: 0.0 for k in MASTERY_CATEGORY_KEYS}
+    cat_counts: dict[str, int] = {k: 0 for k in MASTERY_CATEGORY_KEYS}
     for r in records:
         eff = _effective_mastery_score(r.mastery_score, r.category_scores)
         lesson_scores.append(eff)
         cs = r.category_scores or {}
-        if any(cs.get(k) is not None for k in MASTERY_CATEGORY_KEYS):
-            for k in MASTERY_CATEGORY_KEYS:
-                cat_acc[k] += float(cs.get(k, 0.0))
-            n_cat += 1
+        for k in MASTERY_CATEGORY_KEYS:
+            v = cs.get(k)
+            if v is not None:
+                cat_acc[k] += float(v)
+                cat_counts[k] += 1
 
     overall = sum(lesson_scores) / len(lesson_scores)
-    if n_cat > 0:
-        for k in MASTERY_CATEGORY_KEYS:
-            cat_acc[k] = round(cat_acc[k] / n_cat, 4)
+    # Average per-category across only the lessons that have data for that
+    # category.  Lessons where the category was never exercised are omitted
+    # so they don't pull the average toward zero.
+    cat_result: dict[str, float | None] = {
+        k: (round(cat_acc[k] / cat_counts[k], 4) if cat_counts[k] > 0 else None)
+        for k in MASTERY_CATEGORY_KEYS
+    }
 
     return MasterySnapshot(
         overall_mastery=round(overall, 4),
         category_scores=CategorySnapshot(
-            conceptual=cat_acc["conceptual"],
-            procedural=cat_acc["procedural"],
-            computational=cat_acc["computational"],
+            conceptual=cat_result["conceptual"],
+            procedural=cat_result["procedural"],
+            computational=cat_result["computational"],
         ),
         lessons_with_data=len(records),
     )
@@ -562,9 +576,11 @@ def _compute_category_scores(
     Returns a dict compatible with the CategoryScores schema.
     """
 
-    # Start from existing scores (or defaults of 0.0 for new users)
+    # Start from existing scores only — never zero-init unseen categories.
+    # Zero-initialising unseen categories drags them to "at-risk" even when the
+    # student has never encountered that category type.
     existing = existing or {}
-    scores = {k: float(existing.get(k, 0.0)) for k in MASTERY_CATEGORY_KEYS}
+    scores: dict[str, float] = {k: float(existing[k]) for k in MASTERY_CATEGORY_KEYS if k in existing}
 
     for step in step_log:
         # Primary: "category" field set by LLM + server guardrail
@@ -580,8 +596,13 @@ def _compute_category_scores(
                 cat = "procedural"
         is_correct = step.get("is_correct", step.get("isCorrect", False))
         step_score = 1.0 if is_correct else 0.0
-        # Exponential moving average: 80% history + 20% new
-        scores[cat] = round(0.8 * scores[cat] + 0.2 * step_score, 4)
+        if cat in scores:
+            # Exponential moving average: 80% history + 20% new
+            scores[cat] = round(0.8 * scores[cat] + 0.2 * step_score, 4)
+        else:
+            # First time seeing this category — set directly so a correct first
+            # attempt isn't penalised by an artificial 0.0 baseline.
+            scores[cat] = round(step_score, 4)
 
     return scores
 
@@ -606,7 +627,7 @@ def _feedback_message(
 
 def _category_average(category_scores: dict) -> float:
     """Average of the three category scores (0–1). Used when band-based mastery is 0."""
-    values = [float(category_scores.get(k, 0.0)) for k in MASTERY_CATEGORY_KEYS]
+    values = [float(v) for k in MASTERY_CATEGORY_KEYS if (v := category_scores.get(k)) is not None]
     return round(sum(values) / len(values), 4) if values else 0.0
 
 
@@ -639,9 +660,9 @@ def _to_mastery_state(record: SkillMastery, threshold: float) -> MasteryState:
         error_counts=record.error_counts or {},
         recent_scores=record.recent_scores or [],
         category_scores=CategoryScores(
-            conceptual=cat.get("conceptual", 0.0),
-            procedural=cat.get("procedural", 0.0),
-            computational=cat.get("computational", 0.0),
+            conceptual=cat.get("conceptual"),
+            procedural=cat.get("procedural"),
+            computational=cat.get("computational"),
         ),
         updated_at=record.updated_at,
         has_mastered=effective >= threshold,

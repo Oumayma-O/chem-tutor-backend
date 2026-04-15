@@ -41,6 +41,18 @@ class ClassroomRepository(BaseRepository[Classroom]):
         )
         return result.scalar_one_or_none()
 
+    async def get_active_by_teacher_and_name(
+        self, teacher_id: uuid.UUID, name: str
+    ) -> Classroom | None:
+        result = await self._session.execute(
+            select(Classroom).where(
+                Classroom.teacher_id == teacher_id,
+                Classroom.is_active == True,  # noqa: E712
+                Classroom.name.ilike(name),
+            )
+        )
+        return result.scalar_one_or_none()
+
     async def get_by_teacher(self, teacher_id: uuid.UUID) -> Sequence[Classroom]:
         result = await self._session.execute(
             select(Classroom)

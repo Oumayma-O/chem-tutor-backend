@@ -60,6 +60,7 @@ class ExitTicketResponseItem(BaseModel):
     answers: list[dict] = Field(default_factory=list)
     score: float | None = None
     submitted_at: datetime
+    time_spent_s: int = 0
 
 
 class ExitTicketAnalytics(BaseModel):
@@ -96,9 +97,9 @@ class MisconceptionAnalytics(BaseModel):
 
 
 class CategorySnapshot(BaseModel):
-    conceptual: float = 0.0
-    procedural: float = 0.0
-    computational: float = 0.0
+    conceptual: float | None = None
+    procedural: float | None = None
+    computational: float | None = None
 
 
 class MasterySnapshot(BaseModel):

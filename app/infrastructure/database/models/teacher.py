@@ -61,6 +61,7 @@ class ExitTicketResponse(Base):
     answers: Mapped[list] = mapped_column(JSONB, nullable=False, default=list)
     score: Mapped[float | None] = mapped_column(Float, nullable=True)
     submitted_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now)
+    time_spent_s: Mapped[int] = mapped_column(default=0, server_default="0")
 
     exit_ticket: Mapped["ExitTicket"] = relationship(back_populates="responses")
 

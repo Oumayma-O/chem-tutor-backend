@@ -141,6 +141,8 @@ async def patch_teacher_class(
 @router.get("/classes/{classroom_id}/roster", response_model=list[RosterStudentEntry])
 async def get_class_roster(
     classroom_id: uuid.UUID,
+    unit_id: str | None = Query(default=None, description="Scope mastery to this unit. Omit or 'all' for global."),
+    lesson_index: int | None = Query(default=None, ge=0, description="Scope mastery to this lesson within the unit."),
     auth: AuthContext = Depends(get_auth_context),
     svc: TeacherService = Depends(_teacher_service),
     db: AsyncSession = Depends(get_db),
@@ -148,12 +150,53 @@ async def get_class_roster(
     require_teacher_or_admin(auth)
     await ensure_teacher_classroom(db, auth, classroom_id)
     teacher_id = auth.user_id if auth.role == "teacher" else None
+    filter_unit = unit_id if (unit_id and unit_id != "all") else None
     try:
-        return await svc.get_roster(classroom_id, teacher_id)
+        return await svc.get_roster(classroom_id, teacher_id, unit_id=filter_unit, lesson_index=lesson_index)
     except LookupError as exc:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc))
     except PermissionError as exc:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=str(exc))
+
+
+_roster_adapter = TypeAdapter(list[RosterStudentEntry])
+
+
+@router.get("/classes/{classroom_id}/roster/stream")
+async def stream_class_roster(
+    classroom_id: uuid.UUID,
+    unit_id: str | None = Query(default=None, description="Scope mastery to this unit."),
+    lesson_index: int | None = Query(default=None, ge=0, description="Scope mastery to this lesson."),
+    auth: AuthContext = Depends(get_auth_context_from_query),
+    db: AsyncSession = Depends(get_db),
+) -> StreamingResponse:
+    """SSE: push roster with mastery scores when they change."""
+    require_teacher_or_admin(auth)
+    await ensure_teacher_classroom(db, auth, classroom_id)
+    teacher_id: uuid.UUID | None = auth.user_id if auth.role == "teacher" else None
+    filter_unit = unit_id if (unit_id and unit_id != "all") else None
+
+    async def event_stream():
+        async def poll_json() -> str:
+            async with sse_poll_session() as sdb:
+                ssvc = _teacher_service_from_session(sdb)
+                rows = await ssvc.get_roster(
+                    classroom_id, teacher_id, unit_id=filter_unit, lesson_index=lesson_index,
+                )
+            return _roster_adapter.dump_json(rows).decode()
+
+        async for chunk in sse_json_poll_events(
+            poll_json=poll_json,
+            interval_seconds=5.0,
+            log_event="teacher_roster_sse_error",
+        ):
+            yield chunk
+
+    return StreamingResponse(
+        event_stream(),
+        media_type="text/event-stream",
+        headers=dict(SSE_STREAM_HEADERS),
+    )
 
 
 @router.get("/classes/{classroom_id}/students/{student_id}/analytics", response_model=StudentAnalyticsOut)

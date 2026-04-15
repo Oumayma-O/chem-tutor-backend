@@ -58,6 +58,15 @@ async def create_school_admin(
     if existing:
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Email already registered.")
 
+    school_taken = await db.scalar(
+        select(User).where(User.role == "admin", User.school == req.school)
+    )
+    if school_taken:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail=f"An admin is already assigned to '{req.school}'.",
+        )
+
     user = await create_user(
         db,
         email=req.email,

@@ -3,7 +3,7 @@
 import uuid
 from datetime import datetime
 
-from sqlalchemy import Boolean, DateTime, ForeignKey, Index, Integer, String, UniqueConstraint
+from sqlalchemy import Boolean, DateTime, ForeignKey, Index, Integer, String, UniqueConstraint, text
 from sqlalchemy.dialects.postgresql import JSONB, UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -40,6 +40,15 @@ class Classroom(Base):
 
     students: Mapped[list["ClassroomStudent"]] = relationship(back_populates="classroom")
     unit: Mapped["Unit | None"] = relationship()
+
+    __table_args__ = (
+        Index(
+            "uq_classroom_teacher_name_active",
+            "teacher_id", "name",
+            unique=True,
+            postgresql_where=text("is_active = true"),
+        ),
+    )
 
 
 class ClassroomStudent(Base):
