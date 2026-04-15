@@ -204,6 +204,7 @@ async def get_student_analytics(
     classroom_id: uuid.UUID,
     student_id: uuid.UUID,
     unit_id: str | None = Query(default=None, description="Filter by chapter/unit. Omit or 'all' for all chapters."),
+    lesson_index: int | None = Query(default=None, ge=0, description="Scope to a specific lesson within the unit."),
     limit: int = Query(default=20, ge=1, le=200),
     offset: int = Query(default=0, ge=0),
     auth: AuthContext = Depends(get_auth_context),
@@ -212,28 +213,32 @@ async def get_student_analytics(
 ) -> StudentAnalyticsOut:
     """Return recent attempts + mastery snapshot for one student (teacher-only).
 
-    Pass ?unit_id=<id> to scope mastery and attempts to a specific chapter.
+    Pass ?unit_id=<id> to scope to a chapter; add ?lesson_index=<n> to further narrow to one lesson.
     Supports pagination via ?limit=20&offset=0.
     """
     await ensure_teacher_classroom(db, auth, classroom_id)
 
     filter_unit = unit_id if (unit_id and unit_id != "all") else None
-    snap = await svc._mastery.get_student_mastery_snapshot(student_id, filter_unit)
+    snap = await svc._mastery.get_student_mastery_snapshot(
+        student_id, filter_unit, lesson_index=lesson_index,
+    )
 
-    count_q = select(func.count()).select_from(ProblemAttempt).where(ProblemAttempt.user_id == student_id)
+    base_filter = [ProblemAttempt.user_id == student_id]
     if filter_unit:
-        count_q = count_q.where(ProblemAttempt.unit_id == filter_unit)
+        base_filter.append(ProblemAttempt.unit_id == filter_unit)
+    if lesson_index is not None:
+        base_filter.append(ProblemAttempt.lesson_index == lesson_index)
+
+    count_q = select(func.count()).select_from(ProblemAttempt).where(*base_filter)
     total_attempts = await db.scalar(count_q) or 0
 
     query = (
         select(ProblemAttempt)
-        .where(ProblemAttempt.user_id == student_id)
+        .where(*base_filter)
         .order_by(ProblemAttempt.started_at.desc())
         .limit(limit)
         .offset(offset)
     )
-    if filter_unit:
-        query = query.where(ProblemAttempt.unit_id == filter_unit)
 
     result = await db.execute(query)
     rows = result.scalars().all()
