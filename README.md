@@ -1,177 +1,174 @@
-# Chem Guide — Backend
+# ChemTutor Backend
 
-FastAPI + PostgreSQL + LangChain. AI-powered mastery-based chemistry tutor.
+AI-powered chemistry tutoring platform with adaptive scaffolding, mastery tracking, and B2B multi-tenant classroom management.
 
----
+## Quick Start
 
-## Dev Setup
-
-### Prerequisites
-- Docker + Docker Compose
-- Python 3.12 (for local seed scripts)
-- `.env` with `DATABASE_URL` (Neon) + at least one AI provider key
-
-### Start the backend
 ```bash
-docker compose build   # required after any code change in app/
-docker compose up -d
-docker compose exec app alembic upgrade head   # apply DB migrations (after pulling new revisions)
-# API → http://localhost:8000   Docs → http://localhost:8000/docs
+# 1. Clone and copy env
+cp .env.example .env
+# Edit .env — at minimum set DATABASE_URL and one AI provider key
+
+# 2. Run with Docker (recommended)
+docker compose up --build
+
+# 3. Seed the curriculum
+docker compose exec app python -m scripts.seed
+
+# 4. Create the superadmin
+docker compose exec app python -m scripts.bootstrap_superadmin
 ```
 
-`docker-compose.yml` bind-mounts `./alembic` so migration files match the repo; run `alembic upgrade head` whenever you add migrations.
+The API is at `http://localhost:8000`. Swagger docs at `http://localhost:8000/docs`.
 
-> `develop.watch` in docker-compose is NOT a volume mount — always rebuild after editing `app/`.
+## Without Docker
 
-### Seed the database
 ```bash
-python -m scripts.seed          # idempotent upsert (safe to re-run)
-python -m scripts.seed --clean  # truncate all tables then reseed
-```
+# Python 3.12+ required
+python -m venv .venv
+source .venv/bin/activate  # or .venv\Scripts\activate on Windows
+pip install -e ".[dev]"
 
-### Full schema reset (dev only)
-```bash
-py - <<'EOF'
-import asyncio, sys; sys.path.insert(0, ".")
-async def r():
-    from app.infrastructure.database.connection import engine, Base
-    import app.infrastructure.database.models
-    async with engine.begin() as c:
-        await c.run_sync(Base.metadata.drop_all)
-        await c.run_sync(Base.metadata.create_all)
-asyncio.run(r())
-EOF
+# Run migrations + start
+alembic upgrade head
+uvicorn app.main:app --host 0.0.0.0 --port 8000
+
+# Seed + bootstrap
 python -m scripts.seed
+python -m scripts.bootstrap_superadmin
 ```
 
-### Logs & restart
-The API runs **without** `uvicorn --reload` (avoids breaking long AI requests and SSE during file sync). After editing code, restart:
+## Environment Variables
 
-```bash
-docker logs chem-backend -f          # live logs
-docker compose restart app           # pick up code/env (compose service name)
-docker compose build && docker compose up -d   # rebuild image
-```
+Copy `.env.example` to `.env`. Key variables:
 
-To use **hot reload** again locally, override the command, e.g. add `--reload` to the `uvicorn` line in `docker-compose.yml` (not recommended while testing exit-ticket generate or live streams).
+| Variable | Required | Description |
+|---|---|---|
+| `DATABASE_URL` | Yes | PostgreSQL connection string (asyncpg driver). Works with Neon, Supabase, or local Postgres. |
+| `DEFAULT_AI_PROVIDER` | Yes | `openai`, `anthropic`, `gemini`, or `mistral` — used for problem generation |
+| `OPENAI_API_KEY` | If using OpenAI | API key for the default provider |
+| `FAST_AI_PROVIDER` | Yes | Lightweight model for validation, hints, exit ticket scoring |
+| `JWT_SECRET_KEY` | Yes | Change in production. Used for all JWT tokens. |
+| `ADMIN_EMAIL` / `ADMIN_PASSWORD` | Optional | Bootstrap creates a superadmin on startup if set |
+| `ALLOWED_ORIGINS` | Production | JSON array of frontend URLs for CORS |
 
----
+See `.env.example` for the full list with defaults.
 
 ## Architecture
 
 ```
-Request → Router → Service → Repository → PostgreSQL (Neon)
-                ↘ AI Services → LangChain → OpenAI / Anthropic / Gemini
-```
-
-```
 app/
-  api/v1/routers/       thin routers, no business logic
-  core/                 config, structured logging (structlog)
-  domain/schemas/       Pydantic models (API + LLM output schemas)
-  infrastructure/
-    database/
-      models/           SQLAlchemy ORM (one file per concern)
-      repositories/     typed async repos
-  services/
-    ai/
-      problem_generation/   ProblemGenerationService + prompts v10
-      thinking_analysis/    ThinkingAnalysisService (error classification)
-      reference_card/       ReferenceCardService
-    mastery_service.py      deterministic mastery + band logic
-    problem_delivery_service.py   cache-aware delivery, blueprint lookup
+├── api/v1/routers/       # FastAPI route handlers (thin — delegate to services)
+│   ├── auth.py           # Register, login, /me, password change, heartbeat
+│   ├── problems/         # Generate, navigate, validate-step, hints, playlist
+│   ├── teacher.py        # Teacher dashboard: classes, roster, live, sessions
+│   ├── admin.py          # School admin: create teachers, stats, curriculum
+│   ├── superadmin.py     # Platform admin: create school admins, global stats
+│   ├── classrooms.py     # Join by code, student management, live session
+│   ├── exit_tickets.py   # Teacher exit ticket generation + analytics
+│   └── student_exit_tickets.py  # Student submit + scoring
+├── core/                 # Config, logging, SSE stream helpers
+├── domain/schemas/       # Pydantic models (request/response contracts)
+├── infrastructure/
+│   ├── database/models/  # SQLAlchemy ORM models
+│   └── database/repositories/  # Data access layer (queries)
+├── services/             # Business logic
+│   ├── ai/               # LLM integration (generation, validation, hints)
+│   ├── problem_delivery/ # Playlist, cache, difficulty policy, dedup
+│   ├── classroom/        # Join, live session, class settings
+│   ├── exit_ticket/      # Scoring, mastery bridge, misconceptions
+│   └── mastery_service.py  # Band-filling mastery model
 scripts/
-  seed.py               idempotent seeder (units, lessons, few-shots)
-  seed_data/
-    lessons.py          96 lessons, each with blueprint + required_tools
-    few_shots.py        3 curated examples (detective/lawyer/solver)
+├── seed.py               # Curriculum seed (units, lessons, phases, standards)
+├── bootstrap_superadmin.py  # Create the platform superadmin
+└── seed_data/            # Master lesson library, few-shot examples, standards
 ```
 
----
+## Role Hierarchy (B2B Multi-Tenant)
 
-## AI Provider Config
+| Role | Created by | Can do |
+|---|---|---|
+| `superadmin` | Bootstrap / env vars | Create school admins, see all data, platform stats |
+| `admin` | Superadmin | Create teachers (inherits district/school), school-scoped stats |
+| `teacher` | School admin | Create classrooms, generate problems/exit tickets, manage students |
+| `student` | Self-register (public) | Join classroom by code, practice, submit exit tickets |
 
-`DEFAULT_AI_PROVIDER` in `.env` → `openai` | `anthropic` | `gemini`
+Students inherit `district` and `school` from the teacher when they join a classroom. Teachers inherit from the admin who created them.
 
----
+## Key Concepts
 
-## Mastery Logic
+### Mastery Model (3-Band)
+- **L2 band** (0% → 60%): Filled by Level 2 (faded scaffolding) practice
+- **L3 band** (60% → 85%): Filled by Level 3 (independent) practice
+- **Exit ticket band** (85% → 100%): Filled by exit ticket scores
+- A student needs both practice AND assessment to reach 100%
 
-- **Bands**: L2 fills 0→60%, L3 fills 60→85%. Complete at ≥ 85%.
-- **L3 unlock**: one-way latch — set when mastery ≥ 75% at hard difficulty.
-- **Difficulty adaptation**: position within band drives easy/medium/hard.
-- **At-risk**: mastery < 40% after ≥ 3 attempts.
+### Problem Delivery Pipeline
+1. **Playlist resume** — check if student has an in-progress problem
+2. **Cache hit** — pick a random cached problem (Level 1 only)
+3. **LLM generation** — generate fresh with dedup (previous problem summaries in prompt)
+4. **Persist** — append to `user_lesson_playlists`, start attempt
 
----
+### Problem Levels
+- **Level 1**: Worked examples (all steps shown, `is_given=true`)
+- **Level 2**: Faded scaffolding (first 2 steps shown, rest interactive)
+- **Level 3**: Independent practice (all steps interactive)
 
-## Roadmap
+### Step Validation (Hybrid)
+- **Phase 1** (local): String match, canonical equivalence, symbolic (SymPy), numeric tolerance
+- **Phase 2** (LLM): Semantic equivalence for ambiguous answers
+- MCQ: always Phase 1 only (no LLM needed)
 
-### ✅ Milestone 1 — AI Tutor Core (done)
+### SSE Streams
+Real-time updates via Server-Sent Events (polling-backed, push-on-diff):
+- `/teacher/classes/{id}/live/stream` — student presence
+- `/teacher/classes/{id}/roster/stream` — roster mastery updates
+- `/teacher/exit-tickets/{id}/stream` — exit ticket submissions
+- `/classrooms/me/live-session/stream` — student live session state
 
-| Status | Item |
-|--------|------|
-| ✅ | Core DB schema — `problem_attempts`, `skill_mastery`, `exit_tickets`, user linkage |
-| ✅ | Problem generation — L1 worked example → L2 faded → L3 full practice |
-| ✅ | Blueprint system v10 — 5 blueprints (solver/recipe/architect/detective/lawyer) per lesson |
-| ✅ | Widget types — `given`, `interactive`, `drag_drop`, `variable_id`, `comparison` |
-| ✅ | Step validation — numeric tolerance, string match, drag-drop, comparison (`<`/`>`/`=`) |
-| ✅ | Hint generation — 3-level scaffolded, no answer leaking |
-| ✅ | Error classification — conceptual/procedural/computational |
-| ✅ | Structured output + retry logic (LangChain + Tenacity) |
-| ✅ | Persist attempts in DB — `MasteryRepository.record_attempt()` |
-| ✅ | Playlist navigation — prev/next within user/unit/lesson/level/difficulty |
-| ✅ | Reference card (fiche de cours) — generated once, cached in DB |
-| ✅ | Mastery computation — rolling score, band-fill, L3 unlock latch |
-| ✅ | Thinking tracker — per-step logs in `thinking_tracker_logs` |
-| ✅ | Adaptive difficulty — `getDifficultyForMastery()` + backend `focus_areas` |
-| ✅ | 96 lessons seeded across Standard + AP Chemistry with blueprints |
-| ✅ | 3 curated few-shot examples (new widget types) |
-| ⚠️ | Step timing — `step_log` JSONB exists but time-per-step not sent from frontend |
-| ⚠️ | `comparison` step validation — needs explicit branch in `StepValidationService` |
+## Scripts
 
----
+```bash
+# Full seed (idempotent upsert)
+python -m scripts.seed
 
-### 🔧 Milestone 2 — Simulations + Problem Quality (next)
+# Wipe everything and reseed
+python -m scripts.seed --clean
 
-| Status | Item |
-|--------|------|
-| ❌ | **Simulation integration** — embed PhET / custom canvas sims per lesson; pass sim output as problem context |
-| ❌ | **Curated problem bank** — hand-authored worked examples per lesson stored in `problem_cache` for L1 |
-| ❌ | **Few-shot library expansion** — 3–5 curated examples per blueprint type (currently 3 total) |
-| ❌ | **Prompt QA pass** — test generation across all 96 lessons, fix blueprint mismatches |
-| ❌ | **Problem deduplication** — `exclude_ids` already wired but no frontend tracking across sessions |
-| ❌ | **Problem style variety** — context tags (sports/food/etc.) tested across all blueprints |
+# Create/upgrade superadmin
+python -m scripts.bootstrap_superadmin
+```
 
----
+## Testing
 
-### 🔧 Milestone 3 — Teacher Dashboard + Analytics (next)
+```bash
+pytest                    # Run all tests
+pytest tests/ -v          # Verbose
+pytest --cov=app          # With coverage
+```
 
-| Status | Item |
-|--------|------|
-| ✅ | Class mastery aggregation endpoint (`POST /analytics/classes`) |
-| ✅ | Per-student skill breakdown (`GET /mastery/users/{id}/...`) |
-| ✅ | Exit ticket generation (`POST /problems/exit-ticket`) |
-| ✅ | Error pattern data in `misconception_logs` |
-| ❌ | **Exit ticket readiness trigger** — rule for when to prompt student (e.g. after N correct L3 attempts) |
-| ❌ | **Exit ticket response save endpoint** — `exit_ticket_responses` table exists, no write API |
-| ❌ | **Exit ticket performance report** — aggregation by class/topic |
-| ❌ | **At-risk detection alerts** — threshold logic (mastery < 40% after 3 attempts) wired to teacher view |
-| ❌ | **Curriculum customization** — teacher uploads curriculum doc → scoped to classroom |
-| ❌ | **Custom lesson mapping** — teacher maps their syllabus order to canonical lessons |
-| ❌ | **Teacher dashboard frontend** — all backend APIs exist; no UI pages built yet |
-| ❌ | **Classroom join flow** — `POST /classrooms/join` exists; no frontend page |
+## Things to Watch Out For
 
----
+1. **Don't use `--reload` with uvicorn** in production or when testing SSE/LLM. Hot reload interrupts long LLM calls and leaks DB pool connections.
 
-### 🔧 Milestone 4 — Admin Dashboard
+2. **JWT expiry is 7 days** by default. After `seed --clean`, all existing tokens become invalid (user IDs change). Students/teachers must log in again.
 
-| Status | Item |
-|--------|------|
-| ❌ | **Admin auth** — role-based access (admin vs teacher vs student) |
-| ❌ | **Lesson content editor** — view/edit lesson `key_rules`, `key_equations`, `blueprint` from UI |
-| ❌ | **Few-shot manager** — view/add/delete few-shot examples per blueprint via UI |
-| ❌ | **Generation log viewer** — browse `generation_logs` to QA prompt output |
-| ❌ | **Prompt version audit** — compare prompt versions, A/B output |
-| ❌ | **Platform-wide mastery heatmap** — which lessons are hardest across all users |
-| ❌ | **User management** — list students, view profiles, manual mastery overrides |
-| ❌ | **DB health + seed runner** — trigger reseed or schema reset from UI |
+3. **`ADMIN_EMAIL`/`ADMIN_PASSWORD`** bootstrap is idempotent — it skips if the email exists. To recreate: delete the user row first, then restart.
+
+4. **Exit ticket scoring** prefers frontend-computed `score_percent` + `results` (from the same `validateStep` API the student used). Server-side scoring is a fallback only.
+
+5. **`days` filter** on exit ticket endpoints filters by `published_at`, not `created_at`.
+
+6. **Blocked students** keep their `classroom_students` row (with `is_blocked=true`) so they can be unblocked later. Removed students have the row deleted and lose `district`/`school`.
+
+7. **Problem dedup** sends up to 5 previous problem summaries (title + first sentence) to the LLM prompt. Not a hard guarantee — the LLM may still generate similar scenarios.
+
+8. **Standards heatmap** shows standards from both teacher sessions (exit tickets, timed practice) AND independent student practice.
+
+## API Documentation
+
+With the server running in development mode, visit:
+- Swagger UI: `http://localhost:8000/docs`
+- ReDoc: `http://localhost:8000/redoc`
+
+Disabled in production (`ENVIRONMENT=production`).
