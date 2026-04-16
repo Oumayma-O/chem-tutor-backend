@@ -97,6 +97,43 @@ Exit ticket creation (`POST /teacher/exit-tickets/generate`) is teacher-only. Ad
 
 ---
 
+## Environment Variables
+
+Copy `.env.example` to `.env`. Every variable has a sensible default except the ones marked required:
+
+| Variable | Required | Default | Description |
+|---|---|---|---|
+| `DATABASE_URL` | Yes | local postgres | PostgreSQL (asyncpg driver). Neon, Supabase, or local. |
+| `DEFAULT_AI_PROVIDER` | Yes | `openai` | `openai` / `anthropic` / `gemini` / `mistral` |
+| `OPENAI_API_KEY` | If using OpenAI | — | Problem generation, reference cards |
+| `ANTHROPIC_API_KEY` | If using Anthropic | — | Alternative provider |
+| `GOOGLE_API_KEY` | If using Gemini | — | Alternative provider |
+| `MISTRAL_API_KEY` | If using Mistral | — | Alternative provider |
+| `FAST_AI_PROVIDER` | Yes | `openai` | Lightweight model for validation, hints, exit tickets |
+| `FAST_OPENAI_MODEL` | No | `gpt-5.4-mini` | Fast-tier model name |
+| `JWT_SECRET_KEY` | Yes | dev default | **Change in production.** Signs all JWT tokens. |
+| `JWT_ALGORITHM` | No | `HS256` | JWT signing algorithm |
+| `ACCESS_TOKEN_EXPIRE_MINUTES` | No | `10080` | Token lifetime (7 days) |
+| `ADMIN_EMAIL` | Optional | — | Bootstrap superadmin email (see above) |
+| `ADMIN_PASSWORD` | Optional | — | Bootstrap superadmin password |
+| `ALLOWED_ORIGINS` | Production | localhost + Vercel | JSON array of frontend URLs for CORS |
+| `LLM_TIMEOUT_SECONDS` | No | `180` | Max seconds for a single LLM HTTP request |
+| `MASTERY_WINDOW` | No | `5` | Rolling window of recent attempts for mastery |
+| `MASTERY_PASSING_SCORE` | No | `0.6` | Min attempt score to count toward band-filling |
+| `L2_MASTERY_CEILING` | No | `0.60` | Top of L2 mastery band |
+| `L3_MASTERY_CEILING` | No | `0.85` | Top of L3 mastery band (lesson complete threshold) |
+| `L2_ATTEMPTS_TO_FILL` | No | `3` | Qualifying attempts to fill L2 band |
+| `L3_ATTEMPTS_TO_FILL` | No | `3` | Qualifying attempts to fill L3 band |
+| `L1_MAX_PROBLEMS` | No | `3` | Max worked examples per playlist slot |
+| `L2_MAX_PROBLEMS` | No | `5` | Max faded-practice problems per slot |
+| `L3_MAX_PROBLEMS` | No | `5` | Max challenge problems per slot |
+| `DEFAULT_MAX_ANSWER_REVEALS_PER_LESSON` | No | `6` | Default reveal cap (teachers override per class) |
+| `MIN_LEVEL1_EXAMPLES_FOR_LEVEL2` | No | `2` | L1 worked examples required before L2 unlocks. Backend is the source of truth — returned via `/problems/generate` and `/problems/playlist`. Teachers can override per class. |
+| `DB_POOL_SIZE` | No | `10` | SQLAlchemy async connection pool size |
+| `DB_MAX_OVERFLOW` | No | `20` | Max overflow connections beyond pool size |
+
+---
+
 ## Seed Data Architecture
 
 The curriculum is modeled as structured Python data in `scripts/seed_data/` (~6,800 lines total), seeded into PostgreSQL via `python -m scripts.seed`.
