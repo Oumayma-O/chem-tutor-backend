@@ -3,15 +3,23 @@
 from __future__ import annotations
 
 import uuid as _uuid
+from typing import Literal
 
 from fastapi import BackgroundTasks
 from app.services.ai.shared.timing import perf_now, since
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.logging import get_logger
-from app.domain.schemas.tutor import GenerateProblemRequest, ProblemDeliveryResponse, ProblemOutput
+from app.domain.schemas.tutor import (
+    GenerateProblemRequest,
+    PlaylistHydrationResponse,
+    ProblemDeliveryResponse,
+    ProblemOutput,
+)
+from app.infrastructure.database.repositories.attempt_repo import AttemptRepository
 from app.services.ai.problem_generation.service import ProblemGenerationService
 from app.services.ai.shared.step_types import enforce_step_types
+from app.infrastructure.database.repositories.playlist_repo import UserLessonPlaylistRepository
 from app.services.problem_delivery.cache import ProblemCacheService
 from app.services.problem_delivery.delivery_cache_adapter import backfill_cache, store_in_cache
 from app.services.problem_delivery.delivery_telemetry import DeliveryTelemetry
@@ -36,6 +44,74 @@ class ProblemDeliveryService:
         self._cache = ProblemCacheService(db)
         self._lesson_loader = LessonContextLoader(db)
         self._playlist = PlaylistCoordinator(db)
+
+    async def get_playlist(
+        self,
+        user_id: _uuid.UUID,
+        unit_id: str,
+        lesson_index: int,
+        level: int,
+        difficulty: Literal["easy", "medium", "hard"] | None = None,
+    ) -> PlaylistHydrationResponse:
+        repo = UserLessonPlaylistRepository(self._db)
+        playlist = await repo.get_most_recent_for_level(
+            user_id=user_id,
+            unit_id=unit_id,
+            lesson_index=lesson_index,
+            level=level,
+            difficulty=difficulty,
+        )
+        if not playlist or not playlist.problems:
+            return PlaylistHydrationResponse()
+
+        parsed: list[ProblemOutput] = []
+        for payload in playlist.problems:
+            if not isinstance(payload, dict):
+                continue
+            try:
+                problem = ProblemOutput.model_validate(payload)
+                parsed.append(enforce_step_types(problem, level))
+            except Exception:
+                logger.warning(
+                    "playlist_problem_payload_invalid",
+                    user_id=str(user_id),
+                    unit_id=unit_id,
+                    lesson_index=lesson_index,
+                    level=level,
+                )
+
+        if not parsed:
+            return PlaylistHydrationResponse()
+
+        current_index = min(max(playlist.current_index, 0), len(parsed) - 1)
+        total = len(parsed)
+        attempts = AttemptRepository(self._db)
+        current_problem_id = parsed[current_index].id
+        active_attempt = await attempts.get_latest_for_problem(
+            user_id=user_id,
+            unit_id=unit_id,
+            lesson_index=lesson_index,
+            level=level,
+            problem_id=current_problem_id,
+        )
+        return PlaylistHydrationResponse(
+            problems=parsed,
+            current_index=current_index,
+            total=total,
+            has_prev=current_index > 0,
+            has_next=current_index < total - 1,
+            active_attempt=(
+                {
+                    "attempt_id": str(active_attempt.id),
+                    "problem_id": active_attempt.problem_id,
+                    "level": active_attempt.level,
+                    "is_complete": bool(active_attempt.is_complete),
+                    "step_log": list(active_attempt.step_log or []),
+                }
+                if active_attempt is not None
+                else None
+            ),
+        )
 
     async def deliver_worked_example(
         self,

@@ -213,6 +213,17 @@ class ProblemDeliveryResponse(BaseModel):
     min_level1_examples_for_level2: int | None = None  # from classroom when ``class_id`` sent
 
 
+class PlaylistHydrationResponse(BaseModel):
+    """Hydration payload for restoring a student's playlist on reload."""
+
+    problems: list[ProblemOutput] = Field(default_factory=list)
+    current_index: int = 0
+    total: int = 0
+    has_prev: bool = False
+    has_next: bool = False
+    active_attempt: dict[str, Any] | None = None
+
+
 # ── Reference Card ────────────────────────────────────────────
 
 

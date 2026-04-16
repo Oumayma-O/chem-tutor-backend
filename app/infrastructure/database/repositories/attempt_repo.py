@@ -163,6 +163,29 @@ class AttemptRepository(BaseRepository[ProblemAttempt]):
         )
         return result.scalar_one_or_none()
 
+    async def get_latest_for_problem(
+        self,
+        user_id: uuid.UUID,
+        unit_id: str,
+        lesson_index: int,
+        level: int,
+        problem_id: str,
+    ) -> ProblemAttempt | None:
+        """Return the most recent attempt for one exact playlist problem."""
+        result = await self._session.execute(
+            select(ProblemAttempt)
+            .where(
+                ProblemAttempt.user_id == user_id,
+                ProblemAttempt.unit_id == unit_id,
+                ProblemAttempt.lesson_index == lesson_index,
+                ProblemAttempt.level == level,
+                ProblemAttempt.problem_id == problem_id,
+            )
+            .order_by(ProblemAttempt.started_at.desc())
+            .limit(1)
+        )
+        return result.scalar_one_or_none()
+
     async def get_class_attempts(
         self,
         class_id: uuid.UUID,
