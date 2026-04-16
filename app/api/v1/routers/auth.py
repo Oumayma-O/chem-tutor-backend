@@ -16,7 +16,6 @@ from typing import Optional
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy.orm import load_only
 
 from app.api.v1.authz import AuthContext, get_auth_context
 from app.core.logging import get_logger
@@ -26,15 +25,12 @@ from app.domain.schemas.auth import (
     MeResponse,
     ProfileUpdateRequest,
     RegisterRequest,
+    SseTokenResponse,
     TokenResponse,
 )
 from app.infrastructure.database.connection import get_db
 from app.infrastructure.database.models import (
-    Classroom,
-    ClassroomStudent,
-    Interest,
     User,
-    UserProfile,
 )
 from app.infrastructure.database.repositories.student_repo import (
     CourseRepository,
@@ -42,8 +38,10 @@ from app.infrastructure.database.repositories.student_repo import (
     UserProfileRepository,
 )
 from app.infrastructure.database.repositories.session_activity_repo import SessionActivityRepository
+from app.services.auth.profile_service import AuthProfileService
 from app.services.auth.security import (
     create_access_token,
+    create_sse_token,
     hash_password,
     verify_password,
 )
@@ -60,57 +58,8 @@ async def _get_user_by_email(email: str, db: AsyncSession) -> Optional[User]:
     return result.scalar_one_or_none()
 
 
-async def _resolve_interest_ids(slugs: list[str], db: AsyncSession) -> list[int]:
-    if not slugs:
-        return []
-    result = await db.execute(select(Interest).where(Interest.slug.in_(slugs)))
-    return [i.id for i in result.scalars().all()]
-
-
-async def _build_me_response(user_id: uuid.UUID, db: AsyncSession) -> MeResponse:
-    # 1. User row — needed for email (single query)
-    result = await db.execute(select(User).where(User.id == user_id))
-    user = result.scalar_one_or_none()
-    if not user:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found.")
-
-    # 2. Profile + grade + course + interests — 1 round-trip via selectinload in repo
-    profile = await UserProfileRepository(db).get_by_id(user_id)
-    grade_name: Optional[str] = profile.grade.name if profile and profile.grade else None
-    course_name: Optional[str] = profile.course.name if profile and profile.course else None
-    grade_level_parts = [p for p in [grade_name, course_name] if p]
-    grade_level = " · ".join(grade_level_parts) if grade_level_parts else None
-    interest_slugs = (
-        [si.interest.slug for si in profile.interests if si.interest]
-        if profile else []
-    )
-
-    # 3. Classroom — one joined query; load_only avoids SELECT * on classrooms (fewer
-    # columns) so /auth/me keeps working if optional classroom columns lag migrations.
-    cls_result = await db.execute(
-        select(Classroom)
-        .options(load_only(Classroom.id, Classroom.name, Classroom.code))
-        .join(ClassroomStudent, Classroom.id == ClassroomStudent.classroom_id)
-        .where(ClassroomStudent.student_id == user_id)
-        .limit(1)
-    )
-    classroom = cls_result.scalar_one_or_none()
-
-    return MeResponse(
-        user_id=str(user.id),
-        email=user.email,
-        role=user.role,
-        name=user.name,
-        grade_level=grade_level,
-        grade=grade_name,
-        course=course_name,
-        interests=interest_slugs,
-        classroom_id=str(classroom.id) if classroom else None,
-        classroom_name=classroom.name if classroom else None,
-        classroom_code=classroom.code if classroom else None,
-        district=user.district,
-        school=user.school,
-    )
+def _profile_service(db: AsyncSession = Depends(get_db)) -> AuthProfileService:
+    return AuthProfileService(db)
 
 
 # ── Register ───────────────────────────────────────────────────────────────
@@ -129,7 +78,7 @@ async def register(req: RegisterRequest, db: AsyncSession = Depends(get_db)) -> 
     )
 
     if req.role == "student" and req.interests:
-        interest_ids = await _resolve_interest_ids(req.interests, db)
+        interest_ids = await AuthProfileService(db).resolve_interest_ids(req.interests)
         await UserProfileRepository(db).set_interests(user.id, interest_ids)
 
     token = create_access_token(str(user.id), user.email, user.role)
@@ -173,8 +122,9 @@ async def login(req: LoginRequest, db: AsyncSession = Depends(get_db)) -> TokenR
 async def me(
     db: AsyncSession = Depends(get_db),
     auth: AuthContext = Depends(get_auth_context),
+    profile_svc: AuthProfileService = Depends(_profile_service),
 ) -> MeResponse:
-    return await _build_me_response(auth.user_id, db)
+    return await profile_svc.build_me_response(auth.user_id)
 
 
 # ── Profile Update ─────────────────────────────────────────────────────────
@@ -184,6 +134,7 @@ async def update_profile(
     req: ProfileUpdateRequest,
     db: AsyncSession = Depends(get_db),
     auth: AuthContext = Depends(get_auth_context),
+    profile_svc: AuthProfileService = Depends(_profile_service),
 ) -> MeResponse:
     repo = UserProfileRepository(db)
     profile = await repo.get_by_id(auth.user_id)
@@ -213,11 +164,11 @@ async def update_profile(
     await db.flush()
 
     if req.interests is not None:
-        interest_ids = await _resolve_interest_ids(req.interests, db)
+        interest_ids = await profile_svc.resolve_interest_ids(req.interests)
         await repo.set_interests(auth.user_id, interest_ids)
 
     logger.info("profile_updated", user_id=str(auth.user_id))
-    return await _build_me_response(auth.user_id, db)
+    return await profile_svc.build_me_response(auth.user_id)
 
 
 # ── Account update (email / password) ─────────────────────────────────────
@@ -229,6 +180,7 @@ async def update_account(
     req: AccountUpdateRequest,
     db: AsyncSession = Depends(get_db),
     auth: AuthContext = Depends(get_auth_context),
+    profile_svc: AuthProfileService = Depends(_profile_service),
 ) -> MeResponse:
     """Update the authenticated user's email and/or password."""
     result = await db.execute(select(User).where(User.id == auth.user_id))
@@ -256,7 +208,21 @@ async def update_account(
 
     await db.commit()
     logger.info("account_updated", user_id=str(auth.user_id))
-    return await _build_me_response(auth.user_id, db)
+    return await profile_svc.build_me_response(auth.user_id)
+
+
+@router.post("/sse-token", response_model=SseTokenResponse)
+async def issue_sse_token(
+    auth: AuthContext = Depends(get_auth_context),
+) -> SseTokenResponse:
+    ttl_seconds = 120
+    token = create_sse_token(
+        user_id=str(auth.user_id),
+        email=auth.email or "",
+        role=auth.role,
+        ttl_seconds=ttl_seconds,
+    )
+    return SseTokenResponse(sse_token=token, expires_in_seconds=ttl_seconds)
 
 
 # ── Heartbeat ──────────────────────────────────────────────────────────────

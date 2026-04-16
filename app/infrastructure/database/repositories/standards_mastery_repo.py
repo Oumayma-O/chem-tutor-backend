@@ -1,41 +1,54 @@
 """StandardsMasteryRepository — aggregated mastery queries across standards.
 
-Join path:
-  SkillMastery.(unit_id, lesson_index)
-  → UnitLesson.(unit_id, lesson_order)  →  UnitLesson.lesson_id
-  → LessonStandard.lesson_id            →  LessonStandard.standard_id
-  → Standard.(id, code, framework, title, is_core)
+Class view join paths:
+  ProblemAttempt (class_id, unit_id, lesson_index)
+    -> UnitLesson.(unit_id, lesson_order) -> UnitLesson.lesson_id
+    -> LessonStandard.lesson_id           -> LessonStandard.standard_id
+    -> Standard.(id, code, framework, title, description, is_core)
 
-For class view:   gated by ClassroomSession (taught lessons).
+  ExitTicketResponse -> ExitTicket (class_id, unit_id, lesson_index)
+    -> UnitLesson.(unit_id, lesson_order) -> UnitLesson.lesson_id
+    -> LessonStandard.lesson_id           -> LessonStandard.standard_id
+    -> Standard.(id, code, framework, title, description, is_core)
+
+Both sources are merged in Python and averaged per (standard, student).
+
 For student view: gated by SkillMastery records (lessons the student attempted).
 """
 
 import uuid
-from collections import defaultdict
 from typing import NamedTuple
 
 from sqlalchemy import and_, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.infrastructure.database.models import (
-    ClassroomStudent,
-    ClassroomSession,
+    ExitTicket,
+    ExitTicketResponse,
     LessonStandard,
+    ProblemAttempt,
     SkillMastery,
     Standard,
     UnitLesson,
 )
 
-# A student is "at risk" on a standard when mastery is below this threshold.
-_AT_RISK_THRESHOLD = 0.55
-
-
 class _StdRow(NamedTuple):
     code: str
     framework: str
     title: str | None
+    description: str | None
     user_id: uuid.UUID
     avg_mastery: float
+
+
+class _StdAggRow(NamedTuple):
+    code: str
+    framework: str
+    title: str | None
+    description: str | None
+    user_id: uuid.UUID
+    score_sum: float
+    score_count: int
 
 
 class _StudentStdRow(NamedTuple):
@@ -50,97 +63,203 @@ class StandardsMasteryRepository:
     def __init__(self, session: AsyncSession) -> None:
         self._session = session
 
-    # ── Class view ────────────────────────────────────────────────────────────
+    # -- Class view -----------------------------------------------------------
 
     async def get_class_standards_mastery(
         self,
         class_id: uuid.UUID,
-        unit_id: str | None = None,
     ) -> list[_StdRow]:
         """
-        Return per-student mastery for every core standard that has been
-        *engaged* in the class — either through a teacher session (exit ticket /
-        timed practice) OR through independent student practice (SkillMastery
-        records for enrolled students).
+        Return per-student mastery for every core standard naturally practiced
+        in the class -- derived from ProblemAttempts (where class_id matches)
+        and ExitTicketResponses (via the parent ExitTicket's class_id).
+
+        No unit_id gate: surfaces whatever students have actually worked on.
         """
-        # Students enrolled in the classroom
-        student_subq = (
-            select(ClassroomStudent.student_id)
-            .where(ClassroomStudent.classroom_id == class_id)
-            .subquery()
-        )
-
-        # Taught (unit_id, lesson_index) combos from teacher sessions
-        taught_q = (
-            select(
-                ClassroomSession.unit_id.label("unit_id"),
-                ClassroomSession.lesson_index.label("lesson_index"),
-            )
-            .where(
-                ClassroomSession.classroom_id == class_id,
-                ClassroomSession.session_type.in_(["exit_ticket", "timed_practice"]),
-            )
-        )
-        if unit_id:
-            taught_q = taught_q.where(ClassroomSession.unit_id == unit_id)
-
-        # Practiced (unit_id, lesson_index) combos from student mastery records
-        practiced_q = (
-            select(
-                SkillMastery.unit_id.label("unit_id"),
-                SkillMastery.lesson_index.label("lesson_index"),
-            )
-            .where(SkillMastery.user_id.in_(select(student_subq.c.student_id)))
-        )
-        if unit_id:
-            practiced_q = practiced_q.where(SkillMastery.unit_id == unit_id)
-
-        # Union: all lessons that have been either taught or practiced
-        engaged_subq = taught_q.union(practiced_q).subquery()
-
-        stmt = (
+        # -- Source 1: ProblemAttempt -----------------------------------------
+        pa_stmt = (
             select(
                 Standard.code,
                 Standard.framework,
                 Standard.title,
-                SkillMastery.user_id,
-                func.avg(SkillMastery.mastery_score).label("avg_mastery"),
+                Standard.description,
+                ProblemAttempt.user_id,
+                func.sum(ProblemAttempt.score).label("score_sum"),
+                func.count(ProblemAttempt.score).label("score_count"),
             )
-            .join(LessonStandard, LessonStandard.standard_id == Standard.id)
-            .join(UnitLesson, UnitLesson.lesson_id == LessonStandard.lesson_id)
-            .join(
-                engaged_subq,
-                and_(
-                    engaged_subq.c.unit_id == UnitLesson.unit_id,
-                    engaged_subq.c.lesson_index == UnitLesson.lesson_order,
-                ),
+            .join(UnitLesson, and_(
+                UnitLesson.unit_id == ProblemAttempt.unit_id,
+                UnitLesson.lesson_order == ProblemAttempt.lesson_index,
+            ))
+            .join(LessonStandard, LessonStandard.lesson_id == UnitLesson.lesson_id)
+            .join(Standard, Standard.id == LessonStandard.standard_id)
+            .where(
+                ProblemAttempt.class_id == class_id,
+                ProblemAttempt.is_complete == True,
+                ProblemAttempt.score.is_not(None),
+                Standard.is_core == True,
             )
-            .join(
-                SkillMastery,
-                and_(
-                    SkillMastery.unit_id == UnitLesson.unit_id,
-                    SkillMastery.lesson_index == UnitLesson.lesson_order,
-                ),
+            .group_by(
+                Standard.code,
+                Standard.framework,
+                Standard.title,
+                Standard.description,
+                ProblemAttempt.user_id,
             )
-            .join(student_subq, student_subq.c.student_id == SkillMastery.user_id)
-            .where(Standard.is_core == True)  # noqa: E712
-            .group_by(Standard.code, Standard.framework, Standard.title, SkillMastery.user_id)
-            .order_by(Standard.code)
         )
 
-        result = await self._session.execute(stmt)
+        # -- Source 2: ExitTicketResponse -------------------------------------
+        et_stmt = (
+            select(
+                Standard.code,
+                Standard.framework,
+                Standard.title,
+                Standard.description,
+                ExitTicketResponse.student_id.label("user_id"),
+                func.sum(ExitTicketResponse.score).label("score_sum"),
+                func.count(ExitTicketResponse.score).label("score_count"),
+            )
+            .join(ExitTicket, ExitTicket.id == ExitTicketResponse.exit_ticket_id)
+            .join(UnitLesson, and_(
+                UnitLesson.unit_id == ExitTicket.unit_id,
+                UnitLesson.lesson_order == ExitTicket.lesson_index,
+            ))
+            .join(LessonStandard, LessonStandard.lesson_id == UnitLesson.lesson_id)
+            .join(Standard, Standard.id == LessonStandard.standard_id)
+            .where(
+                ExitTicket.class_id == class_id,
+                ExitTicketResponse.score.is_not(None),
+                Standard.is_core == True,
+            )
+            .group_by(
+                Standard.code,
+                Standard.framework,
+                Standard.title,
+                Standard.description,
+                ExitTicketResponse.student_id,
+            )
+        )
+
+        pa_result = await self._session.execute(pa_stmt)
+        et_result = await self._session.execute(et_stmt)
+        return self._merge_standard_samples(
+            list(pa_result.all()) + list(et_result.all())
+        )
+
+    async def get_student_standards_mastery_for_class(
+        self,
+        user_id: uuid.UUID,
+        class_id: uuid.UUID,
+    ) -> list[_StdRow]:
+        """
+        Return per-standard mastery for one student within a single class only.
+        """
+        pa_stmt = (
+            select(
+                Standard.code,
+                Standard.framework,
+                Standard.title,
+                Standard.description,
+                ProblemAttempt.user_id,
+                func.sum(ProblemAttempt.score).label("score_sum"),
+                func.count(ProblemAttempt.score).label("score_count"),
+            )
+            .join(UnitLesson, and_(
+                UnitLesson.unit_id == ProblemAttempt.unit_id,
+                UnitLesson.lesson_order == ProblemAttempt.lesson_index,
+            ))
+            .join(LessonStandard, LessonStandard.lesson_id == UnitLesson.lesson_id)
+            .join(Standard, Standard.id == LessonStandard.standard_id)
+            .where(
+                ProblemAttempt.class_id == class_id,
+                ProblemAttempt.user_id == user_id,
+                ProblemAttempt.is_complete == True,
+                ProblemAttempt.score.is_not(None),
+                Standard.is_core == True,
+            )
+            .group_by(
+                Standard.code,
+                Standard.framework,
+                Standard.title,
+                Standard.description,
+                ProblemAttempt.user_id,
+            )
+        )
+
+        et_stmt = (
+            select(
+                Standard.code,
+                Standard.framework,
+                Standard.title,
+                Standard.description,
+                ExitTicketResponse.student_id.label("user_id"),
+                func.sum(ExitTicketResponse.score).label("score_sum"),
+                func.count(ExitTicketResponse.score).label("score_count"),
+            )
+            .join(ExitTicket, ExitTicket.id == ExitTicketResponse.exit_ticket_id)
+            .join(UnitLesson, and_(
+                UnitLesson.unit_id == ExitTicket.unit_id,
+                UnitLesson.lesson_order == ExitTicket.lesson_index,
+            ))
+            .join(LessonStandard, LessonStandard.lesson_id == UnitLesson.lesson_id)
+            .join(Standard, Standard.id == LessonStandard.standard_id)
+            .where(
+                ExitTicket.class_id == class_id,
+                ExitTicketResponse.student_id == user_id,
+                ExitTicketResponse.score.is_not(None),
+                Standard.is_core == True,
+            )
+            .group_by(
+                Standard.code,
+                Standard.framework,
+                Standard.title,
+                Standard.description,
+                ExitTicketResponse.student_id,
+            )
+        )
+
+        pa_result = await self._session.execute(pa_stmt)
+        et_result = await self._session.execute(et_stmt)
+        return self._merge_standard_samples(
+            list(pa_result.all()) + list(et_result.all())
+        )
+
+    @staticmethod
+    def _merge_standard_samples(rows: list[_StdAggRow]) -> list[_StdRow]:
+        """Merge aggregated score samples from multiple sources with weighted mean."""
+        combined: dict[tuple[str, uuid.UUID], dict] = {}
+        for row in rows:
+            user_uuid = uuid.UUID(str(row.user_id))
+            key = (row.code, user_uuid)
+            if key not in combined:
+                combined[key] = {
+                    "code": row.code,
+                    "framework": row.framework,
+                    "title": row.title or None,
+                    "description": row.description or None,
+                    "user_id": user_uuid,
+                    "score_sum": 0.0,
+                    "score_count": 0,
+                }
+            combined[key]["score_sum"] += float(row.score_sum or 0.0)
+            combined[key]["score_count"] += int(row.score_count or 0)
+
         return [
             _StdRow(
-                code=row.code,
-                framework=row.framework,
-                title=row.title or None,
-                user_id=row.user_id,
-                avg_mastery=float(row.avg_mastery),
+                code=entry["code"],
+                framework=entry["framework"],
+                title=entry["title"],
+                description=entry["description"],
+                user_id=entry["user_id"],
+                avg_mastery=(
+                    entry["score_sum"] / entry["score_count"]
+                    if entry["score_count"] > 0 else 0.0
+                ),
             )
-            for row in result.all()
+            for entry in sorted(combined.values(), key=lambda e: e["code"])
         ]
 
-    # ── Student view ──────────────────────────────────────────────────────────
+    # -- Student view ---------------------------------------------------------
 
     async def get_student_standards_mastery(
         self,
@@ -168,7 +287,7 @@ class StandardsMasteryRepository:
                     SkillMastery.user_id == user_id,
                 ),
             )
-            .where(Standard.is_core == True)  # noqa: E712
+            .where(Standard.is_core == True)
             .group_by(Standard.code, Standard.framework, Standard.title)
             .order_by(Standard.code)
         )

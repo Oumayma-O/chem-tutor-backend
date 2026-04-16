@@ -33,6 +33,25 @@ class UserLessonPlaylistRepository:
         )
         return result.scalar_one_or_none()
 
+    async def get_most_recent_for_level(
+        self,
+        user_id: uuid.UUID,
+        unit_id: str,
+        lesson_index: int,
+        level: int,
+        difficulty: str | None = None,
+    ) -> UserLessonPlaylist | None:
+        query = select(UserLessonPlaylist).where(
+            UserLessonPlaylist.user_id == user_id,
+            UserLessonPlaylist.unit_id == unit_id,
+            UserLessonPlaylist.lesson_index == lesson_index,
+            UserLessonPlaylist.level == level,
+        )
+        if difficulty is not None:
+            query = query.where(UserLessonPlaylist.difficulty == difficulty)
+        result = await self._session.execute(query.order_by(UserLessonPlaylist.updated_at.desc()).limit(1))
+        return result.scalar_one_or_none()
+
     async def append_and_advance(
         self,
         user_id: uuid.UUID,

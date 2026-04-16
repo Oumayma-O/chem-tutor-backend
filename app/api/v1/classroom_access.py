@@ -12,12 +12,19 @@ from app.services.classroom.access import require_classroom_owned_by_teacher
 
 
 def _admin_may_access_classroom(actor: User, classroom_teacher: User) -> bool:
-    """School admin must match the classroom owner's district and school."""
-    ad = (actor.district or "").strip()
+    """School admin access check.
+
+    - Admin with no school/district configured → unrestricted (platform-level admin,
+      includes all dev/testing accounts with blank org fields).
+    - Admin with school/district set → must match the classroom owner's org exactly.
+    """
     asch = (actor.school or "").strip()
+    ad = (actor.district or "").strip()
+    if not asch and not ad:
+        return True  # no org restriction configured — treat as platform-wide admin
     td = (classroom_teacher.district or "").strip()
     tsch = (classroom_teacher.school or "").strip()
-    return bool(asch and tsch and ad == td and asch == tsch)
+    return ad == td and asch == tsch
 
 
 async def ensure_teacher_classroom(

@@ -3,12 +3,13 @@ Units router — content catalog management.
 
 GET  /units       → list all active units (filtered by grade/course)
 GET  /units/{id}  → unit detail with lessons
-POST /units       → create unit (teacher/admin)
+POST /units       → create unit (admin only)
 """
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.api.v1.authz import AuthContext, get_auth_context, require_admin
 from app.core.logging import get_logger
 from app.domain.schemas.standards import StandardOut
 from app.domain.schemas.units import (
@@ -128,7 +129,9 @@ async def get_unit(
 async def create_unit(
     req: UnitCreate,
     db: AsyncSession = Depends(get_db),
+    auth: AuthContext = Depends(get_auth_context),
 ) -> UnitOut:
+    require_admin(auth)
     await create_unit_with_lessons(db, req)
     return await get_unit(req.id, db)
 

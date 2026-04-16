@@ -41,7 +41,6 @@ from app.infrastructure.database.repositories.exit_ticket_repo import ExitTicket
 from app.services.ai.exit_ticket.service import get_exit_ticket_generation_service
 from app.services.ai.exit_ticket.persistence import ExitTicketPersistenceService
 from app.services.ai.exit_ticket.config_serialization import exit_ticket_row_to_config
-from app.services.classroom.access import require_classroom_owned_by_teacher
 from app.services.exit_ticket.misconceptions import (
     aggregate_misconception_tag_counts,
     per_question_misconception_hits,
@@ -72,16 +71,15 @@ def _effective_score(r: "ExitTicketResponse") -> float | None:
 async def build_exit_tickets_for_class_out(
     db: AsyncSession,
     class_id: uuid.UUID,
-    teacher_id: uuid.UUID | None,
+    auth: AuthContext,
     page: int,
     limit: int,
     unit_id: str | None,
     lesson_id: str | None,
     days: int | None = None,
 ) -> ExitTicketsForClassOut:
-    """Shared by GET list and SSE stream. Pass teacher_id=None for admin (ownership bypass)."""
-    if teacher_id is not None:
-        await require_classroom_owned_by_teacher(db, class_id, teacher_id)
+    """Shared by GET list and SSE stream with canonical classroom access checks."""
+    await ensure_teacher_classroom(db, auth, class_id)
 
     since: datetime | None = (
         datetime.now(timezone.utc) - timedelta(days=days) if days is not None else None
@@ -296,30 +294,14 @@ async def stream_exit_tickets_for_class(
 ) -> StreamingResponse:
     """SSE: push exit ticket list + responses when submissions change (replaces teacher polling)."""
     require_teacher_or_admin(auth)
-    teacher_id: uuid.UUID | None = auth.user_id if auth.role == "teacher" else None
-
-    # Lightweight ownership check before opening the stream — avoids a full
-    # build_exit_tickets_for_class_out call just for auth.
     async with sse_poll_session() as db:
-        if teacher_id is not None:
-            try:
-                await require_classroom_owned_by_teacher(db, class_id, teacher_id)
-            except LookupError as exc:
-                raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc)) from exc
-            except PermissionError as exc:
-                raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=str(exc)) from exc
-        else:
-            from sqlalchemy import select as _select
-            from app.infrastructure.database.models import Classroom as _Classroom
-            cls = await db.scalar(_select(_Classroom).where(_Classroom.id == class_id))
-            if cls is None:
-                raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Classroom not found.")
+        await ensure_teacher_classroom(db, auth, class_id)
 
     async def event_stream():
         async def poll_json() -> str:
             async with sse_poll_session() as sdb:
                 out = await build_exit_tickets_for_class_out(
-                    sdb, class_id, teacher_id, page, limit, unit_id, lesson_id, days
+                    sdb, class_id, auth, page, limit, unit_id, lesson_id, days
                 )
             return out.model_dump_json()
 
@@ -348,10 +330,7 @@ async def list_exit_tickets_for_class(
     auth: AuthContext = Depends(get_auth_context),
 ) -> ExitTicketsForClassOut:
     require_teacher_or_admin(auth)
-    teacher_id: uuid.UUID | None = auth.user_id if auth.role == "teacher" else None
     try:
-        return await build_exit_tickets_for_class_out(db, class_id, teacher_id, page, limit, unit_id, lesson_id, days)
-    except LookupError as exc:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc)) from exc
-    except PermissionError as exc:
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=str(exc)) from exc
+        return await build_exit_tickets_for_class_out(db, class_id, auth, page, limit, unit_id, lesson_id, days)
+    except HTTPException:
+        raise

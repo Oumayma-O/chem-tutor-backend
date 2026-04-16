@@ -27,10 +27,7 @@ from app.infrastructure.database.repositories.attempt_repo import (
     MisconceptionRepository,
 )
 from app.infrastructure.database.repositories.mastery_repo import MasteryRepository
-from app.infrastructure.database.repositories.standards_mastery_repo import (
-    StandardsMasteryRepository,
-    _AT_RISK_THRESHOLD,
-)
+from app.infrastructure.database.repositories.standards_mastery_repo import StandardsMasteryRepository
 from app.services.ai.thinking_analysis.service import ThinkingAnalysisService
 
 logger = get_logger(__name__)
@@ -38,8 +35,9 @@ settings = get_settings()
 
 # A student is "at-risk" when their mastery is this far below the ceiling
 # AND they have made at least _AT_RISK_MIN_ATTEMPTS attempts.
-_AT_RISK_GAP = 0.45
+_AT_RISK_GAP = 0.40
 _AT_RISK_MIN_ATTEMPTS = 3
+_STANDARD_AT_RISK_THRESHOLD = 0.55
 
 
 class AnalyticsService:
@@ -157,32 +155,33 @@ class AnalyticsService:
     async def aggregate_class_standards(
         self,
         class_id: uuid.UUID,
-        unit_id: str | None = None,
     ) -> ClassStandardsMasteryResponse:
         """
-        Return per-standard mastery for every student in a class, gated by
-        which lessons the teacher has run (exit tickets / timed practice).
+        Return per-standard mastery for every student in a class, derived from
+        whatever ProblemAttempts and ExitTicketResponses exist for that class.
+        No unit assignment required.
         """
         repo = StandardsMasteryRepository(self._db)
-        rows = await repo.get_class_standards_mastery(class_id=class_id, unit_id=unit_id)
+        rows = await repo.get_class_standards_mastery(class_id=class_id)
 
         # Group rows by standard code
         by_std: dict[str, list] = defaultdict(list)
-        std_meta: dict[str, tuple] = {}  # code → (framework, title)
+        std_meta: dict[str, tuple] = {}  # code → (framework, title, description)
         for row in rows:
             by_std[row.code].append(row)
-            std_meta[row.code] = (row.framework, row.title)
+            std_meta[row.code] = (row.framework, row.title, row.description)
 
         standards: list[StandardMasteryItem] = []
         for code, std_rows in sorted(by_std.items()):
             scores = [row.avg_mastery for row in std_rows]
             class_avg = sum(scores) / len(scores) if scores else 0.0
-            at_risk = sum(1 for s in scores if s < _AT_RISK_THRESHOLD)
-            framework, title = std_meta[code]
+            at_risk = sum(1 for s in scores if s < _STANDARD_AT_RISK_THRESHOLD)
+            framework, title, description = std_meta[code]
             standards.append(
                 StandardMasteryItem(
                     standard_code=code,
                     standard_title=title,
+                    standard_description=description,
                     framework=framework,
                     class_avg=class_avg,
                     at_risk_count=at_risk,
@@ -198,20 +197,26 @@ class AnalyticsService:
 
         return ClassStandardsMasteryResponse(
             class_id=class_id,
-            unit_id=unit_id,
             standards=standards,
         )
 
     async def aggregate_student_standards(
         self,
         student_id: uuid.UUID,
+        class_id: uuid.UUID | None = None,
     ) -> StudentStandardsMasteryResponse:
         """
         Return per-standard mastery for a single student, derived from all
         lessons the student has a SkillMastery record for.
         """
         repo = StandardsMasteryRepository(self._db)
-        rows = await repo.get_student_standards_mastery(user_id=student_id)
+        if class_id is None:
+            rows = await repo.get_student_standards_mastery(user_id=student_id)
+        else:
+            rows = await repo.get_student_standards_mastery_for_class(
+                user_id=student_id,
+                class_id=class_id,
+            )
 
         standards = [
             StudentStandardMasteryItem(
@@ -219,7 +224,8 @@ class AnalyticsService:
                 standard_title=row.title,
                 framework=row.framework,
                 mastery_score=row.avg_mastery,
-                lesson_count=row.lesson_count,
+                # Class-scoped rows don't have lesson_count; keep 0 as "not computed".
+                lesson_count=getattr(row, "lesson_count", 0),
                 is_mastered=row.avg_mastery >= 0.75,
             )
             for row in rows

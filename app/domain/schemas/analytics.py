@@ -14,6 +14,7 @@ class StandardMasteryItem(BaseModel):
     """Aggregated mastery for a single standard across the class."""
     standard_code: str
     standard_title: str | None
+    standard_description: str | None = None
     framework: str
     class_avg: float
     at_risk_count: int
@@ -22,7 +23,6 @@ class StandardMasteryItem(BaseModel):
 
 class ClassStandardsMasteryResponse(BaseModel):
     class_id: uuid.UUID
-    unit_id: str | None
     standards: list[StandardMasteryItem]
 
 

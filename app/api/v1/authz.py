@@ -34,7 +34,7 @@ def _parse_subject(sub: str | None) -> uuid.UUID:
         ) from exc
 
 
-def _auth_context_from_token(raw_token: str) -> AuthContext:
+def _auth_context_from_token(raw_token: str, *, expected_type: str | None = None) -> AuthContext:
     """Shared decode logic used by both header-based and query-param auth."""
     try:
         payload = decode_token(raw_token)
@@ -43,6 +43,12 @@ def _auth_context_from_token(raw_token: str) -> AuthContext:
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid or expired token.",
         ) from exc
+    token_type = payload.get("typ")
+    if expected_type is not None and token_type != expected_type:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid token type.",
+        )
     return AuthContext(
         user_id=_parse_subject(payload.get("sub")),
         role=str(payload.get("role") or ""),
@@ -66,7 +72,7 @@ async def get_auth_context_from_query(
     (e.g. EventSource / SSE).  Validates the JWT using identical logic to
     `get_auth_context`; the only difference is where the token is read from.
     """
-    return _auth_context_from_token(token)
+    return _auth_context_from_token(token, expected_type="sse")
 
 
 def require_self(target_user_id: uuid.UUID, auth: AuthContext) -> None:

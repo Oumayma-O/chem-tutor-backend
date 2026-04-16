@@ -70,3 +70,8 @@ class AccountUpdateRequest(BaseModel):
     email: Optional[EmailStr] = None
     current_password: Optional[str] = Field(default=None, min_length=1)
     new_password: Optional[str] = Field(default=None, min_length=6)
+
+
+class SseTokenResponse(BaseModel):
+    sse_token: str
+    expires_in_seconds: int

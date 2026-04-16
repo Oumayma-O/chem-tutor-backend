@@ -11,7 +11,7 @@ from fastapi import APIRouter, Depends, Query, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.v1.authz import AuthContext, get_auth_context
-from app.api.v1.classroom_access import ensure_teacher_classroom
+from app.api.v1.classroom_access import ensure_student_enrolled, ensure_teacher_classroom
 from app.api.v1.router_utils import map_unexpected_errors
 from app.core.logging import get_logger
 from app.domain.schemas.analytics import (
@@ -64,13 +64,12 @@ async def get_class_analytics(
 )
 async def get_class_standards_analytics(
     class_id: uuid.UUID,
-    unit_id: str | None = Query(default=None),
     db: AsyncSession = Depends(get_db),
     service: AnalyticsService = Depends(_get_analytics_service),
     auth: AuthContext = Depends(get_auth_context),
 ) -> ClassStandardsMasteryResponse:
     await ensure_teacher_classroom(db, auth, class_id)
-    return await service.aggregate_class_standards(class_id=class_id, unit_id=unit_id)
+    return await service.aggregate_class_standards(class_id=class_id)
 
 
 @router.get("/students/{student_id}/standards", response_model=StudentStandardsMasteryResponse)
@@ -90,8 +89,9 @@ async def get_student_standards_analytics(
     # Teacher viewing a student → verify classroom ownership
     if class_id is not None:
         await ensure_teacher_classroom(db, auth, class_id)
+        await ensure_student_enrolled(db, student_id, class_id)
     # Student viewing their own data → verified by matching auth user
     elif auth.user_id != student_id:
         from fastapi import HTTPException
         raise HTTPException(status_code=403, detail="Not authorised to view this student's data.")
-    return await service.aggregate_student_standards(student_id=student_id)
+    return await service.aggregate_student_standards(student_id=student_id, class_id=class_id)

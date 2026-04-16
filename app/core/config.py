@@ -73,10 +73,16 @@ class Settings(BaseSettings):
     mastery_window: int = 5
     # Minimum attempt score to count toward band-filling (below this = ignored)
     mastery_passing_score: float = 0.6
-    # Mastery ceilings per level band  (exit ticket unlocks the remaining 0.15)
-    l2_mastery_ceiling: float = 0.60
-    l3_mastery_ceiling: float = 0.85
+    # Mastery band ceilings (cumulative):
+    #   L1 (worked examples):  0 → 0.20  (2 qualifying attempts to fill)
+    #   L2 (guided practice):  0.20 → 0.50  (3 qualifying attempts to fill)
+    #   L3 (independent):      0.50 → 0.80  (3 qualifying attempts to fill)
+    #   Exit ticket:           0.80 → 1.00  (handled in mastery_bridge.py)
+    l1_mastery_ceiling: float = 0.20
+    l2_mastery_ceiling: float = 0.50
+    l3_mastery_ceiling: float = 0.80
     # Qualifying attempts needed to fully fill each level's band
+    l1_attempts_to_fill: int = 2
     l2_attempts_to_fill: int = 3
     l3_attempts_to_fill: int = 3
 

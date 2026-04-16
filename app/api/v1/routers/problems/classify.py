@@ -2,6 +2,7 @@
 
 from fastapi import APIRouter, Depends, status
 
+from app.api.v1.authz import AuthContext, get_auth_context
 from app.api.v1.router_utils import map_unexpected_errors
 from app.core.logging import get_logger
 from app.domain.schemas.tutor import ClassifyErrorsRequest, ErrorClassificationOutput
@@ -24,6 +25,7 @@ router = APIRouter()
 async def classify_thinking(
     req: ClassifyErrorsRequest,
     service: ThinkingAnalysisService = Depends(get_thinking_analysis_service),
+    _auth: AuthContext = Depends(get_auth_context),
 ) -> ErrorClassificationOutput:
     """
     Classify errors and populate the Thinking Tracker panel.

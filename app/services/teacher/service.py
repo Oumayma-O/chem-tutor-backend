@@ -1,6 +1,7 @@
 """Teacher dashboard service — class overview, roster, live presence."""
 
 import uuid
+from collections import defaultdict
 from datetime import datetime, time, timezone
 
 from sqlalchemy import func, select
@@ -8,13 +9,17 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.domain.schemas.classrooms import ClassroomOut
 from app.domain.schemas.dashboards import (
+    LevelStats,
     LiveStudentEntry,
     RosterStudentEntry,
-    TeacherClassCreate,
+    StudentAnalyticsOut,
+    StudentAttemptOut,
+    StudentTimedPracticeRow,
     TeacherClassOut,
     TeacherClassPatch,
+    TimedPracticeAnalytics,
 )
-from app.infrastructure.database.models import Classroom, User
+from app.infrastructure.database.models import Classroom, ClassroomSession, User
 from app.infrastructure.database.models.learning import ProblemAttempt
 from app.infrastructure.database.models.user_session import UserSessionActivity
 from app.services.classroom.service import _to_classroom_out
@@ -233,3 +238,158 @@ class TeacherService:
             )
             for r in rows
         ]
+
+    async def get_timed_practice_analytics(
+        self,
+        classroom_id: uuid.UUID,
+        session_id: uuid.UUID,
+        teacher_id: uuid.UUID | None,
+    ) -> TimedPracticeAnalytics | None:
+        """Return per-student/per-level timed-practice stats for one session."""
+        classroom = await self._classrooms.get_by_id_with_students(classroom_id)
+        if classroom is None:
+            raise LookupError("Classroom not found.")
+        if teacher_id is not None and classroom.teacher_id != teacher_id:
+            raise PermissionError("Not your class.")
+
+        sess = await self._session.scalar(
+            select(ClassroomSession).where(
+                ClassroomSession.id == session_id,
+                ClassroomSession.classroom_id == classroom_id,
+            )
+        )
+        if sess is None:
+            return None
+
+        end_bound = sess.ended_at or datetime.now(timezone.utc)
+        result = await self._session.execute(
+            select(ProblemAttempt).where(
+                ProblemAttempt.class_id == classroom_id,
+                ProblemAttempt.unit_id == sess.unit_id,
+                ProblemAttempt.started_at >= sess.started_at,
+                ProblemAttempt.started_at <= end_bound,
+            )
+        )
+        attempts = result.scalars().all()
+
+        user_ids = list({a.user_id for a in attempts})
+        users = await self._fetch_users_by_ids(user_ids) if user_ids else {}
+
+        grouped: dict[uuid.UUID, dict[int, list[float | None]]] = defaultdict(lambda: defaultdict(list))
+        for a in attempts:
+            grouped[a.user_id][a.level].append(a.score)
+
+        rows: list[StudentTimedPracticeRow] = []
+        for uid, levels in grouped.items():
+            level_stats: dict[int, LevelStats] = {}
+            total = 0
+            for lvl, scores in levels.items():
+                valid = [s for s in scores if s is not None]
+                level_stats[lvl] = LevelStats(
+                    count=len(scores),
+                    avg_score=round(sum(valid) / len(valid), 1) if valid else 0.0,
+                )
+                total += len(scores)
+            u = users.get(uid)
+            rows.append(StudentTimedPracticeRow(
+                student_id=uid,
+                student_name=u.name if u else None,
+                levels=level_stats,
+                total_count=total,
+            ))
+
+        rows.sort(key=lambda r: r.total_count, reverse=True)
+
+        return TimedPracticeAnalytics(
+            session_id=sess.id,
+            unit_id=sess.unit_id,
+            lesson_index=sess.lesson_index,
+            rows=rows,
+        )
+
+    async def get_student_analytics(
+        self,
+        student_id: uuid.UUID,
+        *,
+        unit_id: str | None,
+        lesson_index: int | None,
+        limit: int,
+        offset: int,
+    ) -> StudentAnalyticsOut:
+        """Return mastery snapshot + paginated attempt rows for one student."""
+        snap = await self._mastery.get_student_mastery_snapshot(
+            student_id, unit_id, lesson_index=lesson_index,
+        )
+
+        base_filter = [ProblemAttempt.user_id == student_id]
+        if unit_id:
+            base_filter.append(ProblemAttempt.unit_id == unit_id)
+        if lesson_index is not None:
+            base_filter.append(ProblemAttempt.lesson_index == lesson_index)
+
+        count_q = select(func.count()).select_from(ProblemAttempt).where(*base_filter)
+        total_attempts = await self._session.scalar(count_q) or 0
+
+        query = (
+            select(ProblemAttempt)
+            .where(*base_filter)
+            .order_by(ProblemAttempt.started_at.desc())
+            .limit(limit)
+            .offset(offset)
+        )
+        result = await self._session.execute(query)
+        rows = result.scalars().all()
+
+        return StudentAnalyticsOut(
+            student_id=student_id,
+            overall_mastery=snap.overall_mastery,
+            category_scores=(
+                snap.category_scores.model_dump()
+                if hasattr(snap.category_scores, "model_dump")
+                else dict(snap.category_scores)
+            ),
+            recent_attempts=[
+                StudentAttemptOut(
+                    id=r.id,
+                    unit_id=r.unit_id,
+                    lesson_index=r.lesson_index,
+                    level=r.level,
+                    score=r.score,
+                    is_complete=r.is_complete,
+                    started_at=r.started_at,
+                    completed_at=r.completed_at,
+                    time_spent_s=self._compute_time_spent(r),
+                    hints_used=self._count_hints(r.step_log),
+                    reveals_used=self._count_reveals(r.step_log),
+                )
+                for r in rows
+            ],
+            lessons_with_data=snap.lessons_with_data,
+            total_attempts=total_attempts,
+        )
+
+    @staticmethod
+    def _compute_time_spent(attempt: ProblemAttempt) -> int:
+        if not attempt.completed_at or not attempt.started_at:
+            return 0
+        delta = attempt.completed_at - attempt.started_at
+        return max(0, int(delta.total_seconds()))
+
+    @staticmethod
+    def _count_hints(step_log: list | dict | None) -> int:
+        if not isinstance(step_log, list):
+            return 0
+        return sum(
+            int(step.get("hints_used", 0) or 0)
+            for step in step_log
+            if isinstance(step, dict)
+        )
+
+    @staticmethod
+    def _count_reveals(step_log: list | dict | None) -> int:
+        if not isinstance(step_log, list):
+            return 0
+        return sum(
+            1 for step in step_log
+            if isinstance(step, dict) and step.get("was_revealed") is True
+        )

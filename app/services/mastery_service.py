@@ -4,7 +4,9 @@ MasteryService — pure business logic for mastery computation and adaptive prog
 No LLM calls live here. This is deterministic, testable Python.
 
 Design decisions:
-  - Band-filling mastery (L2 band 0→l2_ceiling, L3 band→l3_ceiling); lesson complete at l3_mastery_ceiling.
+  - Band-filling mastery across three practice bands + exit ticket:
+      L1 (0 → l1_ceiling), L2 (l1_ceiling → l2_ceiling), L3 (l2_ceiling → l3_ceiling).
+      Exit ticket fills the top band (l3_ceiling → 1.0) via mastery_bridge.py.
   - Difficulty adapts from mastery position within the L2 band.
   - At-risk: mastery < 0.4 after at least 3 attempts (unit-level struggle).
   - Level 3 unlock: one perfect L2 attempt (score 1.0) — gate to access L3; score measures practice.
@@ -96,7 +98,7 @@ class MasteryService:
         await self._attempts.mark_complete(attempt_id, score, step_log)
 
         # Pull per-level scores for band-filling computation
-        l2_scores, l3_scores = await self._fetch_band_scores(user_id, unit_id, lesson_index)
+        l1_scores, l2_scores, l3_scores = await self._fetch_band_scores(user_id, unit_id, lesson_index)
 
         # Load or create mastery record
         mastery_record = await self._mastery.get_for_lesson(user_id, unit_id, lesson_index)
@@ -112,8 +114,8 @@ class MasteryService:
         # Compute per-category scores from step_log
         category_scores = _compute_category_scores(step_log, mastery_record.category_scores)
 
-        # Compute new mastery using band-filling across L2 and L3
-        new_mastery = _compute_mastery_banded(l2_scores, l3_scores)
+        # Compute new mastery using band-filling across L1, L2, and L3
+        new_mastery = _compute_mastery_banded(l1_scores, l2_scores, l3_scores)
         consecutive = _update_consecutive(mastery_record.consecutive_correct, score)
         new_difficulty = _difficulty_from_mastery(new_mastery)
 
@@ -134,7 +136,7 @@ class MasteryService:
         mastery_record.current_difficulty = new_difficulty
         mastery_record.error_counts = error_counts
         mastery_record.category_scores = category_scores
-        mastery_record.recent_scores = list(l2_scores + l3_scores)
+        mastery_record.recent_scores = list(l1_scores + l2_scores + l3_scores)
         mastery_record.level3_unlocked = level3_unlocked
         mastery_record.level3_unlocked_at = level3_unlocked_at
         mastery_record.updated_at = datetime.utcnow()
@@ -212,10 +214,10 @@ class MasteryService:
 
         # Mastery preview uses only committed (completed) attempts.
         # Blending the in-progress score inflates mastery on partial step data.
-        l2_scores, l3_scores = await self._fetch_band_scores(
+        l1_scores, l2_scores, l3_scores = await self._fetch_band_scores(
             attempt.user_id, attempt.unit_id, attempt.lesson_index
         )
-        preview_mastery = _compute_mastery_banded(l2_scores, l3_scores)
+        preview_mastery = _compute_mastery_banded(l1_scores, l2_scores, l3_scores)
 
         preview_error_counts = _aggregate_errors(step_log, mastery_record.error_counts)
         preview_category_scores = _compute_category_scores(step_log, mastery_record.category_scores)
@@ -236,7 +238,7 @@ class MasteryService:
             level3_unlocked_at=mastery_record.level3_unlocked_at,
             category_scores=preview_category_scores,
             error_counts=preview_error_counts,
-            recent_scores=list(l2_scores + l3_scores),
+            recent_scores=list(l1_scores + l2_scores + l3_scores),
             updated_at=datetime.utcnow(),
         )
         state = _to_mastery_state(transient, settings.l3_mastery_ceiling)
@@ -310,9 +312,15 @@ class MasteryService:
         user_id: uuid.UUID,
         unit_id: str,
         lesson_index: int,
-    ) -> tuple[list[float], list[float]]:
-        """Fetch recent qualifying scores for L2 and L3 bands in parallel."""
-        l2, l3 = await asyncio.gather(
+    ) -> tuple[list[float], list[float], list[float]]:
+        """Fetch recent qualifying scores for L1, L2, and L3 bands in parallel."""
+        l1, l2, l3 = await asyncio.gather(
+            self._attempts.get_recent_scores_for_level(
+                user_id, unit_id, lesson_index,
+                level=1,
+                window=settings.l1_attempts_to_fill,
+                passing_score=settings.mastery_passing_score,
+            ),
             self._attempts.get_recent_scores_for_level(
                 user_id, unit_id, lesson_index,
                 level=2,
@@ -326,7 +334,7 @@ class MasteryService:
                 passing_score=settings.mastery_passing_score,
             ),
         )
-        return l2, l3
+        return l1, l2, l3
 
     async def get_in_progress_attempt(
         self,
@@ -450,7 +458,7 @@ def _snapshot_from_records(records: list, unit_id: str | None, *, lesson_index: 
     cat_acc: dict[str, float] = {k: 0.0 for k in MASTERY_CATEGORY_KEYS}
     cat_counts: dict[str, int] = {k: 0 for k in MASTERY_CATEGORY_KEYS}
     for r in records:
-        eff = _effective_mastery_score(r.mastery_score, r.category_scores)
+        eff = _effective_mastery_score(r.mastery_score)
         lesson_scores.append(eff)
         cs = r.category_scores or {}
         for k in MASTERY_CATEGORY_KEYS:
@@ -491,32 +499,37 @@ def _is_at_risk_from_records(records: list, unit_id: str) -> bool:
     return avg < _AT_RISK_THRESHOLD
 
 
-def _compute_mastery_banded(l2_scores: list[float], l3_scores: list[float]) -> float:
-    """Band-filling mastery score.
+def _compute_mastery_banded(
+    l1_scores: list[float],
+    l2_scores: list[float],
+    l3_scores: list[float],
+) -> float:
+    """Band-filling mastery score across three practice bands.
 
-    L2 band (0 → l2_ceiling): filled by qualifying Level 2 attempts.
-    L3 band (l2_ceiling → l3_ceiling): filled by qualifying Level 3 attempts.
-    Exit ticket fills the remaining band to 1.0 (handled separately).
+    L1 band (0 → l1_ceiling):              filled by Level 1 attempts (2 to fill).
+    L2 band (l1_ceiling → l2_ceiling):     filled by Level 2 attempts (3 to fill).
+    L3 band (l2_ceiling → l3_ceiling):     filled by Level 3 attempts (3 to fill).
+    Exit ticket fills the remaining band to 1.0 (handled in mastery_bridge.py).
 
-    Each qualifying attempt contributes proportionally. Three perfect L2 attempts
-    → 60%; one perfect L2 attempt → 20%. This prevents a single attempt from
-    instantly maxing out the band.
+    Each qualifying attempt contributes proportionally within its band, preventing
+    a single attempt from instantly maxing out any band.
     """
     s = settings
-    if not l2_scores and not l3_scores:
+    if not l1_scores and not l2_scores and not l3_scores:
         return 0.0
 
-    l2_fill = min(sum(l2_scores) / s.l2_attempts_to_fill, 1.0)
-    l2_band = l2_fill * s.l2_mastery_ceiling
+    l1_band_width = s.l1_mastery_ceiling
+    l2_band_width = s.l2_mastery_ceiling - s.l1_mastery_ceiling
+    l3_band_width = s.l3_mastery_ceiling - s.l2_mastery_ceiling
 
-    if l3_scores:
-        l3_band_width = s.l3_mastery_ceiling - s.l2_mastery_ceiling
-        l3_fill = min(sum(l3_scores) / s.l3_attempts_to_fill, 1.0)
-        l3_band = l3_fill * l3_band_width
-    else:
-        l3_band = 0.0
+    l1_fill = min(sum(l1_scores) / s.l1_attempts_to_fill, 1.0) if l1_scores else 0.0
+    l2_fill = min(sum(l2_scores) / s.l2_attempts_to_fill, 1.0) if l2_scores else 0.0
+    l3_fill = min(sum(l3_scores) / s.l3_attempts_to_fill, 1.0) if l3_scores else 0.0
 
-    return round(l2_band + l3_band, 4)
+    return round(
+        l1_fill * l1_band_width + l2_fill * l2_band_width + l3_fill * l3_band_width,
+        4,
+    )
 
 
 def _difficulty_from_mastery(mastery: float) -> str:
@@ -625,30 +638,19 @@ def _feedback_message(
     return f"Keep going — you need {remaining:.0%} more to advance."
 
 
-def _category_average(category_scores: dict) -> float:
-    """Average of the three category scores (0–1). Used when band-based mastery is 0."""
-    values = [float(v) for k in MASTERY_CATEGORY_KEYS if (v := category_scores.get(k)) is not None]
-    return round(sum(values) / len(values), 4) if values else 0.0
+def _effective_mastery_score(mastery_score: float) -> float:
+    """Return the band-based mastery score directly.
 
-
-def _effective_mastery_score(mastery_score: float, category_scores: dict | None) -> float:
+    The previous category-average fallback (used when mastery_score == 0) caused a
+    bug where a first perfect attempt set all category scores to 1.0, making the
+    fallback return 1.0 (100%) instead of the correct band-filled value (~10%).
     """
-    Overall mastery score for API responses.
-
-    When the band-based mastery_score is 0 but category_scores are present (e.g. after
-    unlocking Level 3 with in-progress category updates), derive overall from the
-    category average so the UI shows a consistent Mastery Score.
-    """
-    if mastery_score > 0:
-        return mastery_score
-    cat = category_scores or {}
-    avg = _category_average(cat)
-    return avg if avg > 0 else mastery_score
+    return mastery_score
 
 
 def _to_mastery_state(record: SkillMastery, threshold: float) -> MasteryState:
     cat = record.category_scores or {}
-    effective = _effective_mastery_score(record.mastery_score, record.category_scores)
+    effective = _effective_mastery_score(record.mastery_score)
     return MasteryState(
         user_id=record.user_id,
         unit_id=record.unit_id,

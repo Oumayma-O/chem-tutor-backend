@@ -2,6 +2,7 @@
 
 from fastapi import APIRouter, Depends, status
 
+from app.api.v1.authz import AuthContext, get_auth_context
 from app.api.v1.router_utils import map_unexpected_errors
 from app.core.logging import get_logger
 from app.domain.schemas.tutor import GenerateHintRequest, HintOutput
@@ -24,6 +25,7 @@ router = APIRouter()
 async def generate_hint(
     req: GenerateHintRequest,
     service: HintGenerationService = Depends(get_hint_generation_service),
+    _auth: AuthContext = Depends(get_auth_context),
 ) -> HintOutput:
     return await service.generate(
         step_label=req.step_label,

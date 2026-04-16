@@ -2,7 +2,7 @@
 Phases router — curriculum phase management and classroom customisation.
 
 GET  /phases                              → list phases (optionally by course)
-POST /phases                              → create phase (admin/teacher)
+POST /phases                              → create phase (admin only)
 PATCH /phases/{phase_id}                  → update phase name / order / color
 DELETE /phases/{phase_id}                 → delete phase
 
@@ -17,6 +17,7 @@ import uuid
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.api.v1.authz import AuthContext, get_auth_context, require_admin
 from app.core.logging import get_logger
 from app.domain.schemas.phases import (
     BulkOverrideRequest,
@@ -54,7 +55,9 @@ async def list_phases(
 async def create_phase(
     req: PhaseCreate,
     db: AsyncSession = Depends(get_db),
+    auth: AuthContext = Depends(get_auth_context),
 ) -> PhaseOut:
+    require_admin(auth)
     repo = PhaseRepository(db)
     phase = await repo.create(Phase(
         name=req.name,
@@ -71,7 +74,9 @@ async def update_phase(
     phase_id: int,
     req: PhaseUpdate,
     db: AsyncSession = Depends(get_db),
+    auth: AuthContext = Depends(get_auth_context),
 ) -> PhaseOut:
+    require_admin(auth)
     repo = PhaseRepository(db)
     phase = await repo.get_by_id(phase_id)
     if phase is None:
@@ -84,7 +89,9 @@ async def update_phase(
 async def delete_phase(
     phase_id: int,
     db: AsyncSession = Depends(get_db),
+    auth: AuthContext = Depends(get_auth_context),
 ) -> None:
+    require_admin(auth)
     repo = PhaseRepository(db)
     phase = await repo.get_by_id(phase_id)
     if phase is None:
@@ -129,11 +136,13 @@ async def upsert_overrides(
     classroom_id: uuid.UUID = Query(...),
     req: BulkOverrideRequest = ...,
     db: AsyncSession = Depends(get_db),
+    auth: AuthContext = Depends(get_auth_context),
 ) -> list[OverrideOut]:
     """
     Upsert one or more overrides for a classroom.
     Missing fields (phase_id, custom_order) default to None = use global defaults.
     """
+    require_admin(auth)
     repo = ClassroomCurriculumRepository(db)
     results = []
     for item in req.overrides:
@@ -166,8 +175,10 @@ async def delete_override(
     unit_id: str,
     classroom_id: uuid.UUID = Query(...),
     db: AsyncSession = Depends(get_db),
+    auth: AuthContext = Depends(get_auth_context),
 ) -> None:
     """Remove a single override — the unit reverts to global defaults."""
+    require_admin(auth)
     repo = ClassroomCurriculumRepository(db)
     deleted = await repo.delete_override(classroom_id=classroom_id, unit_id=unit_id)
     if not deleted:
@@ -179,12 +190,14 @@ async def sync_curriculum(
     classroom_id: uuid.UUID = Query(...),
     course_id: int | None = Query(default=None),
     db: AsyncSession = Depends(get_db),
+    auth: AuthContext = Depends(get_auth_context),
 ) -> SyncResult:
     """
     'Sync with Global Default' — pull any newly added units from the global
     curriculum into the classroom's override table (with default values).
     Existing overrides are untouched.
     """
+    require_admin(auth)
     repo = ClassroomCurriculumRepository(db)
     added, unchanged = await repo.sync_from_global(
         classroom_id=classroom_id,

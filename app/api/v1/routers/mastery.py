@@ -42,6 +42,10 @@ def _get_topic_progress_repo(db: AsyncSession = Depends(get_db)) -> TopicProgres
     return TopicProgressRepository(db)
 
 
+def _get_attempt_repo(db: AsyncSession = Depends(get_db)) -> AttemptRepository:
+    return AttemptRepository(db)
+
+
 def _get_mastery_service(db: AsyncSession = Depends(get_db)) -> MasteryService:
     return MasteryService(
         mastery_repo=MasteryRepository(db),
@@ -109,6 +113,8 @@ async def complete_attempt(
 async def save_step(
     req: SaveStepRequest,
     service: MasteryService = Depends(_get_mastery_service),
+    attempts: AttemptRepository = Depends(_get_attempt_repo),
+    auth: AuthContext = Depends(get_auth_context),
 ) -> SaveStepResponse:
     """
     Checkpoint: persist the current step_log for an in-progress attempt.
@@ -116,6 +122,14 @@ async def save_step(
     Call this after each step the student completes so their progress is saved
     and can be restored if they log out mid-problem.
     """
+    attempt = await attempts.get(req.attempt_id)
+    if attempt is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Attempt not found.",
+        )
+    require_self(attempt.user_id, auth)
+
     try:
         mastery_state, attempt_score, attempted_steps = await service.preview_step_progress(
             req.attempt_id, req.step_log, was_revealed=req.was_revealed

@@ -18,6 +18,7 @@ import asyncio
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.api.v1.authz import AuthContext, get_auth_context
 from app.core.logging import get_logger
 from app.domain.schemas.tutor.problems import ReferenceCardOutput
 from app.infrastructure.database.connection import get_db, AsyncSessionFactory
@@ -36,6 +37,7 @@ async def get_reference_card(
     lesson_index: int = Query(..., description="0-based lesson index within the unit"),
     lesson_name: str = Query(..., description="Human-readable lesson name for first-time generation"),
     db: AsyncSession = Depends(get_db),
+    _auth: AuthContext = Depends(get_auth_context),
 ) -> ReferenceCardOutput:
     """
     Return the study reference card for a lesson.

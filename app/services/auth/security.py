@@ -32,6 +32,18 @@ def create_access_token(user_id: str, email: str, role: str) -> str:
     return jwt.encode(payload, settings.jwt_secret_key, algorithm=settings.jwt_algorithm)
 
 
+def create_sse_token(user_id: str, email: str, role: str, *, ttl_seconds: int = 120) -> str:
+    expire = datetime.utcnow() + timedelta(seconds=ttl_seconds)
+    payload = {
+        "sub": user_id,
+        "email": email,
+        "role": role,
+        "typ": "sse",
+        "exp": expire,
+    }
+    return jwt.encode(payload, settings.jwt_secret_key, algorithm=settings.jwt_algorithm)
+
+
 def decode_token(token: str) -> dict:
     """Raises JWTError if invalid or expired."""
     return jwt.decode(token, settings.jwt_secret_key, algorithms=[settings.jwt_algorithm])

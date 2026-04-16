@@ -10,13 +10,20 @@ Generation rules:
 Business logic lives in ProblemDeliveryService.
 """
 
+from typing import Literal
+
 from fastapi import APIRouter, BackgroundTasks, Depends, Query, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.v1.authz import AuthContext, get_auth_context, require_self
 from app.api.v1.router_utils import map_unexpected_errors
 from app.core.logging import get_logger
-from app.domain.schemas.tutor import GenerateProblemRequest, ProblemDeliveryResponse, ProblemOutput
+from app.domain.schemas.tutor import (
+    GenerateProblemRequest,
+    PlaylistHydrationResponse,
+    ProblemDeliveryResponse,
+    ProblemOutput,
+)
 from app.infrastructure.database.connection import get_db
 from app.services.ai.problem_generation.service import (
     ProblemGenerationService,
@@ -78,4 +85,31 @@ async def generate_problem(
     if req.user_id is not None:
         require_self(req.user_id, auth)
     return await service.deliver(req, background_tasks)
+
+
+@router.get("/playlist", response_model=PlaylistHydrationResponse)
+@map_unexpected_errors(
+    logger=logger,
+    event="problem_playlist_hydration_failed",
+    status_code=status.HTTP_502_BAD_GATEWAY,
+    detail="Failed to load problem playlist. Please try again.",
+)
+async def get_problem_playlist(
+    unit_id: str = Query(...),
+    lesson_index: int = Query(...),
+    level: int = Query(..., ge=1, le=3),
+    difficulty: Literal["easy", "medium", "hard"] | None = Query(default=None),
+    service: ProblemDeliveryService = Depends(_delivery),
+    auth: AuthContext = Depends(get_auth_context),
+) -> PlaylistHydrationResponse:
+    """Return full per-level seen problem history for student-side hydration."""
+    if not auth.user_id:
+        return PlaylistHydrationResponse()
+    return await service.get_playlist(
+        user_id=auth.user_id,
+        unit_id=unit_id,
+        lesson_index=lesson_index,
+        level=level,
+        difficulty=difficulty,
+    )
 

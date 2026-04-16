@@ -2,6 +2,7 @@
 
 from fastapi import APIRouter, Depends, status
 
+from app.api.v1.authz import AuthContext, get_auth_context
 from app.api.v1.router_utils import map_unexpected_errors
 from app.core.logging import get_logger
 from app.domain.schemas.tutor import ValidateAnswerRequest, ValidationOutput
@@ -24,6 +25,7 @@ router = APIRouter()
 async def validate_step(
     req: ValidateAnswerRequest,
     service: StepValidationService = Depends(get_step_validation_service),
+    _auth: AuthContext = Depends(get_auth_context),
 ) -> ValidationOutput:
     return await service.validate(
         student_answer=req.student_answer,
