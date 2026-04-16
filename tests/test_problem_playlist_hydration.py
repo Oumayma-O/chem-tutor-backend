@@ -75,6 +75,7 @@ async def test_get_playlist_includes_active_attempt(monkeypatch: pytest.MonkeyPa
     )
 
     async def fake_get_most_recent_for_level(self, **kwargs):  # type: ignore[no-untyped-def]
+        assert kwargs.get("difficulty") is None
         return playlist
 
     async def fake_get_latest_for_problems(

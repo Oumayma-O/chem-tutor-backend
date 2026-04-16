@@ -334,19 +334,21 @@ class MasteryService:
                 user_id, unit_id, lesson_index,
                 level=1,
                 window=settings.l1_attempts_to_fill,
-                passing_score=settings.mastery_passing_score,
+                # Band filling should reflect every completed attempt's penalized score.
+                # Do not drop low-scoring attempts, or mastery can appear "stuck."
+                passing_score=0.0,
             ),
             self._attempts.get_recent_scores_for_level(
                 user_id, unit_id, lesson_index,
                 level=2,
                 window=settings.l2_attempts_to_fill,
-                passing_score=settings.mastery_passing_score,
+                passing_score=0.0,
             ),
             self._attempts.get_recent_scores_for_level(
                 user_id, unit_id, lesson_index,
                 level=3,
                 window=settings.l3_attempts_to_fill,
-                passing_score=settings.mastery_passing_score,
+                passing_score=0.0,
             ),
         )
         return l1, l2, l3

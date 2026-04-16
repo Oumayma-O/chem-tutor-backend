@@ -66,7 +66,15 @@ class UserLessonPlaylistRepository:
         If this problem's id is already in the playlist (e.g. cache returned a duplicate),
         we do not append again; we set current_index to that existing position.
         """
-        existing = await self.get(user_id, unit_id, lesson_index, level, difficulty)
+        # Use the most recent level timeline regardless of difficulty so a student's
+        # playlist remains continuous across adaptive difficulty shifts.
+        existing = await self.get_most_recent_for_level(
+            user_id=user_id,
+            unit_id=unit_id,
+            lesson_index=lesson_index,
+            level=level,
+            difficulty=None,
+        )
         now = datetime.utcnow()
         problem_id = problem_data.get("id") if isinstance(problem_data, dict) else None
         existing_list = list(existing.problems or []) if existing else []

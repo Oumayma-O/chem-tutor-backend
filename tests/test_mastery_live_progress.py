@@ -151,6 +151,7 @@ def test_effective_mastery_score_fallback() -> None:
 class _FakeAttemptRepo:
     def __init__(self) -> None:
         self.marked_score: float | None = None
+        self.requested_passing_scores: list[tuple[int, float]] = []
 
     async def mark_complete(self, attempt_id, score, step_log):  # type: ignore[no-untyped-def]
         self.marked_score = score
@@ -164,6 +165,7 @@ class _FakeAttemptRepo:
         window=5,
         passing_score=0.0,
     ):
+        self.requested_passing_scores.append((level, float(passing_score)))
         # Return no historic scores so band-filling contribution is isolated to this attempt.
         return []
 
@@ -276,3 +278,41 @@ async def test_complete_attempt_level1_empty_step_log_counts_as_full_credit() ->
 
     assert attempts.marked_score == 1.0
     assert decision.attempt_score == 1.0
+
+
+@pytest.mark.asyncio
+async def test_complete_attempt_fetches_band_scores_without_passing_threshold_filter() -> None:
+    user_id = uuid.uuid4()
+    mastery_record = SimpleNamespace(
+        user_id=user_id,
+        unit_id="u1",
+        lesson_index=1,
+        mastery_score=0.0,
+        attempts_count=0,
+        consecutive_correct=0,
+        current_difficulty="medium",
+        level3_unlocked=False,
+        level3_unlocked_at=None,
+        category_scores={},
+        error_counts={},
+        recent_scores=[],
+        updated_at=datetime.now(timezone.utc),
+    )
+    attempts = _FakeAttemptRepo()
+    service = MasteryService(
+        mastery_repo=_FakeMasteryRepo(mastery_record),
+        attempt_repo=attempts,
+        misconception_repo=_FakeMisconceptionRepo(),
+    )
+
+    await service.complete_attempt(
+        attempt_id=uuid.uuid4(),
+        user_id=user_id,
+        unit_id="u1",
+        lesson_index=1,
+        score=0.0,
+        step_log=[{"category": "procedural", "is_correct": True, "attempts": 1, "hints_used": 0}],
+        level=2,
+    )
+
+    assert attempts.requested_passing_scores == [(1, 0.0), (2, 0.0), (3, 0.0)]

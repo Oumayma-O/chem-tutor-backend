@@ -34,14 +34,16 @@ class PlaylistCoordinator:
     ) -> ProblemDeliveryResponse | None:
         if not req.user_id or req.force_regenerate:
             return None
+        # Keep arg for call-site compatibility; playlists are now resumed by most-recent level timeline.
+        _ = effective_difficulty
 
         repo = UserLessonPlaylistRepository(self._db)
-        playlist = await repo.get(
-            req.user_id,
-            req.unit_id,
-            req.lesson_index,
-            req.level,
-            effective_difficulty,
+        playlist = await repo.get_most_recent_for_level(
+            user_id=req.user_id,
+            unit_id=req.unit_id,
+            lesson_index=req.lesson_index,
+            level=req.level,
+            difficulty=None,
         )
         if not playlist or not playlist.problems:
             self._last_playlist_problems = None
@@ -127,11 +129,19 @@ class PlaylistCoordinator:
         Reuses the playlist fetched by try_resume() when available to avoid a duplicate query.
         """
         problems: list = []
+        # Keep arg for call-site compatibility; summaries now read from most-recent level timeline.
+        _ = difficulty
         if self._last_playlist_problems is not None:
             problems = self._last_playlist_problems
         elif user_id:
             repo = UserLessonPlaylistRepository(self._db)
-            playlist = await repo.get(user_id, unit_id, lesson_index, level, difficulty)
+            playlist = await repo.get_most_recent_for_level(
+                user_id=user_id,
+                unit_id=unit_id,
+                lesson_index=lesson_index,
+                level=level,
+                difficulty=None,
+            )
             problems = list(playlist.problems) if playlist and playlist.problems else []
 
         summaries: list[str] = []

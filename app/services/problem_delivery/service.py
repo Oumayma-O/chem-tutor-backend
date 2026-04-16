@@ -112,13 +112,15 @@ class ProblemDeliveryService:
         level: int,
         difficulty: Literal["easy", "medium", "hard"] | None = None,
     ) -> PlaylistHydrationResponse:
+        # Keep arg for API compatibility; hydration is now level-scoped, not difficulty-scoped.
+        _ = difficulty
         repo = UserLessonPlaylistRepository(self._db)
         playlist = await repo.get_most_recent_for_level(
             user_id=user_id,
             unit_id=unit_id,
             lesson_index=lesson_index,
             level=level,
-            difficulty=difficulty,
+            difficulty=None,
         )
         if not playlist or not playlist.problems:
             return PlaylistHydrationResponse()
