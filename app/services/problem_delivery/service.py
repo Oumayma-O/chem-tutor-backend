@@ -12,10 +12,10 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.logging import get_logger
 from app.domain.schemas.tutor import (
     GenerateProblemRequest,
-    PlaylistHydrationResponse,
     ProblemDeliveryResponse,
     ProblemOutput,
 )
+from app.domain.schemas.tutor.problems import PlaylistHydrationResponse
 from app.infrastructure.database.repositories.attempt_repo import AttemptRepository
 from app.services.ai.problem_generation.service import ProblemGenerationService
 from app.services.ai.shared.step_types import enforce_step_types

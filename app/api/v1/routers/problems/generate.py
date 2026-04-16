@@ -20,10 +20,10 @@ from app.api.v1.router_utils import map_unexpected_errors
 from app.core.logging import get_logger
 from app.domain.schemas.tutor import (
     GenerateProblemRequest,
-    PlaylistHydrationResponse,
     ProblemDeliveryResponse,
     ProblemOutput,
 )
+from app.domain.schemas.tutor.problems import PlaylistHydrationResponse
 from app.infrastructure.database.connection import get_db
 from app.services.ai.problem_generation.service import (
     ProblemGenerationService,
