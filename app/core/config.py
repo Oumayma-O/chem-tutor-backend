@@ -91,6 +91,9 @@ class Settings(BaseSettings):
     l1_max_problems: int = 3   # worked examples — see pattern, then do it yourself
     l2_max_problems: int = 5   # faded practice — variety before mastery check
     l3_max_problems: int = 5   # challenge — high-effort; spaced practice elsewhere
+    # Unique L1 examples a student must view before Level 2 unlocks (solo/no-classroom default).
+    # Per-classroom override stored in classrooms.min_level1_examples_for_level2.
+    min_level1_examples_for_level2: int = 2
 
     # Default for new classrooms: max “3-strikes” answer reveals per lesson (teachers can override per class).
     default_max_answer_reveals_per_lesson: int = Field(default=6, ge=1, le=200)

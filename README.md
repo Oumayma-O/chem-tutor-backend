@@ -310,10 +310,13 @@ On reload or new device, `GET /problems/playlist` returns the full playlist with
 ### Submission & Scoring
 
 Student submits via `POST /student/exit-tickets/{id}/submit`:
-1. Frontend sends `score_percent` + per-question `results` (from `validateStep` API)
-2. Backend prefers frontend values (matches what student saw)
-3. Fallback: server-side scoring via `StepValidationService` (same hybrid pipeline)
+1. Backend always scores server-side via `score_exit_ticket_submission()` — the same hybrid `StepValidationService` pipeline used by `/validate-step`
+2. MCQ: exact string match (Phase 1 only, no LLM). Numeric/short-answer: full Phase 1 + Phase 2 waterfall
+3. All questions validated in parallel (`asyncio.gather`) for low latency
 4. Score feeds into mastery bridge (fills 85→100% band)
+5. Per-question `is_correct` flags stored on each answer row for teacher analytics
+
+Frontend-computed scores are never trusted — the client could send `score_percent: 100` with wrong answers. The server is the single source of truth.
 
 ### Teacher Analytics
 
@@ -396,7 +399,7 @@ pytest --cov=app          # Coverage
 1. **No `--reload`** — interrupts LLM calls (30-120s) and SSE streams.
 2. **JWT = 7 days**. After `seed --clean`, all tokens invalid. Log in again.
 3. **Bootstrap is idempotent** — delete user row to force recreation.
-4. **Exit ticket scoring** prefers frontend values. Server-side is fallback.
+4. **Exit ticket scoring** is always server-side. Frontend scores are never trusted.
 5. **Problem dedup** is best-effort (5 summaries in prompt).
 6. **Standards heatmap** = UNION of teacher sessions + student practice.
 7. **Blocked ≠ removed**: blocked keeps row (can unblock). Removed deletes + clears district/school.

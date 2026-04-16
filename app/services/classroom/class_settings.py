@@ -7,6 +7,7 @@ import uuid
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.config import get_settings
 from app.infrastructure.database.models import Classroom
 
 
@@ -31,12 +32,14 @@ async def get_max_answer_reveals_per_lesson(db: AsyncSession, class_id: uuid.UUI
     return max(1, n)
 
 
-async def get_min_level1_examples_for_level2(db: AsyncSession, class_id: uuid.UUID | None) -> int | None:
-    """Return required unique L1 examples before Level 2 when ``class_id`` is set; else ``None``."""
-    if class_id is None:
-        return None
-    row = await db.scalar(select(Classroom).where(Classroom.id == class_id))
-    if row is None:
-        return None
-    n = int(row.min_level1_examples_for_level2)
-    return max(1, n)
+async def get_min_level1_examples_for_level2(db: AsyncSession, class_id: uuid.UUID | None) -> int:
+    """Return required unique L1 examples before Level 2 unlocks.
+
+    Uses the per-classroom setting when a classroom is given, otherwise falls back to the
+    global config default (``settings.min_level1_examples_for_level2``).
+    """
+    if class_id is not None:
+        row = await db.scalar(select(Classroom).where(Classroom.id == class_id))
+        if row is not None:
+            return max(1, int(row.min_level1_examples_for_level2))
+    return get_settings().min_level1_examples_for_level2

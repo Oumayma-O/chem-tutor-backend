@@ -106,14 +106,7 @@ async def submit_exit_ticket_attempt(
         logger.info("exit_ticket_already_submitted", ticket=str(ticket_id), student=str(auth.user_id))
         return
 
-    # Prefer the frontend-computed score/results when provided — they were derived from the same
-    # validateStep API the student saw, so they match the student's experience exactly.
-    # Fall back to server-side scoring only when the client omits them.
-    if body.score_percent is not None and body.results:
-        score: float | None = body.score_percent
-        per_question: dict[str, bool] = body.results
-    else:
-        score, per_question = await score_exit_ticket_submission(list(t_row.questions or []), body.answers)
+    score, per_question = await score_exit_ticket_submission(list(t_row.questions or []), body.answers)
 
     answers_list = [
         {
