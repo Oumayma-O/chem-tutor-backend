@@ -10,6 +10,7 @@ Generation rules:
 Business logic lives in ProblemDeliveryService.
 """
 
+import uuid as _uuid_mod
 from typing import Literal
 
 from fastapi import APIRouter, BackgroundTasks, Depends, Query, status
@@ -99,17 +100,25 @@ async def get_problem_playlist(
     lesson_index: int = Query(...),
     level: int = Query(..., ge=1, le=3),
     difficulty: Literal["easy", "medium", "hard"] | None = Query(default=None),
+    class_id: str | None = Query(default=None),
     service: ProblemDeliveryService = Depends(_delivery),
     auth: AuthContext = Depends(get_auth_context),
 ) -> PlaylistHydrationResponse:
     """Return full per-level seen problem history for student-side hydration."""
     if not auth.user_id:
         return PlaylistHydrationResponse()
+    parsed_class_id: _uuid_mod.UUID | None = None
+    if class_id:
+        try:
+            parsed_class_id = _uuid_mod.UUID(class_id)
+        except ValueError:
+            pass
     return await service.get_playlist(
         user_id=auth.user_id,
         unit_id=unit_id,
         lesson_index=lesson_index,
         level=level,
         difficulty=difficulty,
+        class_id=parsed_class_id,
     )
 

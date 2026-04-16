@@ -223,6 +223,12 @@ class PlaylistHydrationResponse(BaseModel):
     has_next: bool = False
     active_attempt: dict[str, Any] | None = None
     attempts_by_problem: dict[str, dict[str, Any]] = Field(default_factory=dict)
+    # Class policy fields — populated when class_id is provided on the request.
+    # Lets the frontend apply the correct thresholds on new-device / hard-refresh
+    # without waiting for the first /problems/generate call.
+    allow_answer_reveal: bool | None = None
+    max_answer_reveals_per_lesson: int | None = None
+    min_level1_examples_for_level2: int | None = None
 
 
 # ── Reference Card ────────────────────────────────────────────

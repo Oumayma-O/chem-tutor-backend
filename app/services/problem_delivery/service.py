@@ -111,6 +111,7 @@ class ProblemDeliveryService:
         lesson_index: int,
         level: int,
         difficulty: Literal["easy", "medium", "hard"] | None = None,
+        class_id: _uuid.UUID | None = None,
     ) -> PlaylistHydrationResponse:
         # Keep arg for API compatibility; hydration is now level-scoped, not difficulty-scoped.
         _ = difficulty
@@ -167,6 +168,9 @@ class ProblemDeliveryService:
                 continue
             id_map, id_by_step_number = step_id_maps[idx]
             attempts_by_problem[problem.id] = _attempt_payload(attempt, id_map, id_by_step_number)
+        reveal = await get_allow_answer_reveal(self._db, class_id)
+        max_reveals = await get_max_answer_reveals_per_lesson(self._db, class_id)
+        min_l1 = await get_min_level1_examples_for_level2(self._db, class_id)
         return PlaylistHydrationResponse(
             problems=parsed,
             current_index=current_index,
@@ -179,6 +183,9 @@ class ProblemDeliveryService:
                 if active_attempt is not None
                 else None
             ),
+            allow_answer_reveal=reveal,
+            max_answer_reveals_per_lesson=max_reveals,
+            min_level1_examples_for_level2=min_l1,
         )
 
     async def deliver_worked_example(
