@@ -65,6 +65,7 @@ class ClassroomStudent(Base):
     )
     student_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True)
     joined_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now)
+    is_blocked: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
 
     classroom: Mapped["Classroom"] = relationship(back_populates="students")
 

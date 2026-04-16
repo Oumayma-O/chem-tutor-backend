@@ -95,19 +95,40 @@ class ClassroomStudentRepository(BaseRepository[ClassroomStudent]):
         return result.scalar_one_or_none() is not None
 
     async def enroll(self, classroom_id: uuid.UUID, student_id: uuid.UUID) -> ClassroomStudent:
-        if await self.is_enrolled(classroom_id, student_id):
-            result = await self._session.execute(
-                select(ClassroomStudent).where(
-                    ClassroomStudent.classroom_id == classroom_id,
-                    ClassroomStudent.student_id == student_id,
-                )
+        # Check if student was previously enrolled (possibly blocked)
+        result = await self._session.execute(
+            select(ClassroomStudent).where(
+                ClassroomStudent.classroom_id == classroom_id,
+                ClassroomStudent.student_id == student_id,
             )
-            return result.scalar_one()
+        )
+        existing = result.scalar_one_or_none()
+        if existing is not None:
+            if existing.is_blocked:
+                raise PermissionError("You have been blocked from this classroom.")
+            return existing
 
         membership = ClassroomStudent(classroom_id=classroom_id, student_id=student_id)
         self._session.add(membership)
         await self._session.flush()
         return membership
+
+    async def set_blocked(
+        self, classroom_id: uuid.UUID, student_id: uuid.UUID, blocked: bool,
+    ) -> bool:
+        """Set or clear the blocked flag. Returns True if the row was found."""
+        result = await self._session.execute(
+            select(ClassroomStudent).where(
+                ClassroomStudent.classroom_id == classroom_id,
+                ClassroomStudent.student_id == student_id,
+            )
+        )
+        row = result.scalar_one_or_none()
+        if row is None:
+            return False
+        row.is_blocked = blocked
+        await self._session.flush()
+        return True
 
     async def get_class_students(self, classroom_id: uuid.UUID) -> Sequence[ClassroomStudent]:
         result = await self._session.execute(

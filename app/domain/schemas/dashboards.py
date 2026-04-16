@@ -117,6 +117,7 @@ class RosterStudentEntry(BaseModel):
     joined_at: datetime
     mastery: MasterySnapshot
     at_risk: bool = False
+    is_blocked: bool = False
     last_activity_at: datetime | None = Field(
         default=None,
         description="Latest of problem attempts and session heartbeats.",

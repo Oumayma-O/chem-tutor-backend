@@ -181,6 +181,7 @@ class TeacherService:
                     joined_at=m.joined_at,
                     mastery=snap,
                     at_risk=at_risk,
+                    is_blocked=m.is_blocked,
                     last_activity_at=last_by.get(m.student_id),
                 )
             )

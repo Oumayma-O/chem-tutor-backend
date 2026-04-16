@@ -125,10 +125,21 @@ class ClassroomService:
             raise LookupError("Student not enrolled in this classroom.")
         await self._session.commit()
 
+    async def block_student(
+        self, classroom_id: uuid.UUID, student_id: uuid.UUID, blocked: bool,
+    ) -> None:
+        """Block or unblock a student. Raises LookupError if not enrolled."""
+        found = await self._students.set_blocked(classroom_id, student_id, blocked)
+        if not found:
+            raise LookupError("Student not enrolled in this classroom.")
+        await self._session.commit()
+        action = "blocked" if blocked else "unblocked"
+        logger.info(f"student_{action}", student=str(student_id), classroom=str(classroom_id))
+
     async def list_students(self, classroom_id: uuid.UUID) -> list[ClassroomStudentOut]:
         members = await self._students.get_class_students(classroom_id)
         return [
-            ClassroomStudentOut(student_id=m.student_id, joined_at=m.joined_at)
+            ClassroomStudentOut(student_id=m.student_id, joined_at=m.joined_at, is_blocked=m.is_blocked)
             for m in members
         ]
 

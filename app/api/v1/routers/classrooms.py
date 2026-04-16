@@ -9,6 +9,7 @@ POST   /classrooms/join                        → student joins by code
 GET    /classrooms/student/{id}               → list student's classrooms
 GET    /classrooms/{id}/students              → list enrolled students
 DELETE /classrooms/{id}/students/{sid}        → remove student
+PATCH  /classrooms/{id}/students/{sid}        → block/unblock student
 GET    /classrooms/me/live-session            → poll live session (student)
 GET    /classrooms/me/live-session/stream     → SSE stream live session (student)
 POST   /classrooms/me/live-session/dismiss    → dismiss overlay (student)
@@ -18,6 +19,7 @@ import uuid
 
 from fastapi import APIRouter, Depends, HTTPException, Response, status
 from fastapi.responses import StreamingResponse
+from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.infrastructure.database.connection import get_db, sse_poll_session
@@ -193,6 +195,8 @@ async def join_classroom(
         return await ClassroomService(db).join(req.code, req.student_id)
     except LookupError as exc:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc))
+    except PermissionError as exc:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=str(exc))
 
 
 @router.get("/student/{student_id}", response_model=list[ClassroomListItem])
@@ -235,6 +239,35 @@ async def remove_classroom_student(
 
     try:
         await svc.remove_student(classroom_id, student_id)
+    except LookupError as exc:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc))
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
+
+
+class PatchStudentRequest(BaseModel):
+    is_blocked: bool
+
+
+@router.patch(
+    "/{classroom_id}/students/{student_id}",
+    status_code=status.HTTP_204_NO_CONTENT,
+)
+async def patch_classroom_student(
+    classroom_id: uuid.UUID,
+    student_id: uuid.UUID,
+    body: PatchStudentRequest,
+    db: AsyncSession = Depends(get_db),
+    auth: AuthContext = Depends(get_auth_context),
+) -> Response:
+    """Teacher blocks or unblocks a student in the classroom."""
+    require_role(auth, "teacher")
+    svc = ClassroomService(db)
+    classroom = await svc.get_raw(classroom_id)
+    if classroom is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Classroom not found.")
+    require_self(classroom.teacher_id, auth)
+    try:
+        await svc.block_student(classroom_id, student_id, body.is_blocked)
     except LookupError as exc:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc))
     return Response(status_code=status.HTTP_204_NO_CONTENT)

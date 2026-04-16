@@ -37,6 +37,7 @@ class JoinClassroomResponse(BaseModel):
 class ClassroomStudentOut(BaseModel):
     student_id: uuid.UUID
     joined_at: datetime
+    is_blocked: bool = False
 
 
 class ClassroomListItem(BaseModel):
