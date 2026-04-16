@@ -202,7 +202,11 @@ async def get_live_session_for_student(
     result = await session.execute(
         select(Classroom)
         .join(ClassroomStudent, ClassroomStudent.classroom_id == Classroom.id)
-        .where(ClassroomStudent.student_id == student_id, Classroom.is_active.is_(True))
+        .where(
+            ClassroomStudent.student_id == student_id,
+            ClassroomStudent.is_blocked == False,  # noqa: E712
+            Classroom.is_active.is_(True),
+        )
         .order_by(ClassroomStudent.joined_at.desc())
         .limit(1)
     )

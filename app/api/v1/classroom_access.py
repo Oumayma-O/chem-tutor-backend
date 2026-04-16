@@ -70,12 +70,14 @@ async def ensure_student_enrolled(
     student_id: uuid.UUID,
     class_id: uuid.UUID,
 ) -> None:
-    """Raise 404 if the student is not enrolled in the class."""
-    r = await db.scalar(
-        select(ClassroomStudent.classroom_id).where(
+    """Raise 404 if the student is not enrolled, 403 if blocked."""
+    row = await db.scalar(
+        select(ClassroomStudent).where(
             ClassroomStudent.student_id == student_id,
             ClassroomStudent.classroom_id == class_id,
         )
     )
-    if r is None:
+    if row is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Not enrolled in this class.")
+    if row.is_blocked:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="You have been blocked from this classroom.")

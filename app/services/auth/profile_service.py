@@ -45,7 +45,10 @@ class AuthProfileService:
             select(Classroom)
             .options(load_only(Classroom.id, Classroom.name, Classroom.code))
             .join(ClassroomStudent, Classroom.id == ClassroomStudent.classroom_id)
-            .where(ClassroomStudent.student_id == user_id)
+            .where(
+                ClassroomStudent.student_id == user_id,
+                ClassroomStudent.is_blocked == False,  # noqa: E712
+            )
             .limit(1)
         )
         classroom = cls_result.scalar_one_or_none()

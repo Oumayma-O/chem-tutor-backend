@@ -119,11 +119,22 @@ class ClassroomService:
     async def remove_student(
         self, classroom_id: uuid.UUID, student_id: uuid.UUID
     ) -> None:
-        """Raises LookupError if student is not enrolled."""
+        """Remove student from classroom and clear inherited district/school.
+        Raises LookupError if student is not enrolled."""
         removed = await self._students.remove_membership(classroom_id, student_id)
         if not removed:
             raise LookupError("Student not enrolled in this classroom.")
+
+        # Clear inherited district/school since the student is no longer in the class.
+        student = await self._session.scalar(
+            select(User).where(User.id == student_id)
+        )
+        if student:
+            student.district = None
+            student.school = None
+
         await self._session.commit()
+        logger.info("student_removed", student=str(student_id), classroom=str(classroom_id))
 
     async def block_student(
         self, classroom_id: uuid.UUID, student_id: uuid.UUID, blocked: bool,
