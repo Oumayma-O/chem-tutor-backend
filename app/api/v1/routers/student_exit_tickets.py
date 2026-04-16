@@ -61,7 +61,17 @@ async def get_exit_ticket_for_student(
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Exit ticket not found.")
 
     await ensure_student_enrolled(db, auth.user_id, t_row.class_id)
-    await _assert_ticket_published_for_class(db, t_row.class_id, ticket_id)
+
+    # Allow review access when the student has already submitted; otherwise require an active live session.
+    already_submitted = await db.scalar(
+        select(ExitTicketResponse.id).where(
+            ExitTicketResponse.exit_ticket_id == ticket_id,
+            ExitTicketResponse.student_id == auth.user_id,
+        )
+    )
+    if already_submitted is None:
+        await _assert_ticket_published_for_class(db, t_row.class_id, ticket_id)
+
     return exit_ticket_row_to_config(t_row)
 
 
