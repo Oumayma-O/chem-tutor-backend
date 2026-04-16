@@ -21,154 +21,291 @@ docker compose exec app python -m scripts.bootstrap_superadmin
 
 The API is at `http://localhost:8000`. Swagger docs at `http://localhost:8000/docs`.
 
-## Without Docker
+### Without Docker
 
 ```bash
-# Python 3.12+ required
-python -m venv .venv
-source .venv/bin/activate  # or .venv\Scripts\activate on Windows
+python -m venv .venv && source .venv/bin/activate
 pip install -e ".[dev]"
-
-# Run migrations + start
 alembic upgrade head
 uvicorn app.main:app --host 0.0.0.0 --port 8000
-
-# Seed + bootstrap
 python -m scripts.seed
 python -m scripts.bootstrap_superadmin
 ```
 
+---
+
 ## Environment Variables
 
-Copy `.env.example` to `.env`. Key variables:
+Copy `.env.example` to `.env`. Critical variables:
 
 | Variable | Required | Description |
 |---|---|---|
-| `DATABASE_URL` | Yes | PostgreSQL connection string (asyncpg driver). Works with Neon, Supabase, or local Postgres. |
-| `DEFAULT_AI_PROVIDER` | Yes | `openai`, `anthropic`, `gemini`, or `mistral` — used for problem generation |
-| `OPENAI_API_KEY` | If using OpenAI | API key for the default provider |
-| `FAST_AI_PROVIDER` | Yes | Lightweight model for validation, hints, exit ticket scoring |
-| `JWT_SECRET_KEY` | Yes | Change in production. Used for all JWT tokens. |
-| `ADMIN_EMAIL` / `ADMIN_PASSWORD` | Optional | Bootstrap creates a superadmin on startup if set |
+| `DATABASE_URL` | Yes | PostgreSQL (asyncpg). Works with Neon, Supabase, local. |
+| `DEFAULT_AI_PROVIDER` | Yes | `openai` / `anthropic` / `gemini` / `mistral` |
+| `OPENAI_API_KEY` | If using OpenAI | Problem generation, reference cards |
+| `FAST_AI_PROVIDER` | Yes | Lightweight model for validation, hints, exit tickets |
+| `JWT_SECRET_KEY` | Yes | Change in production |
+| `ADMIN_EMAIL` / `ADMIN_PASSWORD` | Optional | Bootstrap superadmin on startup |
 | `ALLOWED_ORIGINS` | Production | JSON array of frontend URLs for CORS |
 
-See `.env.example` for the full list with defaults.
+See `.env.example` for mastery thresholds, playlist caps, and all defaults.
 
-## Architecture
+---
+
+## Architecture Overview
 
 ```
 app/
-├── api/v1/routers/       # FastAPI route handlers (thin — delegate to services)
-│   ├── auth.py           # Register, login, /me, password change, heartbeat
-│   ├── problems/         # Generate, navigate, validate-step, hints, playlist
-│   ├── teacher.py        # Teacher dashboard: classes, roster, live, sessions
-│   ├── admin.py          # School admin: create teachers, stats, curriculum
-│   ├── superadmin.py     # Platform admin: create school admins, global stats
-│   ├── classrooms.py     # Join by code, student management, live session
-│   ├── exit_tickets.py   # Teacher exit ticket generation + analytics
-│   └── student_exit_tickets.py  # Student submit + scoring
-├── core/                 # Config, logging, SSE stream helpers
-├── domain/schemas/       # Pydantic models (request/response contracts)
+├── api/v1/routers/          # Thin HTTP handlers — delegate to services
+├── core/                    # Config, structured logging, SSE helpers
+├── domain/schemas/          # Pydantic request/response contracts
 ├── infrastructure/
-│   ├── database/models/  # SQLAlchemy ORM models
-│   └── database/repositories/  # Data access layer (queries)
-├── services/             # Business logic
-│   ├── ai/               # LLM integration (generation, validation, hints)
-│   ├── problem_delivery/ # Playlist, cache, difficulty policy, dedup
-│   ├── classroom/        # Join, live session, class settings
-│   ├── exit_ticket/      # Scoring, mastery bridge, misconceptions
-│   └── mastery_service.py  # Band-filling mastery model
+│   ├── database/models/     # SQLAlchemy ORM (PostgreSQL + JSONB)
+│   └── database/repositories/  # Data access layer
+├── services/                # Business logic
+│   ├── ai/                  # LLM pipelines (generation, validation, hints)
+│   ├── problem_delivery/    # Playlist, cache, difficulty, dedup
+│   ├── classroom/           # Join, live session, settings
+│   ├── exit_ticket/         # Scoring, mastery bridge, misconceptions
+│   └── mastery_service.py   # 3-band mastery model
+├── utils/                   # Markdown sanitizer, math evaluation
 scripts/
-├── seed.py               # Curriculum seed (units, lessons, phases, standards)
-├── bootstrap_superadmin.py  # Create the platform superadmin
-└── seed_data/            # Master lesson library, few-shot examples, standards
+├── seed.py                  # Curriculum: units, lessons, phases, standards
+├── bootstrap_superadmin.py  # Platform superadmin creation
+└── seed_data/               # Master lesson library, few-shots, standards
 ```
 
-## Role Hierarchy (B2B Multi-Tenant)
+---
 
-| Role | Created by | Can do |
+## Engineering Complexity & Optimizations
+
+### 1. Hybrid Step Validation Pipeline
+
+The most complex subsystem. Every student answer goes through a multi-phase waterfall that balances accuracy against latency:
+
+```
+Student answer
+    │
+    ▼
+Phase 1: Local (< 1ms)
+    ├── Normalized string match (case, whitespace, LaTeX normalization)
+    ├── Canonical equivalence (chemical formula rewriting)
+    ├── Symbolic equivalence (SymPy algebraic comparison)
+    ├── Numeric comparison (configurable tolerance: 1% final, 2% intermediate)
+    │   ├── Unit extraction + dimensional analysis (Pint library)
+    │   ├── SI prefix scaling (55.4×10³ ms ≈ 55.4 s)
+    │   └── Naked-number guard (value correct but unit missing → defer to Phase 2)
+    └── Multi-input JSON field-by-field comparison
+    │
+    ▼ (only if Phase 1 is inconclusive)
+Phase 2: LLM Equivalence (200-800ms)
+    ├── Fast model (gpt-4o-mini / claude-haiku) with structured output
+    ├── Semantic equivalence judgment + short feedback
+    └── Fallback: string match on LLM error (never 502 to student)
+    │
+    ▼
+Post-processing
+    ├── Semicolon-separated completeness check
+    ├── Unit presence enforcement (value OK but unit missing)
+    ├── Multi-segment partial feedback ("you answered 2 of 3 parts")
+    └── Generic feedback guarantee (never empty feedback on incorrect)
+```
+
+Phase 1 resolves ~70% of answers locally with zero LLM cost. The tolerance is tighter for final answers (1%) than intermediate steps (2%) to match sig-fig expectations.
+
+### 2. LLM Output Structuring
+
+All LLM calls use LangChain's `with_structured_output()` which enforces a Pydantic schema on the response. The `generate_structured()` wrapper in `app/services/ai/shared/llm.py` handles:
+
+- Two-tier model selection (powerful vs fast) from config
+- Provider abstraction (OpenAI, Anthropic, Gemini, Mistral)
+- OpenAI-specific `method="function_calling"` to avoid `ParsedChatCompletion` serialization warnings
+- Async invocation with configurable timeout (`LLM_TIMEOUT_SECONDS`)
+
+Problem generation retries up to 3 times if the structured output fails LaTeX validation.
+
+### 3. Markdown/LaTeX Sanitizer Pipeline
+
+LLM-generated chemistry content contains LaTeX that must render in KaTeX on the frontend. The sanitizer (`app/utils/markdown_sanitizer.py`, ~600 lines) is a deterministic regex pipeline that runs on every generated string:
+
+```
+LLM JSON output
+    │
+    ▼
+Tab/FormFeed recovery     ← JSON parser ate \t from \text, \f from \frac
+    │
+    ▼
+ANSI/control char strip   ← LLM occasionally emits escape codes
+    │
+    ▼
+Dollar-split exponents    ← $X$^{2} → $X^{2}$ (exponent leaked outside math)
+    │
+    ▼
+\cdot unit garbage        ← \backslash\text{cdotK} → \cdot \text{K}
+    │                        \cdot inside \text{} → unicode middle dot
+    ▼
+Unbracketed exponents     ← 10^23 → 10^{23}
+    │
+    ▼
+Orphaned commands         ← \textamu → \text{amu}, \mathrmMg → \mathrm{Mg}
+    │
+    ▼
+Math wrapper normalize    ← \( \) → $, $...$ → $...$
+    │
+    ▼
+Globally wrapped fix      ← Entire statement in one $...$ → split prose/math
+    │
+    ▼
+Calculator upgrade        ← Ea = 8.314 * ln(8.10e-3) → $E_a = 8.314 \times \ln(...)$
+    │
+    ▼
+Slash → \frac             ← (a)/(b) → \frac{a}{b}, Ea/R → \frac{E_a}{R}
+    │                        Sci-not blocks: 1.15×10^{-2} / 2.40×10^{-3}
+    ▼
+Bare words in math        ← "formula units to g" → \text{formula units to} g
+    │
+    ▼
+Long float truncation     ← 18.11723679840585 → 18.1172
+    │
+    ▼
+KaTeX dry-run             ← Balanced braces check, forbidden command detection
+```
+
+Each fix is idempotent. The pipeline runs on every string field in the problem JSON recursively. Hints use a `for_hint=True` mode that skips auto-wrapping (hints are prose, not math).
+
+### 4. Problem Delivery & Dedup Pipeline
+
+```
+POST /problems/generate
+    │
+    ▼
+Playlist resume check     ← Return current problem if student has one in-progress
+    │
+    ▼ (no resume)
+Cache hit (L1 only)       ← Random pick from problem_cache, excluding seen IDs
+    │
+    ▼ (cache miss or L2/L3)
+Fetch previous summaries  ← Titles + first sentences from playlist (max 5)
+    │                        Injected into prompt as "DO NOT REPEAT" block
+    ▼
+LLM generation            ← Full system prompt with blueprint, level, few-shots
+    │
+    ▼
+Structured output parse   ← ProblemOutput Pydantic model (3 retry attempts)
+    │
+    ▼
+Markdown sanitizer        ← Full pipeline above
+    │
+    ▼
+Step type enforcement     ← is_given flags, category assignment from labels
+    │
+    ▼
+Persist to playlist       ← UPSERT to user_lesson_playlists (JSONB array)
+    │
+    ▼
+Start attempt             ← Insert problem_attempts row
+    │
+    ▼
+Background tasks          ← Cache storage, telemetry logging, next-level prefetch
+```
+
+The playlist coordinator caches the last DB fetch to avoid duplicate queries when `get_previous_problem_summaries` runs after `try_resume`.
+
+### 5. SSE (Server-Sent Events) Architecture
+
+Real-time updates use a polling-backed SSE pattern (`app/core/sse_stream.py`):
+
+```python
+async def sse_json_poll_events(poll_json, interval_seconds=2.0):
+    """Poll DB, push only when JSON hash changes. Heartbeat every ~24s."""
+```
+
+Active streams:
+- `/teacher/classes/{id}/live/stream` — student presence (2s poll)
+- `/teacher/classes/{id}/roster/stream` — roster mastery (5s poll)
+- `/teacher/exit-tickets/{id}/stream` — exit ticket submissions (2s poll)
+- `/classrooms/me/live-session/stream` — student live session state (2s poll)
+- `/teacher/classes/{id}/sessions/{id}/practice-analytics/stream` — timed practice (2s poll)
+
+Each stream does a lightweight auth pre-check before opening, then polls in a loop. The `sse_json_poll_events` helper compares JSON hashes and only pushes `data:` frames when content changes. Comment heartbeats (`": heartbeat\n\n"`) keep connections alive through proxies.
+
+Frontend uses `useEventSourceConnection` hook that reconnects with backoff on error.
+
+### 6. Three-Band Mastery Model
+
+```
+0%                    60%                   85%                 100%
+├─── L2 Practice ─────┤─── L3 Practice ─────┤── Exit Ticket ────┤
+     (faded)                (independent)         (assessment)
+```
+
+- L2 band: filled by qualifying Level 2 attempts (`l2_attempts_to_fill=3`)
+- L3 band: filled by qualifying Level 3 attempts (`l3_attempts_to_fill=3`)
+- ET band: filled by exit ticket score (additive, never overwrites practice)
+- Level 3 unlock: one-way latch — requires perfect score on a single L2 attempt
+- Difficulty adapts from mastery: < 40% → easy, 40-70% → medium, > 70% → hard
+
+The mastery bridge (`app/services/exit_ticket/mastery_bridge.py`) feeds exit ticket scores into `SkillMastery` so the standards heatmap reflects both practice and assessment.
+
+---
+
+## B2B Multi-Tenant Role Hierarchy
+
+| Role | Created by | Scope |
 |---|---|---|
-| `superadmin` | Bootstrap / env vars | Create school admins, see all data, platform stats |
-| `admin` | Superadmin | Create teachers (inherits district/school), school-scoped stats |
-| `teacher` | School admin | Create classrooms, generate problems/exit tickets, manage students |
-| `student` | Self-register (public) | Join classroom by code, practice, submit exit tickets |
+| `superadmin` | Bootstrap env vars | Platform-wide. Creates school admins. |
+| `admin` | Superadmin | School-scoped. Creates teachers (inherits district/school). |
+| `teacher` | School admin | Owns classrooms. Generates problems/exit tickets. |
+| `student` | Self-register (public) | Joins classroom by code. Inherits district/school from teacher. |
 
-Students inherit `district` and `school` from the teacher when they join a classroom. Teachers inherit from the admin who created them.
+Student management: teachers can block (`PATCH`) or remove (`DELETE`) students. Blocked students can't rejoin, submit work, or see live sessions. Removed students lose district/school.
 
-## Key Concepts
-
-### Mastery Model (3-Band)
-- **L2 band** (0% → 60%): Filled by Level 2 (faded scaffolding) practice
-- **L3 band** (60% → 85%): Filled by Level 3 (independent) practice
-- **Exit ticket band** (85% → 100%): Filled by exit ticket scores
-- A student needs both practice AND assessment to reach 100%
-
-### Problem Delivery Pipeline
-1. **Playlist resume** — check if student has an in-progress problem
-2. **Cache hit** — pick a random cached problem (Level 1 only)
-3. **LLM generation** — generate fresh with dedup (previous problem summaries in prompt)
-4. **Persist** — append to `user_lesson_playlists`, start attempt
-
-### Problem Levels
-- **Level 1**: Worked examples (all steps shown, `is_given=true`)
-- **Level 2**: Faded scaffolding (first 2 steps shown, rest interactive)
-- **Level 3**: Independent practice (all steps interactive)
-
-### Step Validation (Hybrid)
-- **Phase 1** (local): String match, canonical equivalence, symbolic (SymPy), numeric tolerance
-- **Phase 2** (LLM): Semantic equivalence for ambiguous answers
-- MCQ: always Phase 1 only (no LLM needed)
-
-### SSE Streams
-Real-time updates via Server-Sent Events (polling-backed, push-on-diff):
-- `/teacher/classes/{id}/live/stream` — student presence
-- `/teacher/classes/{id}/roster/stream` — roster mastery updates
-- `/teacher/exit-tickets/{id}/stream` — exit ticket submissions
-- `/classrooms/me/live-session/stream` — student live session state
+---
 
 ## Scripts
 
 ```bash
-# Full seed (idempotent upsert)
-python -m scripts.seed
-
-# Wipe everything and reseed
-python -m scripts.seed --clean
-
-# Create/upgrade superadmin
-python -m scripts.bootstrap_superadmin
+python -m scripts.seed              # Idempotent curriculum upsert
+python -m scripts.seed --clean      # Wipe all data + reseed
+python -m scripts.bootstrap_superadmin  # Create/verify superadmin
 ```
 
 ## Testing
 
 ```bash
-pytest                    # Run all tests
+pytest                    # All tests
 pytest tests/ -v          # Verbose
-pytest --cov=app          # With coverage
+pytest --cov=app          # Coverage
 ```
 
-## Things to Watch Out For
+---
 
-1. **Don't use `--reload` with uvicorn** in production or when testing SSE/LLM. Hot reload interrupts long LLM calls and leaks DB pool connections.
+## Gotchas for New Developers
 
-2. **JWT expiry is 7 days** by default. After `seed --clean`, all existing tokens become invalid (user IDs change). Students/teachers must log in again.
+1. **No `--reload` with uvicorn** — interrupts LLM calls and SSE streams, leaks DB pool connections.
 
-3. **`ADMIN_EMAIL`/`ADMIN_PASSWORD`** bootstrap is idempotent — it skips if the email exists. To recreate: delete the user row first, then restart.
+2. **JWT expiry is 7 days**. After `seed --clean`, all tokens are invalid (user IDs change). Log in again.
 
-4. **Exit ticket scoring** prefers frontend-computed `score_percent` + `results` (from the same `validateStep` API the student used). Server-side scoring is a fallback only.
+3. **Bootstrap is idempotent** — skips if email exists. To recreate: delete the user row first.
 
-5. **`days` filter** on exit ticket endpoints filters by `published_at`, not `created_at`.
+4. **Exit ticket scoring** prefers frontend-computed `score_percent` + `results`. Server-side is fallback only.
 
-6. **Blocked students** keep their `classroom_students` row (with `is_blocked=true`) so they can be unblocked later. Removed students have the row deleted and lose `district`/`school`.
+5. **Problem dedup is best-effort** — 5 previous summaries in the prompt. LLM may still generate similar scenarios.
 
-7. **Problem dedup** sends up to 5 previous problem summaries (title + first sentence) to the LLM prompt. Not a hard guarantee — the LLM may still generate similar scenarios.
+6. **Standards heatmap** includes both teacher sessions AND independent student practice (union query).
 
-8. **Standards heatmap** shows standards from both teacher sessions (exit tickets, timed practice) AND independent student practice.
+7. **Blocked vs removed**: blocked keeps the row (`is_blocked=true`, can unblock later). Removed deletes the row and clears district/school.
+
+8. **`days` filter** on exit ticket endpoints filters by `published_at`, not `created_at`.
+
+9. **The markdown sanitizer** is the most fragile code — each regex fix targets a specific LLM failure mode observed in production. Test changes against the existing test suite before modifying.
+
+10. **`create_user()` factory** in `app/services/auth/user_factory.py` is the single source of truth for user creation. All 4 creation paths (register, create-teacher, create-school-admin, bootstrap) use it.
+
+---
 
 ## API Documentation
 
-With the server running in development mode, visit:
-- Swagger UI: `http://localhost:8000/docs`
-- ReDoc: `http://localhost:8000/redoc`
+Development mode: `http://localhost:8000/docs` (Swagger) / `http://localhost:8000/redoc`
 
 Disabled in production (`ENVIRONMENT=production`).
