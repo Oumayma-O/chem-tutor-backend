@@ -237,3 +237,42 @@ async def test_complete_attempt_uses_penalty_scoring_and_category_ratio() -> Non
     assert decision.mastery.category_scores.procedural == 0.5  # 1.0 earned over 2 possible
     assert decision.mastery.category_scores.conceptual == 0.4  # 0.4 over 1
     assert decision.mastery.category_scores.computational == 0.0  # revealed => 0 credit
+
+
+@pytest.mark.asyncio
+async def test_complete_attempt_level1_empty_step_log_counts_as_full_credit() -> None:
+    user_id = uuid.uuid4()
+    mastery_record = SimpleNamespace(
+        user_id=user_id,
+        unit_id="u1",
+        lesson_index=1,
+        mastery_score=0.0,
+        attempts_count=0,
+        consecutive_correct=0,
+        current_difficulty="medium",
+        level3_unlocked=False,
+        level3_unlocked_at=None,
+        category_scores={},
+        error_counts={},
+        recent_scores=[],
+        updated_at=datetime.now(timezone.utc),
+    )
+    attempts = _FakeAttemptRepo()
+    service = MasteryService(
+        mastery_repo=_FakeMasteryRepo(mastery_record),
+        attempt_repo=attempts,
+        misconception_repo=_FakeMisconceptionRepo(),
+    )
+
+    decision = await service.complete_attempt(
+        attempt_id=uuid.uuid4(),
+        user_id=user_id,
+        unit_id="u1",
+        lesson_index=1,
+        score=0.0,  # ignored by backend
+        step_log=[],
+        level=1,
+    )
+
+    assert attempts.marked_score == 1.0
+    assert decision.attempt_score == 1.0

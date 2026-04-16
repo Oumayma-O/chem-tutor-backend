@@ -96,7 +96,12 @@ class MasteryService:
         5. Returns a ProgressionDecision.
         """
         # Backend is source-of-truth: derive attempt score from penalized per-step credits.
-        computed_score, _ = _compute_attempt_score_from_step_log(step_log)
+        # Level 1 worked examples intentionally send an empty step_log from the frontend;
+        # treat completion as full credit so the L1 mastery band can fill as designed.
+        if level == 1 and not step_log:
+            computed_score = 1.0
+        else:
+            computed_score, _ = _compute_attempt_score_from_step_log(step_log)
         await self._attempts.mark_complete(attempt_id, computed_score, step_log)
 
         # Pull per-level scores for band-filling computation
