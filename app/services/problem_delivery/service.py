@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import re
 import uuid as _uuid
 from typing import Literal
 
@@ -36,6 +37,64 @@ from app.services.problem_delivery.playlist_coordinator import PlaylistCoordinat
 logger = get_logger(__name__)
 
 
+def _normalize_problem_step_ids(problem: ProblemOutput) -> tuple[dict[str, str], dict[int, str]]:
+    mapping: dict[str, str] = {}
+    by_step_number: dict[int, str] = {}
+    for step in problem.steps:
+        original_id = step.id or ""
+        normalized_id = f"{problem.id}-step-{step.step_number}"
+        step.id = normalized_id
+        if original_id:
+            mapping[original_id] = normalized_id
+        mapping[normalized_id] = normalized_id
+        by_step_number[step.step_number] = normalized_id
+    return mapping, by_step_number
+
+
+def _normalize_step_log(
+    step_log: list[dict] | None,
+    id_mapping: dict[str, str],
+    id_by_step_number: dict[int, str],
+) -> list[dict]:
+    normalized: list[dict] = []
+    for entry in step_log or []:
+        if not isinstance(entry, dict):
+            continue
+        out = dict(entry)
+        step_id = out.get("step_id")
+        if isinstance(step_id, str):
+            mapped = id_mapping.get(step_id)
+            if mapped:
+                out["step_id"] = mapped
+            else:
+                match = re.fullmatch(r"step-(\d+)", step_id.strip())
+                if match:
+                    step_number = int(match.group(1))
+                    canonical = id_by_step_number.get(step_number)
+                    if canonical:
+                        out["step_id"] = canonical
+        normalized.append(out)
+    return normalized
+
+
+def _attempt_payload(
+    attempt: object,
+    id_mapping: dict[str, str],
+    id_by_step_number: dict[int, str],
+) -> dict[str, object]:
+    return {
+        "attempt_id": str(attempt.id),
+        "problem_id": attempt.problem_id,
+        "level": attempt.level,
+        "is_complete": bool(attempt.is_complete),
+        "step_log": _normalize_step_log(
+            list(getattr(attempt, "step_log", []) or []),
+            id_mapping,
+            id_by_step_number,
+        ),
+    }
+
+
 class ProblemDeliveryService:
     def __init__(self, db: AsyncSession, gen_service: ProblemGenerationService) -> None:
         self._db = db
@@ -65,12 +124,15 @@ class ProblemDeliveryService:
             return PlaylistHydrationResponse()
 
         parsed: list[ProblemOutput] = []
+        step_id_maps: list[tuple[dict[str, str], dict[int, str]]] = []
         for payload in playlist.problems:
             if not isinstance(payload, dict):
                 continue
             try:
                 problem = ProblemOutput.model_validate(payload)
+                id_map, id_by_step_number = _normalize_problem_step_ids(problem)
                 parsed.append(enforce_step_types(problem, level))
+                step_id_maps.append((id_map, id_by_step_number))
             except Exception:
                 logger.warning(
                     "playlist_problem_payload_invalid",
@@ -87,27 +149,31 @@ class ProblemDeliveryService:
         total = len(parsed)
         attempts = AttemptRepository(self._db)
         current_problem_id = parsed[current_index].id
-        active_attempt = await attempts.get_latest_for_problem(
+        latest_by_problem = await attempts.get_latest_for_problems(
             user_id=user_id,
             unit_id=unit_id,
             lesson_index=lesson_index,
             level=level,
-            problem_id=current_problem_id,
+            problem_ids=[p.id for p in parsed],
         )
+        current_id_map, current_id_by_step_number = step_id_maps[current_index]
+        active_attempt = latest_by_problem.get(current_problem_id)
+        attempts_by_problem: dict[str, dict[str, object]] = {}
+        for idx, problem in enumerate(parsed):
+            attempt = latest_by_problem.get(problem.id)
+            if attempt is None:
+                continue
+            id_map, id_by_step_number = step_id_maps[idx]
+            attempts_by_problem[problem.id] = _attempt_payload(attempt, id_map, id_by_step_number)
         return PlaylistHydrationResponse(
             problems=parsed,
             current_index=current_index,
             total=total,
             has_prev=current_index > 0,
             has_next=current_index < total - 1,
+            attempts_by_problem=attempts_by_problem,
             active_attempt=(
-                {
-                    "attempt_id": str(active_attempt.id),
-                    "problem_id": active_attempt.problem_id,
-                    "level": active_attempt.level,
-                    "is_complete": bool(active_attempt.is_complete),
-                    "step_log": list(active_attempt.step_log or []),
-                }
+                _attempt_payload(active_attempt, current_id_map, current_id_by_step_number)
                 if active_attempt is not None
                 else None
             ),
@@ -242,6 +308,7 @@ class ProblemDeliveryService:
             elapsed_s = since(t0, decimals=3)
             if exclude and problem.id in exclude:
                 problem.id = f"{problem.id}-{_uuid.uuid4().hex[:8]}"
+                _normalize_problem_step_ids(problem)
                 logger.info("problem_id_deduplicated", new_id=problem.id)
 
             background_tasks.add_task(store_in_cache, problem, req)

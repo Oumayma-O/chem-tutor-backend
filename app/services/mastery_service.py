@@ -95,7 +95,9 @@ class MasteryService:
         4. Checks and persists Level 3 unlock (one-way latch).
         5. Returns a ProgressionDecision.
         """
-        await self._attempts.mark_complete(attempt_id, score, step_log)
+        # Backend is source-of-truth: derive attempt score from penalized per-step credits.
+        computed_score, _ = _compute_attempt_score_from_step_log(step_log)
+        await self._attempts.mark_complete(attempt_id, computed_score, step_log)
 
         # Pull per-level scores for band-filling computation
         l1_scores, l2_scores, l3_scores = await self._fetch_band_scores(user_id, unit_id, lesson_index)
@@ -112,17 +114,21 @@ class MasteryService:
         error_counts = _aggregate_errors(step_log, mastery_record.error_counts)
 
         # Compute per-category scores from step_log
-        category_scores = _compute_category_scores(step_log, mastery_record.category_scores)
+        category_scores = _compute_category_scores(
+            step_log,
+            mastery_record.category_scores,
+            level=level,
+        )
 
         # Compute new mastery using band-filling across L1, L2, and L3
         new_mastery = _compute_mastery_banded(l1_scores, l2_scores, l3_scores)
-        consecutive = _update_consecutive(mastery_record.consecutive_correct, score)
+        consecutive = _update_consecutive(mastery_record.consecutive_correct, computed_score)
         new_difficulty = _difficulty_from_mastery(new_mastery)
 
         # Determine Level 3 unlock
         # Condition: student answers ALL steps correctly in a single Level 2 attempt
         # (score == 1.0 at level 2).  Once true, the flag is permanent (one-way latch).
-        qualifies_for_l3 = (score >= 1.0 and level == 2)
+        qualifies_for_l3 = (computed_score >= 1.0 and level == 2)
         level3_unlocked = was_already_unlocked or qualifies_for_l3
         level3_just_unlocked = level3_unlocked and not was_already_unlocked
         level3_unlocked_at = mastery_record.level3_unlocked_at
@@ -162,12 +168,12 @@ class MasteryService:
 
         return ProgressionDecision(
             mastery=state,
-            attempt_score=score,
+            attempt_score=computed_score,
             should_advance=should_advance,
             level3_just_unlocked=level3_just_unlocked,
             recommended_next_difficulty=new_difficulty,
             feedback_message=_feedback_message(
-                new_mastery, score, settings.l3_mastery_ceiling, level3_just_unlocked
+                new_mastery, computed_score, settings.l3_mastery_ceiling, level3_just_unlocked
             ),
         )
 
@@ -220,7 +226,11 @@ class MasteryService:
         preview_mastery = _compute_mastery_banded(l1_scores, l2_scores, l3_scores)
 
         preview_error_counts = _aggregate_errors(step_log, mastery_record.error_counts)
-        preview_category_scores = _compute_category_scores(step_log, mastery_record.category_scores)
+        preview_category_scores = _compute_category_scores(
+            step_log,
+            mastery_record.category_scores,
+            level=attempt.level,
+        )
         preview_consecutive = _update_consecutive(
             mastery_record.consecutive_correct, attempt_score
         )
@@ -549,16 +559,16 @@ def _difficulty_from_mastery(mastery: float) -> str:
 
 
 def _compute_attempt_score_from_step_log(step_log: list[dict]) -> tuple[float, int]:
-    """Compute current in-progress attempt score from attempted steps only."""
-    attempted = [
-        bool(step.get("isCorrect"))
-        for step in step_log
-        if isinstance(step.get("isCorrect"), bool)
-    ]
-    if not attempted:
+    """Compute attempt score from penalized per-step earned points."""
+    earned: list[float] = []
+    for step in step_log:
+        # Given/scaffold steps should not affect score.
+        if step.get("is_given") is True:
+            continue
+        earned.append(_category_step_earned_points(step, level=2))
+    if not earned:
         return 0.0, 0
-    correct = sum(1 for ok in attempted if ok)
-    return correct / len(attempted), len(attempted)
+    return round(sum(earned) / len(earned), 4), len(earned)
 
 
 def _update_consecutive(current: int, score: float) -> int:
@@ -578,22 +588,48 @@ def _aggregate_errors(step_log: list[dict], existing: dict) -> dict:
 def _compute_category_scores(
     step_log: list[dict],
     existing: dict | None,
+    *,
+    level: int,
 ) -> dict:
     """
     Update per-category mastery scores from this attempt's step log.
 
-    Each step carries a "category" field set by the LLM (and guaranteed by the
-    server guardrail in enforce_step_types). We do a simple rolling update:
-    80% existing + 20% new score per step.
+    Category mastery is diagnostic accuracy with penalties:
+      score = total_earned_points / total_possible_points
+
+    Per-step earned points:
+      - base 1.0
+      - minus 0.25 per hint used
+      - minus 0.10 per incorrect attempt before success
+      - 0.0 if answer was revealed
+      - clamped to [0.0, 1.0]
+
+    We persist running earned/possible counters in category_scores JSON
+    (prefixed private keys) so teacher analytics and student panels share the
+    same backend truth.
 
     Returns a dict compatible with the CategoryScores schema.
     """
 
-    # Start from existing scores only — never zero-init unseen categories.
-    # Zero-initialising unseen categories drags them to "at-risk" even when the
-    # student has never encountered that category type.
     existing = existing or {}
-    scores: dict[str, float] = {k: float(existing[k]) for k in MASTERY_CATEGORY_KEYS if k in existing}
+    scores: dict[str, float] = {
+        k: float(existing.get(k, 0.0)) for k in MASTERY_CATEGORY_KEYS if k in existing
+    }
+    earned_totals: dict[str, float] = {}
+    possible_totals: dict[str, float] = {}
+    for k in MASTERY_CATEGORY_KEYS:
+        earned_key = f"__{k}_earned"
+        possible_key = f"__{k}_possible"
+        if isinstance(existing.get(earned_key), (int, float)) and isinstance(existing.get(possible_key), (int, float)):
+            earned_totals[k] = float(existing.get(earned_key, 0.0))
+            possible_totals[k] = float(existing.get(possible_key, 0.0))
+        elif k in scores:
+            # Legacy migration path: prior state had only ratio score.
+            earned_totals[k] = float(scores[k])
+            possible_totals[k] = 1.0
+        else:
+            earned_totals[k] = 0.0
+            possible_totals[k] = 0.0
 
     for step in step_log:
         # Primary: "category" field set by LLM + server guardrail
@@ -607,17 +643,49 @@ def _compute_category_scores(
             else:
                 logger.warning("unknown_step_category", category=cat, step_label=label_key or None)
                 cat = "procedural"
-        is_correct = step.get("is_correct", step.get("isCorrect", False))
-        step_score = 1.0 if is_correct else 0.0
-        if cat in scores:
-            # Exponential moving average: 80% history + 20% new
-            scores[cat] = round(0.8 * scores[cat] + 0.2 * step_score, 4)
-        else:
-            # First time seeing this category — set directly so a correct first
-            # attempt isn't penalised by an artificial 0.0 baseline.
-            scores[cat] = round(step_score, 4)
+        possible_totals[cat] = possible_totals.get(cat, 0.0) + 1.0
+        earned_totals[cat] = earned_totals.get(cat, 0.0) + _category_step_earned_points(step, level)
+        denom = max(possible_totals[cat], 1.0)
+        scores[cat] = round(max(0.0, min(earned_totals[cat] / denom, 1.0)), 4)
+
+    for k in MASTERY_CATEGORY_KEYS:
+        if possible_totals.get(k, 0.0) > 0:
+            scores[f"__{k}_earned"] = round(earned_totals[k], 4)
+            scores[f"__{k}_possible"] = round(possible_totals[k], 4)
 
     return scores
+
+
+def _category_step_earned_points(step: dict, level: int) -> float:
+    """
+    Return earned points in [0.0, 1.0] for one categorized step.
+
+    `level` is accepted for future tuning but does not alter the default penalty
+    math right now, since category scores are diagnostics (accuracy), not
+    progression bands.
+    """
+    del level
+    if step.get("was_revealed") is True:
+        return 0.0
+
+    is_correct = bool(step.get("is_correct", step.get("isCorrect", False)))
+    if not is_correct:
+        return 0.0
+
+    attempts_raw = step.get("attempts", 1)
+    attempts = int(attempts_raw) if isinstance(attempts_raw, (int, float)) else 1
+    attempts = max(attempts, 1)
+    wrong_before_success = max(attempts - 1, 0)
+    hints_raw = step.get("hints_used", 0)
+    hints_used = int(hints_raw) if isinstance(hints_raw, (int, float)) else 0
+    hints_used = max(hints_used, 0)
+
+    score = 1.0 - 0.25 * hints_used - 0.10 * wrong_before_success
+    if score < 0.0:
+        return 0.0
+    if score > 1.0:
+        return 1.0
+    return round(score, 4)
 
 
 def _feedback_message(

@@ -17,7 +17,7 @@ def _problem_payload(problem_id: str) -> dict:
         "level": 2,
         "steps": [
             {
-                "id": f"{problem_id}-s1",
+                "id": "step-1",
                 "stepNumber": 1,
                 "type": "interactive",
                 "is_given": True,
@@ -28,7 +28,7 @@ def _problem_payload(problem_id: str) -> dict:
                 "correctAnswer": "42",
             },
             {
-                "id": f"{problem_id}-s2",
+                "id": "step-2",
                 "stepNumber": 2,
                 "type": "interactive",
                 "is_given": True,
@@ -39,7 +39,7 @@ def _problem_payload(problem_id: str) -> dict:
                 "correctAnswer": "6 x 7",
             },
             {
-                "id": f"{problem_id}-s3",
+                "id": "step-3",
                 "stepNumber": 3,
                 "type": "interactive",
                 "is_given": False,
@@ -64,25 +64,32 @@ async def test_get_playlist_includes_active_attempt(monkeypatch: pytest.MonkeyPa
         problem_id="p-2",
         level=2,
         is_complete=True,
-        step_log=[{"step_id": "p-2-s3", "answer": "41", "is_correct": False}],
+        step_log=[{"step_id": "step-3", "answer": "41", "is_correct": False}],
+    )
+    previous_attempt = SimpleNamespace(
+        id="attempt-100",
+        problem_id="p-1",
+        level=2,
+        is_complete=True,
+        step_log=[{"step_id": "step-1", "answer": "42", "is_correct": True}],
     )
 
     async def fake_get_most_recent_for_level(self, **kwargs):  # type: ignore[no-untyped-def]
         return playlist
 
-    async def fake_get_latest_for_problem(
-        self, user_id, unit_id, lesson_index, level, problem_id
+    async def fake_get_latest_for_problems(
+        self, user_id, unit_id, lesson_index, level, problem_ids
     ):  # type: ignore[no-untyped-def]
-        assert problem_id == "p-2"
-        return active_attempt
+        assert problem_ids == ["p-1", "p-2"]
+        return {"p-1": previous_attempt, "p-2": active_attempt}
 
     monkeypatch.setattr(
         "app.services.problem_delivery.service.UserLessonPlaylistRepository.get_most_recent_for_level",
         fake_get_most_recent_for_level,
     )
     monkeypatch.setattr(
-        "app.services.problem_delivery.service.AttemptRepository.get_latest_for_problem",
-        fake_get_latest_for_problem,
+        "app.services.problem_delivery.service.AttemptRepository.get_latest_for_problems",
+        fake_get_latest_for_problems,
     )
 
     service = ProblemDeliveryService(db=object(), gen_service=object())  # type: ignore[arg-type]
@@ -97,10 +104,28 @@ async def test_get_playlist_includes_active_attempt(monkeypatch: pytest.MonkeyPa
     assert result.total == 2
     assert result.current_index == 1
     assert [problem.id for problem in result.problems] == ["p-1", "p-2"]
+    assert [s.id for s in result.problems[0].steps] == ["p-1-step-1", "p-1-step-2", "p-1-step-3"]
+    assert [s.id for s in result.problems[1].steps] == ["p-2-step-1", "p-2-step-2", "p-2-step-3"]
     assert result.active_attempt == {
         "attempt_id": "attempt-123",
         "problem_id": "p-2",
         "level": 2,
         "is_complete": True,
-        "step_log": [{"step_id": "p-2-s3", "answer": "41", "is_correct": False}],
+        "step_log": [{"step_id": "p-2-step-3", "answer": "41", "is_correct": False}],
+    }
+    assert result.attempts_by_problem == {
+        "p-1": {
+            "attempt_id": "attempt-100",
+            "problem_id": "p-1",
+            "level": 2,
+            "is_complete": True,
+            "step_log": [{"step_id": "p-1-step-1", "answer": "42", "is_correct": True}],
+        },
+        "p-2": {
+            "attempt_id": "attempt-123",
+            "problem_id": "p-2",
+            "level": 2,
+            "is_complete": True,
+            "step_log": [{"step_id": "p-2-step-3", "answer": "41", "is_correct": False}],
+        },
     }

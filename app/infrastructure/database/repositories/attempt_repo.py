@@ -186,6 +186,35 @@ class AttemptRepository(BaseRepository[ProblemAttempt]):
         )
         return result.scalar_one_or_none()
 
+    async def get_latest_for_problems(
+        self,
+        user_id: uuid.UUID,
+        unit_id: str,
+        lesson_index: int,
+        level: int,
+        problem_ids: list[str],
+    ) -> dict[str, ProblemAttempt]:
+        """Return latest attempt per problem_id for a playlist slot."""
+        if not problem_ids:
+            return {}
+        result = await self._session.execute(
+            select(ProblemAttempt)
+            .where(
+                ProblemAttempt.user_id == user_id,
+                ProblemAttempt.unit_id == unit_id,
+                ProblemAttempt.lesson_index == lesson_index,
+                ProblemAttempt.level == level,
+                ProblemAttempt.problem_id.in_(problem_ids),
+            )
+            .order_by(ProblemAttempt.problem_id.asc(), ProblemAttempt.started_at.desc())
+        )
+        latest: dict[str, ProblemAttempt] = {}
+        for attempt in result.scalars().all():
+            pid = attempt.problem_id
+            if pid not in latest:
+                latest[pid] = attempt
+        return latest
+
     async def get_class_attempts(
         self,
         class_id: uuid.UUID,

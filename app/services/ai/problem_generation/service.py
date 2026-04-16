@@ -125,8 +125,7 @@ class ProblemGenerationService:
         problem.blueprint = resolved_blueprint
         problem.id = str(uuid.uuid4())
         for step in problem.steps:
-            if not (step.id or "").strip():
-                step.id = f"{problem.id}-step-{step.step_number}"
+            step.id = f"{problem.id}-step-{step.step_number}"
 
         sanitize_problem(problem)
 

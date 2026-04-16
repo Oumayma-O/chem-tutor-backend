@@ -222,6 +222,7 @@ class PlaylistHydrationResponse(BaseModel):
     has_prev: bool = False
     has_next: bool = False
     active_attempt: dict[str, Any] | None = None
+    attempts_by_problem: dict[str, dict[str, Any]] = Field(default_factory=dict)
 
 
 # ── Reference Card ────────────────────────────────────────────
