@@ -41,8 +41,11 @@ async def navigate_problem(
     max_reveals = await get_max_answer_reveals_per_lesson(db, req.class_id)
     min_l1 = await get_min_level1_examples_for_level2(db, req.class_id)
     repo = UserLessonPlaylistRepository(db)
-    playlist = await repo.get(
-        req.user_id, req.unit_id, req.lesson_index, req.level, req.difficulty
+    # Use the most-recent level timeline regardless of difficulty so navigation
+    # works correctly after adaptive difficulty shifts (avoids returning a
+    # stale single-difficulty row that's missing recently generated problems).
+    playlist = await repo.get_most_recent_for_level(
+        req.user_id, req.unit_id, req.lesson_index, req.level
     )
 
     if not playlist or not playlist.problems:
