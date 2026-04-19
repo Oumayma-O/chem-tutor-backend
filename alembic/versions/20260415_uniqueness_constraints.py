@@ -1,6 +1,6 @@
 """Uniqueness: teacher+class name (active), one admin per school.
 
-Revision ID: 20260415_uniqueness
+Revision ID: 20260415_uniqueness_constraints
 Revises: 20260415_et_resp_time
 Create Date: 2026-04-15
 """
@@ -9,7 +9,7 @@ from typing import Sequence, Union
 import sqlalchemy as sa
 from alembic import op
 
-revision: str = "20260415_uniqueness"
+revision: str = "20260415_uniqueness_constraints"
 down_revision: Union[str, None] = "20260415_et_resp_time"
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
