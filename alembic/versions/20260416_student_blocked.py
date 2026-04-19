@@ -11,7 +11,7 @@ import sqlalchemy as sa
 from alembic import op
 
 revision: str = "20260416_student_blocked"
-down_revision: Union[str, None] = "20260415_uniqueness_constraints"
+down_revision: Union[str, None] = "20260415_uniqueness"
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 
