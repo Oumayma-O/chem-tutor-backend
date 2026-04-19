@@ -85,14 +85,19 @@ class ClassroomStudentRepository(BaseRepository[ClassroomStudent]):
     def __init__(self, session: AsyncSession) -> None:
         super().__init__(ClassroomStudent, session)
 
-    async def is_enrolled(self, classroom_id: uuid.UUID, student_id: uuid.UUID) -> bool:
+    async def get_membership(
+        self, classroom_id: uuid.UUID, student_id: uuid.UUID
+    ) -> ClassroomStudent | None:
         result = await self._session.execute(
             select(ClassroomStudent).where(
                 ClassroomStudent.classroom_id == classroom_id,
                 ClassroomStudent.student_id == student_id,
             )
         )
-        return result.scalar_one_or_none() is not None
+        return result.scalar_one_or_none()
+
+    async def is_enrolled(self, classroom_id: uuid.UUID, student_id: uuid.UUID) -> bool:
+        return await self.get_membership(classroom_id, student_id) is not None
 
     async def enroll(self, classroom_id: uuid.UUID, student_id: uuid.UUID) -> ClassroomStudent:
         # Check if student was previously enrolled (possibly blocked)

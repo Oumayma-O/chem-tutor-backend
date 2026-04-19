@@ -19,7 +19,10 @@ class PresenceService:
         classroom_id: uuid.UUID,
         step_id: str | None,
     ) -> None:
-        """Raises PermissionError if student is not enrolled in the classroom."""
-        if not await self._students.is_enrolled(classroom_id, user_id):
+        """Raises PermissionError if student is not enrolled or is blocked."""
+        row = await self._students.get_membership(classroom_id, user_id)
+        if row is None:
             raise PermissionError("Not enrolled in this classroom.")
+        if row.is_blocked:
+            raise PermissionError("You have been blocked from this classroom.")
         await self._presence.upsert_heartbeat(user_id, classroom_id, step_id)
