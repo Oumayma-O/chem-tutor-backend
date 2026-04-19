@@ -100,14 +100,7 @@ class ClassroomStudentRepository(BaseRepository[ClassroomStudent]):
         return await self.get_membership(classroom_id, student_id) is not None
 
     async def enroll(self, classroom_id: uuid.UUID, student_id: uuid.UUID) -> ClassroomStudent:
-        # Check if student was previously enrolled (possibly blocked)
-        result = await self._session.execute(
-            select(ClassroomStudent).where(
-                ClassroomStudent.classroom_id == classroom_id,
-                ClassroomStudent.student_id == student_id,
-            )
-        )
-        existing = result.scalar_one_or_none()
+        existing = await self.get_membership(classroom_id, student_id)
         if existing is not None:
             if existing.is_blocked:
                 raise PermissionError("You have been blocked from this classroom.")
@@ -122,13 +115,7 @@ class ClassroomStudentRepository(BaseRepository[ClassroomStudent]):
         self, classroom_id: uuid.UUID, student_id: uuid.UUID, blocked: bool,
     ) -> bool:
         """Set or clear the blocked flag. Returns True if the row was found."""
-        result = await self._session.execute(
-            select(ClassroomStudent).where(
-                ClassroomStudent.classroom_id == classroom_id,
-                ClassroomStudent.student_id == student_id,
-            )
-        )
-        row = result.scalar_one_or_none()
+        row = await self.get_membership(classroom_id, student_id)
         if row is None:
             return False
         row.is_blocked = blocked
