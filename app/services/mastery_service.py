@@ -8,7 +8,7 @@ Design decisions:
       L1 (0 → l1_ceiling), L2 (l1_ceiling → l2_ceiling), L3 (l2_ceiling → l3_ceiling).
       Exit ticket fills the top band (l3_ceiling → 1.0) via mastery_bridge.py.
   - Difficulty adapts from mastery position within the L2 band.
-  - At-risk: mastery < 0.4 after at least 3 attempts (unit-level struggle).
+  - At-risk: level-aware — 0.30 floor in L2 phase, 0.40 floor in L3 phase, after ≥ 3 attempts.
   - Level 3 unlock: one perfect L2 attempt (score 1.0) — gate to access L3; score measures practice.
   - should_advance / has_mastered: true when mastery_score >= l3_mastery_ceiling (lesson done).
 """
@@ -19,6 +19,7 @@ from datetime import datetime
 
 from app.core.config import get_settings
 from app.core.logging import get_logger
+from app.domain.at_risk import is_record_at_risk
 from app.domain.schemas.dashboards import CategorySnapshot, ClassSummaryStats, MasterySnapshot
 from app.domain.schemas.mastery import CategoryScores, MasteryState, ProgressionDecision
 from app.infrastructure.database.models import ProblemAttempt, SkillMastery
@@ -35,9 +36,6 @@ from app.infrastructure.database.repositories.mastery_repo import MasteryReposit
 
 logger = get_logger(__name__)
 settings = get_settings()
-
-_AT_RISK_THRESHOLD = 0.4
-_AT_RISK_MIN_ATTEMPTS = 3
 
 
 class MasteryService:
@@ -505,15 +503,11 @@ def _snapshot_from_records(records: list, unit_id: str | None, *, lesson_index: 
 
 
 def _is_at_risk_from_records(records: list, unit_id: str) -> bool:
-    """Determine at-risk status from already-fetched SkillMastery records."""
+    """A unit is at-risk if any lesson with enough attempts is flagged."""
     chapter_records = [r for r in records if r.unit_id == unit_id]
     if not chapter_records:
         return False
-    eligible = [r for r in chapter_records if r.attempts_count >= _AT_RISK_MIN_ATTEMPTS]
-    if not eligible:
-        return False
-    avg = sum(r.mastery_score for r in eligible) / len(eligible)
-    return avg < _AT_RISK_THRESHOLD
+    return any(is_record_at_risk(r) for r in chapter_records)
 
 
 def _compute_mastery_banded(

@@ -81,6 +81,11 @@ class AggregateAnalyticsService:
                 class_count=int(row.class_count or 0),
                 avg_mastery=float(row.avg_mastery or 0.0),
                 at_risk_count=int(row.at_risk_count or 0),
+                avg_l1_score=round(float(row.avg_l1_score or 0.0), 4),
+                avg_l2_score=round(float(row.avg_l2_score or 0.0), 4),
+                avg_l3_score=round(float(row.avg_l3_score or 0.0), 4),
+                at_risk_l2_count=int(row.at_risk_l2_count or 0),
+                at_risk_l3_count=int(row.at_risk_l3_count or 0),
                 problems_solved=problems_map.get(_lookup_key(row), 0),
                 hours_active=hours_map.get(_lookup_key(row), 0),
             )
@@ -94,10 +99,16 @@ class AggregateAnalyticsService:
         total_problems = sum(g.problems_solved for g in groups)
         total_hours = sum(g.hours_active for g in groups)
         overall_at_risk = sum(g.at_risk_count for g in groups)
+        overall_at_risk_l2 = sum(g.at_risk_l2_count for g in groups)
+        overall_at_risk_l3 = sum(g.at_risk_l3_count for g in groups)
 
         # Weighted average mastery (weighted by student count).
         weighted_sum = sum(g.avg_mastery * g.student_count for g in groups)
         overall_mastery = weighted_sum / total_students if total_students else 0.0
+
+        overall_l1 = sum(g.avg_l1_score * g.student_count for g in groups) / total_students if total_students else 0.0
+        overall_l2 = sum(g.avg_l2_score * g.student_count for g in groups) / total_students if total_students else 0.0
+        overall_l3 = sum(g.avg_l3_score * g.student_count for g in groups) / total_students if total_students else 0.0
 
         weakest_units = [
             UnitMasteryRow(
@@ -126,6 +137,11 @@ class AggregateAnalyticsService:
             total_hours_active=total_hours,
             overall_avg_mastery=round(overall_mastery, 4),
             overall_at_risk_count=overall_at_risk,
+            overall_avg_l1_score=round(overall_l1, 4),
+            overall_avg_l2_score=round(overall_l2, 4),
+            overall_avg_l3_score=round(overall_l3, 4),
+            overall_at_risk_l2_count=overall_at_risk_l2,
+            overall_at_risk_l3_count=overall_at_risk_l3,
             weakest_units=weakest_units,
             mastery_distribution=dist_map,
         )

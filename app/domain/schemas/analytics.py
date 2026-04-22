@@ -52,6 +52,9 @@ class StudentMasterySummary(BaseModel):
     error_counts: dict[str, int]
     top_misconceptions: list[str]
     is_at_risk: bool
+    l1_score: float = 0.0
+    l2_score: float = 0.0
+    l3_score: float = 0.0
 
 
 class LessonBreakdown(BaseModel):
@@ -67,6 +70,11 @@ class ClassAnalyticsResponse(BaseModel):
     student_count: int
     avg_mastery: float
     at_risk_count: int
+    avg_l1_score: float = 0.0
+    avg_l2_score: float = 0.0
+    avg_l3_score: float = 0.0
+    at_risk_l2_count: int = 0
+    at_risk_l3_count: int = 0
     error_frequency: dict[str, int]      # {category: total_count}
     top_misconceptions: list[str]        # Top 5 misconception_tags
     lesson_breakdown: list[LessonBreakdown] = Field(validation_alias="topic_breakdown")
@@ -90,6 +98,11 @@ class AggregateGroupRow(BaseModel):
     class_count: int
     avg_mastery: float      # 0.0–1.0
     at_risk_count: int
+    avg_l1_score: float = 0.0
+    avg_l2_score: float = 0.0
+    avg_l3_score: float = 0.0
+    at_risk_l2_count: int = 0
+    at_risk_l3_count: int = 0
     problems_solved: int
     hours_active: int       # whole hours
 
@@ -110,5 +123,10 @@ class AggregateAnalyticsResponse(BaseModel):
     total_hours_active: int
     overall_avg_mastery: float  # weighted by student_count
     overall_at_risk_count: int
+    overall_avg_l1_score: float = 0.0
+    overall_avg_l2_score: float = 0.0
+    overall_avg_l3_score: float = 0.0
+    overall_at_risk_l2_count: int = 0
+    overall_at_risk_l3_count: int = 0
     weakest_units: list[UnitMasteryRow]  # bottom 8, sorted ASC by avg_mastery
     mastery_distribution: dict[str, int]  # "0-50","50-70","70-85","85-100" — student counts

@@ -29,14 +29,11 @@ from app.infrastructure.database.repositories.attempt_repo import (
 from app.infrastructure.database.repositories.mastery_repo import MasteryRepository
 from app.infrastructure.database.repositories.standards_mastery_repo import StandardsMasteryRepository
 from app.services.ai.thinking_analysis.service import ThinkingAnalysisService
+from app.domain.at_risk import is_record_at_risk, level_fill_fractions
 
 logger = get_logger(__name__)
 settings = get_settings()
 
-# A student is "at-risk" when their mastery is this far below the ceiling
-# AND they have made at least _AT_RISK_MIN_ATTEMPTS attempts.
-_AT_RISK_GAP = 0.40
-_AT_RISK_MIN_ATTEMPTS = 3
 _STANDARD_AT_RISK_THRESHOLD = 0.55
 
 
@@ -76,7 +73,6 @@ class AnalyticsService:
 
         # ── Per-student summaries ─────────────────────────────────────────
         mastery_by_student = {r.user_id: r for r in mastery_records}
-        at_risk_threshold = settings.l3_mastery_ceiling - _AT_RISK_GAP
 
         student_summaries: list[StudentMasterySummary] = []
         for sid in student_ids:
@@ -88,6 +84,7 @@ class AnalyticsService:
                 for m in misconceptions
                 if m.user_id == sid and m.misconception_tag
             ]
+            l1, l2, l3 = level_fill_fractions(record.mastery_score)
             student_summaries.append(
                 StudentMasterySummary(
                     student_id=sid,
@@ -95,10 +92,10 @@ class AnalyticsService:
                     attempts_count=record.attempts_count,
                     error_counts=record.error_counts or {},
                     top_misconceptions=student_tags[:3],
-                    is_at_risk=(
-                        record.mastery_score < at_risk_threshold
-                        and record.attempts_count >= _AT_RISK_MIN_ATTEMPTS
-                    ),
+                    is_at_risk=is_record_at_risk(record),
+                    l1_score=round(l1, 4),
+                    l2_score=round(l2, 4),
+                    l3_score=round(l3, 4),
                 )
             )
 
@@ -123,6 +120,20 @@ class AnalyticsService:
         )
         at_risk_count = sum(1 for s in student_summaries if s.is_at_risk)
 
+        n = len(student_summaries)
+        avg_l1_score = sum(s.l1_score for s in student_summaries) / n if n else 0.0
+        avg_l2_score = sum(s.l2_score for s in student_summaries) / n if n else 0.0
+        avg_l3_score = sum(s.l3_score for s in student_summaries) / n if n else 0.0
+
+        at_risk_l2_count = sum(
+            1 for s in student_summaries
+            if s.is_at_risk and not mastery_by_student[s.student_id].level3_unlocked
+        )
+        at_risk_l3_count = sum(
+            1 for s in student_summaries
+            if s.is_at_risk and mastery_by_student[s.student_id].level3_unlocked
+        )
+
         # ── Optional AI insights ──────────────────────────────────────────
         ai_insights: list[str] = []
         if req.include_ai_insights and student_summaries:
@@ -145,6 +156,11 @@ class AnalyticsService:
             student_count=len(student_ids),
             avg_mastery=avg_mastery,
             at_risk_count=at_risk_count,
+            avg_l1_score=round(avg_l1_score, 4),
+            avg_l2_score=round(avg_l2_score, 4),
+            avg_l3_score=round(avg_l3_score, 4),
+            at_risk_l2_count=at_risk_l2_count,
+            at_risk_l3_count=at_risk_l3_count,
             error_frequency=dict(error_freq),
             top_misconceptions=top_misconceptions,
             lesson_breakdown=lesson_breakdowns,

@@ -12,6 +12,17 @@ The grouping column changes based on `grouping`:
 from sqlalchemy import String, case, func, literal, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.domain.at_risk import (
+    AT_RISK_THRESHOLD_L2,
+    AT_RISK_THRESHOLD_L3,
+    AT_RISK_MIN_ATTEMPTS,
+    L1_MASTERY_CEIL,
+    L2_MASTERY_CEIL,
+    L3_MASTERY_CEIL,
+)
+
+_L2_W = L2_MASTERY_CEIL - L1_MASTERY_CEIL   # 0.30
+_L3_W = L3_MASTERY_CEIL - L2_MASTERY_CEIL   # 0.30
 from app.infrastructure.database.models import (
     Classroom,
     ClassroomStudent,
@@ -20,9 +31,6 @@ from app.infrastructure.database.models import (
     User,
     UserSessionActivity,
 )
-
-# Students below this per-student average mastery are flagged at-risk.
-_AT_RISK_THRESHOLD = 0.50
 
 
 class AggregateRepository:
@@ -81,11 +89,23 @@ class AggregateRepository:
         else:
             gk_expr = self._group_col(grouping)
 
-        # CTE: per-student global avg mastery.
+        # CTE: per-student global avg mastery, unlock status, attempt count, and level fills.
+        _avg = func.avg(SkillMastery.mastery_score)
         student_mastery_cte = (
             select(
                 SkillMastery.user_id,
-                func.avg(SkillMastery.mastery_score).label("avg_mastery"),
+                _avg.label("avg_mastery"),
+                func.bool_or(SkillMastery.level3_unlocked).label("any_l3_unlocked"),
+                func.sum(SkillMastery.attempts_count).label("total_attempts"),
+                func.least(_avg / L1_MASTERY_CEIL, 1.0).label("l1_fill"),
+                func.greatest(
+                    0.0,
+                    func.least((_avg - L1_MASTERY_CEIL) / _L2_W, 1.0),
+                ).label("l2_fill"),
+                func.greatest(
+                    0.0,
+                    func.least((_avg - L2_MASTERY_CEIL) / _L3_W, 1.0),
+                ).label("l3_fill"),
             )
             .group_by(SkillMastery.user_id)
             .cte("student_mastery")
@@ -99,6 +119,11 @@ class AggregateRepository:
                 gk_expr.label("gk"),
                 ClassroomStudent.student_id,
                 student_mastery_cte.c.avg_mastery,
+                student_mastery_cte.c.any_l3_unlocked,
+                student_mastery_cte.c.total_attempts,
+                student_mastery_cte.c.l1_fill,
+                student_mastery_cte.c.l2_fill,
+                student_mastery_cte.c.l3_fill,
             )
             .select_from(User)
             .join(Classroom, Classroom.teacher_id == User.id)
@@ -143,15 +168,49 @@ class AggregateRepository:
         student_agg = (
             select(
                 scoped_cte.c.gk,
-                cc_cte.c.class_count,
+                func.coalesce(func.max(cc_cte.c.class_count), 0).label("class_count"),
                 func.count(scoped_cte.c.student_id).label("student_count"),
                 func.coalesce(func.avg(scoped_cte.c.avg_mastery), 0.0).label("avg_mastery"),
                 func.count(
                     case(
-                        (scoped_cte.c.avg_mastery < _AT_RISK_THRESHOLD, scoped_cte.c.student_id),
+                        (
+                            scoped_cte.c.any_l3_unlocked
+                            & (scoped_cte.c.avg_mastery < AT_RISK_THRESHOLD_L3),
+                            scoped_cte.c.student_id,
+                        ),
+                        (
+                            (~scoped_cte.c.any_l3_unlocked)
+                            & (scoped_cte.c.total_attempts >= AT_RISK_MIN_ATTEMPTS)
+                            & (scoped_cte.c.avg_mastery < AT_RISK_THRESHOLD_L2),
+                            scoped_cte.c.student_id,
+                        ),
                         else_=None,
                     )
                 ).label("at_risk_count"),
+                func.coalesce(func.avg(scoped_cte.c.l1_fill), 0.0).label("avg_l1_score"),
+                func.coalesce(func.avg(scoped_cte.c.l2_fill), 0.0).label("avg_l2_score"),
+                func.coalesce(func.avg(scoped_cte.c.l3_fill), 0.0).label("avg_l3_score"),
+                func.count(
+                    case(
+                        (
+                            scoped_cte.c.any_l3_unlocked
+                            & (scoped_cte.c.avg_mastery < AT_RISK_THRESHOLD_L3),
+                            scoped_cte.c.student_id,
+                        ),
+                        else_=None,
+                    )
+                ).label("at_risk_l3_count"),
+                func.count(
+                    case(
+                        (
+                            (~scoped_cte.c.any_l3_unlocked)
+                            & (scoped_cte.c.total_attempts >= AT_RISK_MIN_ATTEMPTS)
+                            & (scoped_cte.c.avg_mastery < AT_RISK_THRESHOLD_L2),
+                            scoped_cte.c.student_id,
+                        ),
+                        else_=None,
+                    )
+                ).label("at_risk_l2_count"),
             )
             .select_from(scoped_cte)
             .join(cc_cte, cc_cte.c.gk == scoped_cte.c.gk, isouter=True)
@@ -169,6 +228,11 @@ class AggregateRepository:
                     student_agg.c.student_count,
                     student_agg.c.avg_mastery,
                     student_agg.c.at_risk_count,
+                    student_agg.c.avg_l1_score,
+                    student_agg.c.avg_l2_score,
+                    student_agg.c.avg_l3_score,
+                    student_agg.c.at_risk_l2_count,
+                    student_agg.c.at_risk_l3_count,
                 )
                 .select_from(student_agg)
                 .join(Classroom, func.cast(Classroom.id, String) == student_agg.c.gk)
@@ -183,6 +247,11 @@ class AggregateRepository:
                     student_agg.c.student_count,
                     student_agg.c.avg_mastery,
                     student_agg.c.at_risk_count,
+                    student_agg.c.avg_l1_score,
+                    student_agg.c.avg_l2_score,
+                    student_agg.c.avg_l3_score,
+                    student_agg.c.at_risk_l2_count,
+                    student_agg.c.at_risk_l3_count,
                 )
                 .select_from(student_agg)
                 .order_by(student_agg.c.gk)
