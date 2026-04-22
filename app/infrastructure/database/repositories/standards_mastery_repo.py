@@ -161,6 +161,7 @@ class StandardsMasteryRepository:
                 Standard.title,
                 Standard.description,
                 ProblemAttempt.user_id,
+                # ProblemAttempt.score is stored as 0.0–1.0 (no division needed).
                 func.sum(ProblemAttempt.score).label("score_sum"),
                 func.count(ProblemAttempt.score).label("score_count"),
             )

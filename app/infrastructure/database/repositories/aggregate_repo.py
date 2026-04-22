@@ -68,51 +68,37 @@ class AggregateRepository:
         school: str | None,
     ) -> list:
         """Return one row per group with student count, class count, avg mastery,
-        and at-risk count. At-risk uses a CTE to compute per-student averages first,
-        then counts distinct at-risk students per group.
+        and at-risk count.
 
-        For class-level grouping, groups by Classroom.id (unique) and returns
-        group_id (UUID string) alongside the display name.
+        Uses a DISTINCT CTE for student-level stats so that a student enrolled
+        in multiple classrooms within the same district or school is counted once,
+        not once per classroom. Class-level grouping is inherently deduplicated
+        (one row per classroom per student in ClassroomStudent).
         """
-        # For class-level: group by id (unique), expose both name and id.
-        # For district/school: group by the text column; group_id is NULL.
+        # For class-level, key by UUID string; for district/school, key by text value.
         if grouping == "class":
-            name_col = Classroom.name.label("name")
-            group_id_col = func.cast(Classroom.id, String).label("group_id")
-            group_by_col = Classroom.id
+            gk_expr = func.cast(Classroom.id, String)
         else:
-            group_col = self._group_col(grouping)
-            name_col = group_col.label("name")
-            group_id_col = literal(None).label("group_id")
-            group_by_col = group_col
+            gk_expr = self._group_col(grouping)
 
-        # CTE: per-student average mastery (independent of classroom grouping)
-        student_avg_cte = (
+        # CTE: per-student global avg mastery.
+        student_mastery_cte = (
             select(
                 SkillMastery.user_id,
                 func.avg(SkillMastery.mastery_score).label("avg_mastery"),
             )
             .group_by(SkillMastery.user_id)
-            .cte("student_avg_cte")
+            .cte("student_mastery")
         )
 
-        stmt = (
+        # CTE: distinct (group_key, student_id, avg_mastery).
+        # DISTINCT prevents a student enrolled in multiple classrooms within the
+        # same district/school from inflating group averages or at-risk counts.
+        scoped_q = (
             select(
-                name_col,
-                group_id_col,
-                func.count(func.distinct(Classroom.id)).label("class_count"),
-                func.count(func.distinct(ClassroomStudent.student_id)).label("student_count"),
-                func.coalesce(func.avg(SkillMastery.mastery_score), 0.0).label("avg_mastery"),
-                # COUNT(DISTINCT student_id) where that student's overall avg < threshold
-                func.count(
-                    func.distinct(
-                        case(
-                            (student_avg_cte.c.avg_mastery < _AT_RISK_THRESHOLD,
-                             ClassroomStudent.student_id),
-                            else_=None,
-                        )
-                    )
-                ).label("at_risk_count"),
+                gk_expr.label("gk"),
+                ClassroomStudent.student_id,
+                student_mastery_cte.c.avg_mastery,
             )
             .select_from(User)
             .join(Classroom, Classroom.teacher_id == User.id)
@@ -123,24 +109,85 @@ class AggregateRepository:
                 isouter=True,
             )
             .join(
-                SkillMastery,
-                SkillMastery.user_id == ClassroomStudent.student_id,
-                isouter=True,
-            )
-            .join(
-                student_avg_cte,
-                student_avg_cte.c.user_id == ClassroomStudent.student_id,
+                student_mastery_cte,
+                student_mastery_cte.c.user_id == ClassroomStudent.student_id,
                 isouter=True,
             )
             .where(
                 User.role == "teacher",
                 Classroom.is_active == True,  # noqa: E712
             )
-            .group_by(group_by_col)
-            .order_by(group_by_col)
+        )
+        scoped_q = self._apply_scope(scoped_q, grouping, district, school)
+        scoped_cte = scoped_q.distinct().cte("scoped_students")
+
+        # CTE: class count per group (separate from student dedup — counts classrooms,
+        # not students, so no dedup needed here).
+        cc_q = (
+            select(
+                gk_expr.label("gk"),
+                func.count(func.distinct(Classroom.id)).label("class_count"),
+            )
+            .select_from(User)
+            .join(Classroom, Classroom.teacher_id == User.id)
+            .where(
+                User.role == "teacher",
+                Classroom.is_active == True,  # noqa: E712
+            )
+            .group_by(gk_expr)
+        )
+        cc_q = self._apply_scope(cc_q, grouping, district, school)
+        cc_cte = cc_q.cte("class_count")
+
+        # Aggregate per-group stats from the deduplicated student CTE.
+        student_agg = (
+            select(
+                scoped_cte.c.gk,
+                cc_cte.c.class_count,
+                func.count(scoped_cte.c.student_id).label("student_count"),
+                func.coalesce(func.avg(scoped_cte.c.avg_mastery), 0.0).label("avg_mastery"),
+                func.count(
+                    case(
+                        (scoped_cte.c.avg_mastery < _AT_RISK_THRESHOLD, scoped_cte.c.student_id),
+                        else_=None,
+                    )
+                ).label("at_risk_count"),
+            )
+            .select_from(scoped_cte)
+            .join(cc_cte, cc_cte.c.gk == scoped_cte.c.gk, isouter=True)
+            .group_by(scoped_cte.c.gk)
+            .subquery("student_agg")
         )
 
-        stmt = self._apply_scope(stmt, grouping, district, school)
+        # Outer query: add display name and group_id columns.
+        if grouping == "class":
+            stmt = (
+                select(
+                    Classroom.name.label("name"),
+                    student_agg.c.gk.label("group_id"),
+                    student_agg.c.class_count,
+                    student_agg.c.student_count,
+                    student_agg.c.avg_mastery,
+                    student_agg.c.at_risk_count,
+                )
+                .select_from(student_agg)
+                .join(Classroom, func.cast(Classroom.id, String) == student_agg.c.gk)
+                .order_by(Classroom.name)
+            )
+        else:
+            stmt = (
+                select(
+                    student_agg.c.gk.label("name"),
+                    literal(None).label("group_id"),
+                    student_agg.c.class_count,
+                    student_agg.c.student_count,
+                    student_agg.c.avg_mastery,
+                    student_agg.c.at_risk_count,
+                )
+                .select_from(student_agg)
+                .order_by(student_agg.c.gk)
+            )
+
         result = await self._session.execute(stmt)
         return result.all()
 
@@ -190,21 +237,15 @@ class AggregateRepository:
     ) -> dict[str, int]:
         """Return {group_key: total_student_hours}.
 
-        Joins through ClassroomStudent so only student session activity is summed —
-        teacher heartbeats are excluded because teachers are not in ClassroomStudent.
-        Integer division /60 produces whole hours (PostgreSQL behaviour).
+        Uses a distinct (group_key, student_id) subquery so that a student enrolled
+        in multiple classrooms within the same district or school has their session
+        minutes counted once, not once per classroom.
         Key is UUID string for class-level, district/school name otherwise.
         """
         key_col = self._key_col(grouping)
-        group_by_col = self._group_col(grouping)
 
-        stmt = (
-            select(
-                key_col.label("key"),
-                func.coalesce(
-                    func.sum(UserSessionActivity.total_minutes_active) / 60, 0
-                ).label("hours_active"),
-            )
+        distinct_q = (
+            select(key_col.label("key"), ClassroomStudent.student_id)
             .select_from(User)
             .join(Classroom, Classroom.teacher_id == User.id)
             .join(
@@ -213,19 +254,27 @@ class AggregateRepository:
                 & (ClassroomStudent.is_blocked == False),  # noqa: E712
                 isouter=True,
             )
-            .join(
-                UserSessionActivity,
-                UserSessionActivity.user_id == ClassroomStudent.student_id,
-                isouter=True,
-            )
             .where(
                 User.role == "teacher",
                 Classroom.is_active == True,  # noqa: E712
             )
-            .group_by(group_by_col)
+            .distinct()
+        )
+        distinct_q = self._apply_scope(distinct_q, grouping, district, school)
+        sq = distinct_q.subquery("distinct_students")
+
+        stmt = (
+            select(
+                sq.c.key,
+                func.coalesce(
+                    func.sum(UserSessionActivity.total_minutes_active) / 60, 0
+                ).label("hours_active"),
+            )
+            .select_from(sq)
+            .join(UserSessionActivity, UserSessionActivity.user_id == sq.c.student_id, isouter=True)
+            .group_by(sq.c.key)
         )
 
-        stmt = self._apply_scope(stmt, grouping, district, school)
         result = await self._session.execute(stmt)
         return {str(row.key): int(row.hours_active or 0) for row in result.all()}
 

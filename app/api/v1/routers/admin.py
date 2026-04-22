@@ -30,6 +30,7 @@ from app.domain.schemas.units import UnitCreate, UnitOut
 from app.infrastructure.database.connection import get_db
 from app.infrastructure.database.models import User, UserProfile
 from app.services.admin.service import AdminService
+from app.services.aggregate_analytics_service import AggregateAnalyticsService
 from app.services.auth.security import hash_password
 from app.services.auth.user_factory import create_user
 from app.services.unit_catalog_service import create_unit_with_lessons
@@ -278,7 +279,8 @@ async def admin_aggregate_analytics(
     """
     require_admin(auth)
     requesting_school = await _get_admin_school(db, auth)
-    from app.services.aggregate_analytics_service import AggregateAnalyticsService
+    if auth.role != "superadmin" and not requesting_school:
+        raise HTTPException(status_code=403, detail="Admin account has no school configured.")
     return await AggregateAnalyticsService(db).get_aggregate(
         district=district,
         school=school,

@@ -1,4 +1,6 @@
 import uuid
+from typing import Literal
+
 from pydantic import BaseModel, Field
 
 
@@ -100,7 +102,7 @@ class UnitMasteryRow(BaseModel):
 
 
 class AggregateAnalyticsResponse(BaseModel):
-    grouping: str           # "district" | "school" | "class"
+    grouping: Literal["district", "school", "class"]
     groups: list[AggregateGroupRow]
     total_students: int
     total_classes: int
