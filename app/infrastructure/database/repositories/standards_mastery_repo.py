@@ -116,7 +116,7 @@ class StandardsMasteryRepository:
                 Standard.title,
                 Standard.description,
                 ExitTicketResponse.student_id.label("user_id"),
-                func.sum(ExitTicketResponse.score).label("score_sum"),
+                func.sum(ExitTicketResponse.score / 100.0).label("score_sum"),
                 func.count(ExitTicketResponse.score).label("score_count"),
             )
             .join(ExitTicket, ExitTicket.id == ExitTicketResponse.exit_ticket_id)
@@ -193,7 +193,7 @@ class StandardsMasteryRepository:
                 Standard.title,
                 Standard.description,
                 ExitTicketResponse.student_id.label("user_id"),
-                func.sum(ExitTicketResponse.score).label("score_sum"),
+                func.sum(ExitTicketResponse.score / 100.0).label("score_sum"),
                 func.count(ExitTicketResponse.score).label("score_count"),
             )
             .join(ExitTicket, ExitTicket.id == ExitTicketResponse.exit_ticket_id)

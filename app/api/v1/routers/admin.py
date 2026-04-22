@@ -23,6 +23,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.v1.authz import AuthContext, get_auth_context, require_admin, require_role
 from app.core.logging import get_logger
+from app.domain.schemas.analytics import AggregateAnalyticsResponse
 from app.domain.schemas.dashboards import AdminStats, AdminTeacherOut, CuratedProblem, EngagementAnalyticsOut, GenerationLogEntry, SystemStats
 from app.domain.schemas.phases import CurriculumResponse
 from app.domain.schemas.units import UnitCreate, UnitOut
@@ -260,6 +261,29 @@ async def admin_engagement_analytics(
         target=target if scope == "teacher" else admin_user.school,
         timeframe=timeframe,
         requesting_school=admin_user.school,
+    )
+
+
+@router.get("/analytics/aggregate", response_model=AggregateAnalyticsResponse)
+async def admin_aggregate_analytics(
+    district: str | None = Query(default=None),
+    school: str | None = Query(default=None),
+    db: AsyncSession = Depends(get_db),
+    auth: AuthContext = Depends(get_auth_context),
+) -> AggregateAnalyticsResponse:
+    """Aggregate performance metrics grouped by district, school, or class.
+
+    Superadmin: grouping resolved from filters (no filter→district, district→school,
+    district+school→class). School admin: always groups by class within their school.
+    """
+    require_admin(auth)
+    requesting_school = await _get_admin_school(db, auth)
+    from app.services.aggregate_analytics_service import AggregateAnalyticsService
+    return await AggregateAnalyticsService(db).get_aggregate(
+        district=district,
+        school=school,
+        requesting_school=requesting_school,
+        role=auth.role,
     )
 
 
