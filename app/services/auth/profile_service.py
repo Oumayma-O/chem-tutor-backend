@@ -53,11 +53,16 @@ class AuthProfileService:
         )
         classroom = cls_result.scalar_one_or_none()
 
+        user_nm = (user.name or "").strip()
+        prof_nm = (profile.name or "").strip() if profile else ""
+        # ``users.name`` is canonical; fall back to profile if rows ever diverged.
+        resolved_name = user_nm or prof_nm
+
         return MeResponse(
             user_id=str(user.id),
             email=user.email,
             role=user.role,
-            name=user.name,
+            username=resolved_name,
             grade_level=grade_level,
             grade=grade_name,
             course=course_name,

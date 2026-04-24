@@ -4,6 +4,7 @@ Auth router — native email/password authentication.
 POST /auth/register  → create account + return JWT
 POST /auth/login     → verify credentials + return JWT
 GET  /auth/me        → return current user from JWT
+PUT/PATCH /auth/me   → update email, password, and/or username (staff only)
 PATCH /auth/profile  → update grade, course, interests
 POST /auth/heartbeat → record 1 minute of active session (call every 60 s)
 """
@@ -13,7 +14,7 @@ from datetime import date, timezone
 from datetime import datetime as dt
 from typing import Optional
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Response, status
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -29,9 +30,7 @@ from app.domain.schemas.auth import (
     TokenResponse,
 )
 from app.infrastructure.database.connection import get_db
-from app.infrastructure.database.models import (
-    User,
-)
+from app.infrastructure.database.models import User, UserProfile
 from app.infrastructure.database.repositories.student_repo import (
     CourseRepository,
     GradeRepository,
@@ -74,7 +73,7 @@ async def register(req: RegisterRequest, db: AsyncSession = Depends(get_db)) -> 
         )
 
     user = await create_user(
-        db, email=req.email, password=req.password, role=req.role, name=req.name, commit=False,
+        db, email=req.email, password=req.password, role=req.role, name=req.username, commit=False,
     )
 
     if req.role == "student" and req.interests:
@@ -88,7 +87,7 @@ async def register(req: RegisterRequest, db: AsyncSession = Depends(get_db)) -> 
         user_id=str(user.id),
         email=user.email,
         role=user.role,
-        name=user.name,
+        username=user.name,
     )
 
 
@@ -112,7 +111,7 @@ async def login(req: LoginRequest, db: AsyncSession = Depends(get_db)) -> TokenR
         user_id=str(user.id),
         email=user.email,
         role=user.role,
-        name=user.name,
+        username=user.name,
     )
 
 
@@ -120,10 +119,12 @@ async def login(req: LoginRequest, db: AsyncSession = Depends(get_db)) -> TokenR
 
 @router.get("/me", response_model=MeResponse)
 async def me(
+    response: Response,
     db: AsyncSession = Depends(get_db),
     auth: AuthContext = Depends(get_auth_context),
     profile_svc: AuthProfileService = Depends(_profile_service),
 ) -> MeResponse:
+    response.headers["Cache-Control"] = "private, no-store"
     return await profile_svc.build_me_response(auth.user_id)
 
 
@@ -171,22 +172,39 @@ async def update_profile(
     return await profile_svc.build_me_response(auth.user_id)
 
 
-# ── Account update (email / password) ─────────────────────────────────────
+# ── Account update (email / password / display name) ───────────────────────
+
+
+_STAFF_ROLES = frozenset({"teacher", "admin", "superadmin"})
 
 
 @router.put("/me", response_model=MeResponse)
 @router.patch("/me", response_model=MeResponse)
 async def update_account(
     req: AccountUpdateRequest,
+    response: Response,
     db: AsyncSession = Depends(get_db),
     auth: AuthContext = Depends(get_auth_context),
     profile_svc: AuthProfileService = Depends(_profile_service),
 ) -> MeResponse:
-    """Update the authenticated user's email and/or password."""
+    """Update the authenticated user's email, password, and/or username."""
     result = await db.execute(select(User).where(User.id == auth.user_id))
     user = result.scalar_one_or_none()
     if not user:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found.")
+
+    if req.username is not None:
+        if user.role not in _STAFF_ROLES:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Only teachers and administrators can change their username.",
+            )
+        user.name = req.username
+        profile_row = await UserProfileRepository(db).get_by_id(auth.user_id)
+        if profile_row:
+            profile_row.name = req.username
+        else:
+            db.add(UserProfile(user_id=user.id, role=user.role, name=req.username))
 
     if req.email is not None:
         normalized = req.email.lower().strip()
@@ -207,7 +225,9 @@ async def update_account(
         user.password_hash = hash_password(req.new_password)
 
     await db.commit()
+    await db.refresh(user)
     logger.info("account_updated", user_id=str(auth.user_id))
+    response.headers["Cache-Control"] = "private, no-store"
     return await profile_svc.build_me_response(auth.user_id)
 
 

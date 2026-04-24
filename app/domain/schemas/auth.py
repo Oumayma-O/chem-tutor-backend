@@ -2,15 +2,26 @@
 
 from typing import Optional
 
-from pydantic import BaseModel, EmailStr, Field, field_validator
+from pydantic import AliasChoices, BaseModel, EmailStr, Field, field_validator
 
 
 class RegisterRequest(BaseModel):
     email: EmailStr
     password: str
     role: str  # "student" only (public signup)
-    name: str
+    username: str = Field(
+        max_length=200,
+        validation_alias=AliasChoices("username", "name"),
+    )
     interests: Optional[list[str]] = None  # interest slugs
+
+    @field_validator("username")
+    @classmethod
+    def validate_username(cls, v: str) -> str:
+        stripped = v.strip()
+        if not stripped:
+            raise ValueError("username cannot be blank")
+        return stripped
 
     @field_validator("role")
     @classmethod
@@ -38,7 +49,7 @@ class TokenResponse(BaseModel):
     user_id: str
     email: str
     role: str
-    name: str
+    username: str
 
 
 class ProfileUpdateRequest(BaseModel):
@@ -53,7 +64,7 @@ class MeResponse(BaseModel):
     user_id: str
     email: str
     role: str
-    name: str
+    username: str
     grade_level: Optional[str] = None
     grade: Optional[str] = None
     course: Optional[str] = None
@@ -66,10 +77,31 @@ class MeResponse(BaseModel):
 
 
 class AccountUpdateRequest(BaseModel):
-    """PUT/PATCH /auth/me — update email and/or password."""
+    """PUT/PATCH /auth/me — update email, password, and/or username (staff only for username)."""
     email: Optional[EmailStr] = None
+    username: Optional[str] = Field(
+        default=None,
+        max_length=200,
+        validation_alias=AliasChoices(
+            "username",
+            "name",
+            "display_name",
+            "displayName",
+            "userName",
+        ),
+    )
     current_password: Optional[str] = Field(default=None, min_length=1)
     new_password: Optional[str] = Field(default=None, min_length=6)
+
+    @field_validator("username")
+    @classmethod
+    def validate_username_optional(cls, v: Optional[str]) -> Optional[str]:
+        if v is None:
+            return None
+        stripped = v.strip()
+        if not stripped:
+            raise ValueError("username cannot be blank")
+        return stripped
 
 
 class SseTokenResponse(BaseModel):
