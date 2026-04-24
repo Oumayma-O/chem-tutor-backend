@@ -103,13 +103,13 @@ class Settings(BaseSettings):
     jwt_algorithm: str = "HS256"
     access_token_expire_minutes: int = 10080  # 7 days
 
-    # ── Admin bootstrap ──────────────────────────────────────
-    # When set, an admin account is created on startup if it doesn't exist yet.
+    # ── Superadmin bootstrap ─────────────────────────────────
+    # When set, superadmin accounts are created on startup if they don't exist yet.
     # Leave empty to disable.
-    admin_email: str = ""
-    admin_password: str = ""
-    admin_email_2: str = ""
-    admin_password_2: str = ""
+    superadmin_email: str = ""
+    superadmin_password: str = ""
+    superadmin_email_2: str = ""
+    superadmin_password_2: str = ""
 
     @property
     def is_production(self) -> bool:

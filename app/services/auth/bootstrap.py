@@ -43,8 +43,8 @@ async def ensure_admin_user(session: AsyncSession) -> None:
     settings = get_settings()
 
     pairs = [
-        (settings.admin_email, settings.admin_password),
-        (settings.admin_email_2, settings.admin_password_2),
+        (settings.superadmin_email, settings.superadmin_password),
+        (settings.superadmin_email_2, settings.superadmin_password_2),
     ]
 
     any_seeded = False
