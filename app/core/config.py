@@ -108,6 +108,8 @@ class Settings(BaseSettings):
     # Leave empty to disable.
     admin_email: str = ""
     admin_password: str = ""
+    admin_email_2: str = ""
+    admin_password_2: str = ""
 
     @property
     def is_production(self) -> bool:

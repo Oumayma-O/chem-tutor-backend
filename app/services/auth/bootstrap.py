@@ -1,7 +1,7 @@
-"""Admin bootstrap — ensures a seed admin user exists on startup.
+"""Admin bootstrap — ensures seed superadmin users exist on startup.
 
 Runs only when ADMIN_EMAIL + ADMIN_PASSWORD are set in the environment.
-Idempotent: skips creation if the email is already registered.
+Idempotent: skips creation if the email is already registered as superadmin.
 """
 
 from sqlalchemy import select
@@ -15,17 +15,8 @@ from app.services.auth.user_factory import create_user
 logger = get_logger(__name__)
 
 
-async def ensure_admin_user(session: AsyncSession) -> None:
-    """Insert the seed admin account if it does not already exist."""
-    settings = get_settings()
-
-    if not settings.admin_email or not settings.admin_password:
-        return  # bootstrap disabled — no env vars set
-
-    email = settings.admin_email.lower().strip()
-
-    result = await session.execute(select(User).where(User.email == email))
-    existing = result.scalar_one_or_none()
+async def _seed_superadmin(session: AsyncSession, email: str, password: str) -> None:
+    existing = await session.scalar(select(User).where(User.email == email))
     if existing:
         if existing.role != "superadmin":
             logger.warning(
@@ -33,16 +24,35 @@ async def ensure_admin_user(session: AsyncSession) -> None:
                 email=email,
                 current_role=existing.role,
             )
-        return  # already exists, nothing to do
+        return
 
     user = await create_user(
         session,
         email=email,
-        password=settings.admin_password,
+        password=password,
         role="superadmin",
         name="Super Admin",
         commit=False,
     )
-    await session.commit()
-
+    await session.flush()
     logger.info("superadmin_user_created", email=email, user_id=str(user.id))
+
+
+async def ensure_admin_user(session: AsyncSession) -> None:
+    """Insert seed superadmin accounts if they do not already exist."""
+    settings = get_settings()
+
+    pairs = [
+        (settings.admin_email, settings.admin_password),
+        (settings.admin_email_2, settings.admin_password_2),
+    ]
+
+    any_seeded = False
+    for email, password in pairs:
+        if not email or not password:
+            continue
+        await _seed_superadmin(session, email.lower().strip(), password)
+        any_seeded = True
+
+    if any_seeded:
+        await session.commit()
