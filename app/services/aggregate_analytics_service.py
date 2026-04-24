@@ -86,6 +86,9 @@ class AggregateAnalyticsService:
                 avg_l3_score=round(float(row.avg_l3_score or 0.0), 4),
                 at_risk_l2_count=int(row.at_risk_l2_count or 0),
                 at_risk_l3_count=int(row.at_risk_l3_count or 0),
+                high_risk_count=int(row.high_risk_count or 0),
+                moderate_risk_count=int(row.moderate_risk_count or 0),
+                adopted_count=int(row.adopted_count or 0),
                 problems_solved=problems_map.get(_lookup_key(row), 0),
                 hours_active=hours_map.get(_lookup_key(row), 0),
             )
@@ -101,6 +104,10 @@ class AggregateAnalyticsService:
         overall_at_risk = sum(g.at_risk_count for g in groups)
         overall_at_risk_l2 = sum(g.at_risk_l2_count for g in groups)
         overall_at_risk_l3 = sum(g.at_risk_l3_count for g in groups)
+        overall_high_risk = sum(g.high_risk_count for g in groups)
+        overall_moderate_risk = sum(g.moderate_risk_count for g in groups)
+        total_adopted = sum(g.adopted_count for g in groups)
+        adoption_rate = round(total_adopted / total_students, 4) if total_students else 0.0
 
         # Weighted average mastery (weighted by student count).
         weighted_sum = sum(g.avg_mastery * g.student_count for g in groups)
@@ -142,6 +149,9 @@ class AggregateAnalyticsService:
             overall_avg_l3_score=round(overall_l3, 4),
             overall_at_risk_l2_count=overall_at_risk_l2,
             overall_at_risk_l3_count=overall_at_risk_l3,
+            overall_high_risk=overall_high_risk,
+            overall_moderate_risk=overall_moderate_risk,
+            adoption_rate=adoption_rate,
             weakest_units=weakest_units,
             mastery_distribution=dist_map,
         )

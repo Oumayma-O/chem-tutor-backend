@@ -28,6 +28,17 @@ L2_MASTERY_CEIL: float = 0.50
 L3_MASTERY_CEIL: float = 0.80
 
 
+def calculate_risk_score(mastery: float, total_attempts: int) -> float:
+    """Continuous risk score [0.0, 1.0].
+
+    mastery_risk  (70% weight): how far below ceiling mastery is.
+    attempt_risk  (30% weight): many attempts with low outcome = frustration signal.
+    """
+    mastery_risk = min(max(1.0 - mastery, 0.0), 1.0)
+    attempt_risk = min(total_attempts / 10.0, 1.0)
+    return round(min(0.7 * mastery_risk + 0.3 * attempt_risk, 1.0), 4)
+
+
 def level_fill_fractions(mastery_score: float) -> tuple[float, float, float]:
     """Return (l1_fill, l2_fill, l3_fill) — each a fraction in [0, 1]."""
     l1 = min(mastery_score / L1_MASTERY_CEIL, 1.0)

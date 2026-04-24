@@ -103,6 +103,9 @@ class AggregateGroupRow(BaseModel):
     avg_l3_score: float = 0.0
     at_risk_l2_count: int = 0
     at_risk_l3_count: int = 0
+    high_risk_count: int = 0
+    moderate_risk_count: int = 0
+    adopted_count: int = 0   # students who have reached L2 (≥3 attempts in any unit)
     problems_solved: int
     hours_active: int       # whole hours
 
@@ -128,5 +131,8 @@ class AggregateAnalyticsResponse(BaseModel):
     overall_avg_l3_score: float = 0.0
     overall_at_risk_l2_count: int = 0
     overall_at_risk_l3_count: int = 0
+    overall_high_risk: int = 0
+    overall_moderate_risk: int = 0
+    adoption_rate: float = 0.0           # fraction of students who have started L2
     weakest_units: list[UnitMasteryRow]  # bottom 8, sorted ASC by avg_mastery
     mastery_distribution: dict[str, int]  # "0-50","50-70","70-85","85-100" — student counts

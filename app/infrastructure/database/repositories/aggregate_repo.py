@@ -89,8 +89,13 @@ class AggregateRepository:
         else:
             gk_expr = self._group_col(grouping)
 
-        # CTE: per-student global avg mastery, unlock status, attempt count, and level fills.
+        # CTE: per-student global avg mastery, unlock status, attempt count, level fills,
+        # adoption flag, and continuous risk score.
         _avg = func.avg(SkillMastery.mastery_score)
+        _total_att = func.coalesce(func.sum(SkillMastery.attempts_count), 0)
+        _mastery_risk = func.least(func.greatest(1.0 - _avg, 0.0), 1.0)
+        _attempt_risk = func.least(_total_att / 10.0, 1.0)
+        _risk_score = func.least(0.7 * _mastery_risk + 0.3 * _attempt_risk, 1.0)
         student_mastery_cte = (
             select(
                 SkillMastery.user_id,
@@ -106,6 +111,8 @@ class AggregateRepository:
                     0.0,
                     func.least((_avg - L2_MASTERY_CEIL) / _L3_W, 1.0),
                 ).label("l3_fill"),
+                func.bool_or(SkillMastery.attempts_count >= AT_RISK_MIN_ATTEMPTS).label("has_l2_attempt"),
+                _risk_score.label("risk_score"),
             )
             .group_by(SkillMastery.user_id)
             .cte("student_mastery")
@@ -124,6 +131,8 @@ class AggregateRepository:
                 student_mastery_cte.c.l1_fill,
                 student_mastery_cte.c.l2_fill,
                 student_mastery_cte.c.l3_fill,
+                student_mastery_cte.c.has_l2_attempt,
+                student_mastery_cte.c.risk_score,
             )
             .select_from(User)
             .join(Classroom, Classroom.teacher_id == User.id)
@@ -211,6 +220,28 @@ class AggregateRepository:
                         else_=None,
                     )
                 ).label("at_risk_l2_count"),
+                func.count(
+                    case(
+                        (scoped_cte.c.risk_score >= 0.7, scoped_cte.c.student_id),
+                        else_=None,
+                    )
+                ).label("high_risk_count"),
+                func.count(
+                    case(
+                        (
+                            (scoped_cte.c.risk_score >= 0.4)
+                            & (scoped_cte.c.risk_score < 0.7),
+                            scoped_cte.c.student_id,
+                        ),
+                        else_=None,
+                    )
+                ).label("moderate_risk_count"),
+                func.count(
+                    case(
+                        (scoped_cte.c.has_l2_attempt == True, scoped_cte.c.student_id),  # noqa: E712
+                        else_=None,
+                    )
+                ).label("adopted_count"),
             )
             .select_from(scoped_cte)
             .join(cc_cte, cc_cte.c.gk == scoped_cte.c.gk, isouter=True)
@@ -233,6 +264,9 @@ class AggregateRepository:
                     student_agg.c.avg_l3_score,
                     student_agg.c.at_risk_l2_count,
                     student_agg.c.at_risk_l3_count,
+                    student_agg.c.high_risk_count,
+                    student_agg.c.moderate_risk_count,
+                    student_agg.c.adopted_count,
                 )
                 .select_from(student_agg)
                 .join(Classroom, func.cast(Classroom.id, String) == student_agg.c.gk)
@@ -252,6 +286,9 @@ class AggregateRepository:
                     student_agg.c.avg_l3_score,
                     student_agg.c.at_risk_l2_count,
                     student_agg.c.at_risk_l3_count,
+                    student_agg.c.high_risk_count,
+                    student_agg.c.moderate_risk_count,
+                    student_agg.c.adopted_count,
                 )
                 .select_from(student_agg)
                 .order_by(student_agg.c.gk)
