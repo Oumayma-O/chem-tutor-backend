@@ -103,6 +103,10 @@ class ProblemGenerationService:
         for attempt in range(MAX_GENERATION_ATTEMPTS):
             raw = await generate_structured(messages, ProblemOutput, temperature=DEFAULT_TEMPERATURE)
             problem_dict = raw.model_dump(mode="json")
+            # Sanitize LLM output: force "interactive" → "mcq" (LLM ignores prompt constraints)
+            for step in problem_dict.get("steps", []):
+                if isinstance(step, dict) and step.get("type") == "interactive":
+                    step["type"] = "mcq"
             try:
                 problem_dict = normalize_and_validate_problem(problem_dict)
             except ValueError as e:
