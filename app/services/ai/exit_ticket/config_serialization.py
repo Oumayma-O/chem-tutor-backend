@@ -6,7 +6,7 @@ from typing import Any
 
 from pydantic import ValidationError
 
-from app.domain.schemas.dashboards import ExitTicketConfig, ExitTicketQuestion
+from app.domain.schemas.dashboards import ExitTicketConfig, ExitTicketQuestion, MCQOptionOut
 from app.infrastructure.database.models import ExitTicket
 
 
@@ -22,15 +22,29 @@ def _normalize_question_dict(raw: dict[str, Any]) -> dict[str, Any]:
     d["id"] = str(qid).strip() if qid is not None else "q"
     d["question_type"] = str(d.get("question_type") or "short_answer")
     opts_in = d.get("options") or []
-    out_opts: list[str] = []
-    for o in opts_in:
-        if isinstance(o, str):
-            out_opts.append(o)
-        elif isinstance(o, dict):
-            out_opts.append(str(o.get("text") or o.get("label") or o.get("value") or ""))
+    out_opts: list[dict] = []
+    tags = d.get("option_misconception_tags") or []
+    for i, o in enumerate(opts_in):
+        if isinstance(o, dict):
+            # New format: already structured
+            out_opts.append({
+                "text": str(o.get("text") or o.get("label") or o.get("value") or ""),
+                "is_correct": bool(o.get("is_correct", False)),
+                "misconception_tag": o.get("misconception_tag"),
+            })
+        elif isinstance(o, str):
+            # Legacy format: plain string + parallel tags array
+            tag = tags[i] if i < len(tags) and tags[i] else None
+            ca = d.get("correct_answer")
+            out_opts.append({
+                "text": o,
+                "is_correct": (o == ca) if ca else False,
+                "misconception_tag": str(tag) if tag else None,
+            })
         else:
-            out_opts.append(str(o))
+            out_opts.append({"text": str(o), "is_correct": False, "misconception_tag": None})
     d["options"] = out_opts
+    d.pop("option_misconception_tags", None)
     ca = d.get("correct_answer")
     if ca is None:
         d["correct_answer"] = None
@@ -40,11 +54,6 @@ def _normalize_question_dict(raw: dict[str, Any]) -> dict[str, Any]:
         d["points"] = float(d.get("points", 1.0) or 1.0)
     except (TypeError, ValueError):
         d["points"] = 1.0
-    tags = d.get("option_misconception_tags")
-    if tags is not None and isinstance(tags, list):
-        d["option_misconception_tags"] = [None if t is None else str(t) for t in tags]
-    else:
-        d.pop("option_misconception_tags", None)
     return d
 
 
@@ -62,8 +71,7 @@ def exit_ticket_row_to_config(row: ExitTicket) -> ExitTicketConfig:
                     id=str(nd.get("id") or "q"),
                     prompt=str(nd.get("prompt") or "(Question unavailable)"),
                     question_type=str(nd.get("question_type") or "short_answer"),
-                    options=list(nd.get("options") or []),
-                    option_misconception_tags=nd.get("option_misconception_tags"),
+                    options=[MCQOptionOut(**o) for o in nd.get("options", []) if isinstance(o, dict)],
                     correct_answer=nd.get("correct_answer"),
                     points=float(nd.get("points", 1.0) or 1.0),
                 )

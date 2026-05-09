@@ -15,17 +15,20 @@ from pydantic import BaseModel, Field
 # ── Exit tickets ──────────────────────────────────────────────
 
 
+class MCQOptionOut(BaseModel):
+    """One MCQ option with its misconception tag."""
+    text: str
+    is_correct: bool = False
+    misconception_tag: str | None = None
+
+
 class ExitTicketQuestion(BaseModel):
     """One generated or stored exit-ticket question."""
 
     id: str = Field(description="Stable id within the ticket session")
     prompt: str
     question_type: str = Field(default="short_answer", description="mcq | short_answer | numeric")
-    options: list[str] = Field(default_factory=list, description="For MCQ: option texts in order")
-    option_misconception_tags: list[str | None] | None = Field(
-        default=None,
-        description="Index-aligned distractor tags for MCQ options. Null for the correct option.",
-    )
+    options: list[MCQOptionOut] = Field(default_factory=list, description="For MCQ: structured option objects")
     correct_answer: str | None = None
     points: float = 1.0
     unit: str | None = Field(default=None, description="Physical unit for numeric questions (e.g. 'g', 'kJ/mol')")

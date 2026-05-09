@@ -2,26 +2,15 @@
 
 from typing import Optional
 
-from pydantic import AliasChoices, BaseModel, EmailStr, Field, field_validator
+from pydantic import AliasChoices, BaseModel, ConfigDict, EmailStr, Field, field_validator
 
 
 class RegisterRequest(BaseModel):
     email: EmailStr
     password: str
     role: str  # "student" only (public signup)
-    username: str = Field(
-        max_length=200,
-        validation_alias=AliasChoices("username", "name"),
-    )
+    name: str
     interests: Optional[list[str]] = None  # interest slugs
-
-    @field_validator("username")
-    @classmethod
-    def validate_username(cls, v: str) -> str:
-        stripped = v.strip()
-        if not stripped:
-            raise ValueError("username cannot be blank")
-        return stripped
 
     @field_validator("role")
     @classmethod
@@ -49,7 +38,7 @@ class TokenResponse(BaseModel):
     user_id: str
     email: str
     role: str
-    username: str
+    name: str
 
 
 class ProfileUpdateRequest(BaseModel):
@@ -64,7 +53,7 @@ class MeResponse(BaseModel):
     user_id: str
     email: str
     role: str
-    username: str
+    name: str
     grade_level: Optional[str] = None
     grade: Optional[str] = None
     course: Optional[str] = None
@@ -77,30 +66,41 @@ class MeResponse(BaseModel):
 
 
 class AccountUpdateRequest(BaseModel):
-    """PUT/PATCH /auth/me — update email, password, and/or username (staff only for username)."""
+    """PUT/PATCH /auth/me — update email, password, and/or display name (staff only for name)."""
+
+    model_config = ConfigDict(extra="ignore")
+
     email: Optional[EmailStr] = None
-    username: Optional[str] = Field(
+    name: Optional[str] = Field(
         default=None,
         max_length=200,
         validation_alias=AliasChoices(
-            "username",
             "name",
             "display_name",
             "displayName",
+            "username",
             "userName",
         ),
     )
-    current_password: Optional[str] = Field(default=None, min_length=1)
-    new_password: Optional[str] = Field(default=None, min_length=6)
+    current_password: Optional[str] = Field(
+        default=None,
+        min_length=1,
+        validation_alias=AliasChoices("current_password", "currentPassword"),
+    )
+    new_password: Optional[str] = Field(
+        default=None,
+        min_length=6,
+        validation_alias=AliasChoices("new_password", "newPassword"),
+    )
 
-    @field_validator("username")
+    @field_validator("name")
     @classmethod
-    def validate_username_optional(cls, v: Optional[str]) -> Optional[str]:
+    def validate_display_name(cls, v: Optional[str]) -> Optional[str]:
         if v is None:
             return None
         stripped = v.strip()
         if not stripped:
-            raise ValueError("username cannot be blank")
+            raise ValueError("name cannot be blank")
         return stripped
 
 

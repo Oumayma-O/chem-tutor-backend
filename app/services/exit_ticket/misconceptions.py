@@ -15,6 +15,10 @@ def build_question_option_tag_and_correct_maps(
     - ``qid -> (option text -> misconception tag or None)``
     - ``qid -> correct_answer``
     - ``qid -> prompt`` (for per-question display)
+
+    Handles both formats:
+    - New: options = [{text, is_correct, misconception_tag}, ...]
+    - Legacy: options = ["A", "B"], option_misconception_tags = [null, "sign_error"]
     """
     q_tag_map: dict[str, dict[str, str | None]] = {}
     correct_map: dict[str, str | None] = {}
@@ -25,12 +29,22 @@ def build_question_option_tag_and_correct_maps(
         qid = str(q_dict.get("id") or "")
         correct_map[qid] = q_dict.get("correct_answer")
         prompt_map[qid] = str(q_dict.get("prompt") or "")
-        tags = q_dict.get("option_misconception_tags") or []
+
         opts = q_dict.get("options") or []
-        q_tag_map[qid] = {
-            str(opt): (str(tags[j]) if j < len(tags) and tags[j] else None)
-            for j, opt in enumerate(opts)
-        }
+        if opts and isinstance(opts[0], dict):
+            # New format: structured option objects
+            q_tag_map[qid] = {
+                str(opt.get("text") or ""): opt.get("misconception_tag")
+                for opt in opts
+                if isinstance(opt, dict)
+            }
+        else:
+            # Legacy format: parallel arrays
+            tags = q_dict.get("option_misconception_tags") or []
+            q_tag_map[qid] = {
+                str(opt): (str(tags[j]) if j < len(tags) and tags[j] else None)
+                for j, opt in enumerate(opts)
+            }
     return q_tag_map, correct_map, prompt_map
 
 
