@@ -53,9 +53,26 @@ class AuthProfileService:
         )
         classroom = cls_result.scalar_one_or_none()
 
+        # Resolve classroom course from its unit (for chapter filtering)
+        classroom_course_id: int | None = None
+        classroom_course_name: str | None = None
+        if classroom and classroom.unit_id:
+            from app.infrastructure.database.models import Unit
+            unit_row = await self._db.scalar(
+                select(Unit).where(Unit.id == classroom.unit_id)
+            )
+            if unit_row:
+                classroom_course_id = unit_row.course_id
+                if unit_row.course_id:
+                    from app.infrastructure.database.models import Course
+                    course_row = await self._db.scalar(
+                        select(Course).where(Course.id == unit_row.course_id)
+                    )
+                    if course_row:
+                        classroom_course_name = course_row.name
+
         user_nm = (user.name or "").strip()
         prof_nm = (profile.name or "").strip() if profile else ""
-        # ``users.name`` is canonical; fall back to profile if rows ever diverged.
         resolved_name = user_nm or prof_nm
 
         return MeResponse(
@@ -70,6 +87,8 @@ class AuthProfileService:
             classroom_id=str(classroom.id) if classroom else None,
             classroom_name=classroom.name if classroom else None,
             classroom_code=classroom.code if classroom else None,
+            classroom_course_id=classroom_course_id,
+            classroom_course_name=classroom_course_name,
             district=user.district,
             school=user.school,
         )

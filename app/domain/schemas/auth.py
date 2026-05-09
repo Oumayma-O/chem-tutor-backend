@@ -61,6 +61,8 @@ class MeResponse(BaseModel):
     classroom_id: Optional[str] = None
     classroom_name: Optional[str] = None
     classroom_code: Optional[str] = None
+    classroom_course_id: Optional[int] = None
+    classroom_course_name: Optional[str] = None
     district: Optional[str] = None
     school: Optional[str] = None
 
