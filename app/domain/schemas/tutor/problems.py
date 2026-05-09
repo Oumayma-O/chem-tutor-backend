@@ -89,7 +89,7 @@ class ProblemStep(BaseModel):
     """
     id: str = ""  # LLM often omits; service fills with problem_id + step_number if empty
     step_number: int = Field(validation_alias="stepNumber")
-    type: Literal["mcq", "drag_drop", "multi_input", "comparison", "interactive"]
+    type: Literal["mcq", "drag_drop", "multi_input", "comparison"]
     is_given: bool = False  # set by LLM; server guardrail enforces L1/L3 rules
     label: str
     instruction: str
@@ -138,10 +138,6 @@ class ProblemStep(BaseModel):
     @model_validator(mode="after")
     def validate_type_specific_fields(self) -> "ProblemStep":
         """Enforce type-specific payload shape for step interaction widgets."""
-        # Coerce legacy "interactive" → "mcq" (LLM may still output the old name)
-        if self.type == "interactive":
-            object.__setattr__(self, "type", "mcq")
-
         if self.type == "drag_drop":
             if not self.equation_parts:
                 raise ValueError('type="drag_drop" requires non-empty "equationParts".')
