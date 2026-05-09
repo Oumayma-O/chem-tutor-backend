@@ -43,7 +43,7 @@ class AuthProfileService:
 
         cls_result = await self._db.execute(
             select(Classroom)
-            .options(load_only(Classroom.id, Classroom.name, Classroom.code))
+            .options(load_only(Classroom.id, Classroom.name, Classroom.code, Classroom.unit_id))
             .join(ClassroomStudent, Classroom.id == ClassroomStudent.classroom_id)
             .where(
                 ClassroomStudent.student_id == user_id,
