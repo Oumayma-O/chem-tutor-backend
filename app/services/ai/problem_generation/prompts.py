@@ -81,6 +81,9 @@ Use exactly {n} steps. For every step, include "skillUsed" exactly matching the 
 Current Mode: LEVEL {level} ({'WORKED' if level == 1 else 'FADED' if level == 2 else 'INDEPENDENT'})
 
 ### STEP TYPES & WIDGET SELECTION ###
+ALLOWED TYPES: "mcq", "multi_input", "drag_drop", "comparison" — ONLY these 4 values.
+FORBIDDEN: "interactive" is NOT a valid type. NEVER use it. Use "mcq" instead.
+
 You MUST choose the `type` for each step based on what the student is doing:
 
 1. type="multi_input"

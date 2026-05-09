@@ -16,7 +16,7 @@ Rules enforced here:
 - Level 1 (WORKED): all steps is_given=True.
 - Level 2 (FADED): first 2 steps is_given=True, rest False.
 - Level 3 (INDEPENDENT): all steps is_given=False; steps may be compressed (no separate Knowns step).
-- "type" strictly controls the UI widget: "interactive", "multi_input", "drag_drop", "comparison".
+- "type" strictly controls the UI widget: "mcq", "multi_input", "drag_drop", "comparison".
 """
 
 FEW_SHOT_DATA: list[tuple[str, int, str, str, dict]] = [

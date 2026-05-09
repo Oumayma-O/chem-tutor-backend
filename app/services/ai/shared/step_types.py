@@ -16,13 +16,13 @@ def _infer_step_type(label: str, step: object) -> str:
         return "multi_input"
     if getattr(step, "comparison_parts", None):
         return "comparison"
-    # Label heuristic fallback for pure interactive steps
+    # Label heuristic fallback
     lower = label.lower()
     if any(kw in lower for kw in _DRAG_DROP_LABELS):
         return "drag_drop"
     if any(kw in lower for kw in _MULTI_INPUT_LABELS):
         return "multi_input"
-    return "interactive"
+    return "mcq"
 
 
 def enforce_step_types(problem: ProblemOutput, level: int) -> ProblemOutput:
@@ -40,13 +40,13 @@ def enforce_step_types(problem: ProblemOutput, level: int) -> ProblemOutput:
     for i, step in enumerate(problem.steps):
         inferred = _infer_step_type(step.label, step)
 
-        # Fall back to interactive if the required payload is absent
+        # Fall back to mcq if the required payload is absent
         if inferred == "drag_drop" and not step.equation_parts:
-            inferred = "interactive"
+            inferred = "mcq"
         if inferred == "multi_input" and not step.input_fields:
-            inferred = "interactive"
+            inferred = "mcq"
         if inferred == "comparison" and not step.comparison_parts:
-            inferred = "interactive"
+            inferred = "mcq"
 
         step.type = inferred  # type: ignore[assignment]
 
