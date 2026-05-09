@@ -73,7 +73,7 @@ async def register(req: RegisterRequest, db: AsyncSession = Depends(get_db)) -> 
         )
 
     user = await create_user(
-        db, email=req.email, password=req.password, role=req.role, name=req.username, commit=False,
+        db, email=req.email, password=req.password, role=req.role, name=req.name, commit=False,
     )
 
     if req.role == "student" and req.interests:
@@ -193,18 +193,18 @@ async def update_account(
     if not user:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found.")
 
-    if req.username is not None:
+    if req.name is not None:
         if user.role not in _STAFF_ROLES:
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail="Only teachers and administrators can change their username.",
             )
-        user.name = req.username
+        user.name = req.name
         profile_row = await UserProfileRepository(db).get_by_id(auth.user_id)
         if profile_row:
-            profile_row.name = req.username
+            profile_row.name = req.name
         else:
-            db.add(UserProfile(user_id=user.id, role=user.role, name=req.username))
+            db.add(UserProfile(user_id=user.id, role=user.role, name=req.name))
 
     if req.email is not None:
         normalized = req.email.lower().strip()
