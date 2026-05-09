@@ -33,16 +33,35 @@ def _coerce_problem_output_dict_before(data: Any) -> Any:
     return out
 
 
+class MCQOption(BaseModel):
+    """One multiple-choice option for a practice step.
+
+    Reused across interactive and multi_input steps in the MCQ flow.
+    Each wrong option carries a misconception_tag for analytics.
+    """
+    text: str = Field(description="Display text (may contain LaTeX $...$)")
+    is_correct: bool = False
+    misconception_tag: str | None = Field(
+        default=None,
+        description="Snake_case tag explaining the error (e.g. 'sign_error', 'forgot_coefficient'). Null for correct option.",
+    )
+
+
 class InputField(BaseModel):
     """
     One input field within a multi_input step.
     `label` is displayed next to the input box; `value` is the correct answer;
     `unit` is an optional unit suffix.
+    `options` — when present, the student selects from pill buttons instead of typing.
     Accepts legacy `variable` key for backward-compat with cached DB data.
     """
     label: str = Field(validation_alias=AliasChoices("label", "variable"))
     value: str
     unit: str
+    options: list[MCQOption] | None = Field(
+        default=None,
+        description="When present, student picks from these instead of typing. 2-3 options per field.",
+    )
 
     model_config = {"populate_by_name": True}
 
@@ -108,6 +127,10 @@ class ProblemStep(BaseModel):
         validation_alias=AliasChoices("inputFields", "labeledValues"),
     )
     comparison_parts: list[str] | None = Field(default=None, validation_alias="comparisonParts")
+    options: list[MCQOption] | None = Field(
+        default=None,
+        description="MCQ choices for interactive steps. When present, student picks instead of typing. 3 options: 1 correct + 2 distractors with misconception_tag.",
+    )
 
     # No "hint" field: hints are generated on demand via POST /problems/hint.
     model_config = {"populate_by_name": True, "extra": "ignore"}

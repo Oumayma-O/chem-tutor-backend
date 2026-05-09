@@ -123,6 +123,16 @@ class StepValidationService:
                 )
             )
 
+        # MCQ steps: exact match only, no LLM needed. The frontend sends the
+        # selected option text as student_answer.
+        if step_type == "mcq":
+            is_correct = student_answer.strip().lower() == correct_answer.strip().lower()
+            return ValidationOutput(
+                is_correct=is_correct,
+                feedback="" if is_correct else "That's not the correct choice.",
+                validation_method="mcq_exact",
+            )
+
         if step_type == "multi_input":
             result = check_multi_input(student_answer, correct_answer)
             if result is not None:

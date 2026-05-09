@@ -87,15 +87,18 @@ You MUST choose the `type` for each step based on what the student is doing:
    - WHEN: A step requires identifying or entering MULTIPLE labeled values
      (e.g. extracting several Knowns, two abundances, multiple masses).
    - ALSO USE for ANY single numeric answer that requires a unit (see UNIT RULE below).
-   - Populate "inputFields" (array of {{label, value, unit}}). Leave "correctAnswer" null.
+   - Populate "inputFields" (array of {{label, value, unit, options}}). Leave "correctAnswer" null.
+   - MCQ MODE: For EACH inputField, provide exactly 2-3 "options" (pill buttons the student picks from).
+     One option has "is_correct": true, the rest are distractors with "misconception_tag".
+     The student selects one pill per field — no typing required.
    - "label" MUST be a plain readable label (no $ or LaTeX) — the UI renders it at normal size.
      "value" and "unit" may contain math wrapped in $...$:
-     CORRECT: variable="Initial Concentration", value="$0.80$", unit="M"
-     CORRECT: variable="Formula", value="$\\mathrm{{C_6H_{{12}}O_6}}$", unit=""
-     WRONG:   variable="$[A]_0$" (LaTeX in variable causes oversized KaTeX rendering)
-     WRONG:   variable="[A]0", value="\\mathrm{{C_6H_{{12}}O_6}}" (bare LaTeX without $)
-   - NEVER collapse multiple inputs into a comma-separated or semicolon-separated "correctAnswer" string
-     (e.g. WRONG: correctAnswer="32.00, 2.02"; CORRECT: inputFields with label/value/unit per item).
+     CORRECT: label="Initial Concentration", value="$0.80$", unit="M", options=[
+       {{"text": "$0.80$ M", "is_correct": true, "misconception_tag": null}},
+       {{"text": "$0.08$ M", "is_correct": false, "misconception_tag": "decimal_shift"}},
+       {{"text": "$8.0$ M", "is_correct": false, "misconception_tag": "wrong_magnitude"}}
+     ]
+   - NEVER collapse multiple inputs into a comma-separated or semicolon-separated "correctAnswer" string.
    - When a step asks for multiple distinct answers (e.g., "rate law AND overall order"), you MUST use type="multi_input".
    - UNIT RULE: Follow the PHYSICAL QUANTITY REGISTRY below. Each `inputFields` row must use a unit whose **dimensions**
      match the quantity (e.g. $E_a$ → molar energy → only J/mol or kJ/mol). Do not use vague lists like "Energy: J, kJ".
@@ -126,20 +129,20 @@ You MUST choose the `type` for each step based on what the student is doing:
    - Populate "equationParts" with tokens in the CORRECT order. Leave "correctAnswer" null.
 
 4. type="interactive"
-   - WHEN: A standard single-value micro-input step (none of the above apply).
-   - Use ONLY for: pure text answers ("endothermic"), unitless numbers (pH=7.2, K=0.042),
-     or symbolic expressions ("2H₂ + O₂ → 2H₂O").
-   - Must include a brief "correctAnswer" (number, symbol, or short word).
-   - UNIT RULE: If the answer requires a NUMERIC VALUE + UNIT, do NOT use type="interactive".
-     Use type="multi_input" with a single inputField row instead.
-     WRONG: type="interactive", correctAnswer="96.0 g"
-     CORRECT: type="multi_input", inputFields=[{{label:"Mass", value:"$96.0$", unit:"g"}}]
-     WRONG: type="interactive", correctAnswer="3.6e-4 s^-1"
-     CORRECT: type="multi_input", inputFields=[{{label:"k", value:"$3.6 \\times 10^{{-4}}$", unit:"s^-1"}}]
-   - FORBIDDEN: If a step asks the student to find TWO OR MORE distinct physical quantities
-     (e.g., "find neutrons AND electrons", "find protons AND charge"), you MUST use type="multi_input".
-     WRONG: type="interactive", correctAnswer="18 neutrons, 18 electrons"
-     CORRECT: type="multi_input", inputFields=[{{label:"Neutrons",value:"$18$",...}},{{label:"Electrons",...}}]
+   - WHEN: A standard single-value step (none of the above apply).
+   - MCQ MODE: You MUST provide exactly 3 options in the "options" array.
+     One option has "is_correct": true and "misconception_tag": null.
+     Two options are distractors with "is_correct": false and a snake_case "misconception_tag"
+     explaining the exact error (e.g. "sign_error", "forgot_coefficient", "wrong_unit", "swapped_numerator_denominator").
+   - Set "correctAnswer" to null (the answer lives inside the options array).
+   - Each option "text" may contain LaTeX ($...$) for formulas/numbers.
+   - Distractors MUST be plausible — they should represent common student mistakes, not random values.
+   - Examples:
+     CORRECT: type="interactive", correctAnswer=null, options=[
+       {{"text": "$96.0$ g", "is_correct": true, "misconception_tag": null}},
+       {{"text": "$9.60$ g", "is_correct": false, "misconception_tag": "decimal_place_error"}},
+       {{"text": "$960$ g", "is_correct": false, "misconception_tag": "forgot_decimal"}}
+     ]
 
 ### IS_GIVEN (SCAFFOLDING FLAG) — YOU MUST SET THIS ###
 Set "is_given" on every step based on the current level:

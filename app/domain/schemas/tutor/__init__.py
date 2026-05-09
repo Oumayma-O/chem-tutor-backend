@@ -14,7 +14,6 @@ from app.domain.schemas.tutor.exit_ticket import (
     ExitTicketOutput,
     ExitTicketQuestion,
     GenerateExitTicketRequest,
-    MCQOption,
 )
 from app.domain.schemas.tutor.hints import GenerateHintRequest, HintOutput
 from app.domain.schemas.tutor.insights import ClassInsightsOutput, GenerateInsightsRequest
@@ -22,6 +21,7 @@ from app.domain.schemas.tutor.problems import (
     GenerateProblemRequest,
     InputField,
     LabeledValue,
+    MCQOption,
     PlaylistHydrationResponse,
     ProblemDeliveryResponse,
     ProblemOutput,

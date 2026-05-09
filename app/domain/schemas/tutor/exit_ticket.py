@@ -28,14 +28,7 @@ class ExitTicketOutput(BaseModel):
 
 # ── LLM generation bundle (teacher topic-based flow) ─────────
 
-class MCQOption(BaseModel):
-    """Object-based MCQ option for LLM output — avoids parallel-array alignment issues."""
-    text: str
-    is_correct: bool
-    misconception_tag: str | None = Field(
-        default=None,
-        description="Snake_case slug of the chemistry misconception this distractor targets. MUST be null if is_correct is true.",
-    )
+from app.domain.schemas.tutor.problems import MCQOption  # noqa: E402 — shared across practice + exit tickets
 
 
 class ExitTicketQuestionLLM(BaseModel):
