@@ -1,5 +1,7 @@
 """Step-type assignment and scaffolding (is_given) guardrail for problem levels."""
 
+import random
+
 from app.domain.schemas.tutor import ProblemOutput
 from app.services.ai.shared.blueprints import LABEL_TO_MASTERY_CATEGORY
 
@@ -60,5 +62,13 @@ def enforce_step_types(problem: ProblemOutput, level: int) -> ProblemOutput:
         # Guardrail: fill category if LLM omitted it
         if step.category is None:
             step.category = LABEL_TO_MASTERY_CATEGORY.get(step.label, "procedural")
+
+        # Shuffle MCQ options so the correct answer isn't always first
+        if step.options and len(step.options) > 1:
+            random.shuffle(step.options)
+        if step.input_fields:
+            for field in step.input_fields:
+                if field.options and len(field.options) > 1:
+                    random.shuffle(field.options)
 
     return problem
