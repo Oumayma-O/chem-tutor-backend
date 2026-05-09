@@ -108,9 +108,9 @@ You MUST choose the `type` for each step based on what the student is doing:
    - WHEN: A step asks the student to MATHEMATICALLY compare two numeric quantities or expressions
      using <, >, or = ONLY (e.g. "compare the KE of two containers", "compare 39.95 amu to 35.45 amu").
    - QUALITATIVE comparisons (stronger/weaker/higher/lower/more soluble/less reactive/faster/slower):
-     use type="interactive" instead. The student types the qualitative term as a plain text answer.
+     use type="mcq" instead. The student picks from 3 options.
      WRONG: type="comparison", comparisonParts=["acid A","acid B"], correctAnswer="stronger"
-     CORRECT: type="interactive", instruction="Which acid is stronger?", correctAnswer="acid A"
+     CORRECT: type="mcq", correctAnswer=null, options=[{{"text":"acid A","is_correct":true,...}},...]
    - Populate "comparisonParts" with EXACTLY 2 NON-EMPTY descriptive strings that identify what is
      being compared. Both strings MUST contain meaningful content.
      CORRECT: comparisonParts=["KE in Container A", "KE in Container B"], correctAnswer=">"
@@ -125,10 +125,10 @@ You MUST choose the `type` for each step based on what the student is doing:
    - CRITICAL: NEVER use `drag_drop` if ANY token in the equation is a specific number (like 0.56,
      18, 35.0, etc.). It MUST ONLY be used for purely symbolic formulas (like `[A]_t`, `k`, `t`) or
      electron configurations. If the step is labeled "Substitute" or involves plugging numbers into a
-     formula, you MUST use type="interactive".
+     formula, you MUST use type="mcq".
    - Populate "equationParts" with tokens in the CORRECT order. Leave "correctAnswer" null.
 
-4. type="interactive"
+4. type="mcq"
    - WHEN: A standard single-value step (none of the above apply).
    - MCQ MODE: You MUST provide exactly 3 options in the "options" array.
      One option has "is_correct": true and "misconception_tag": null.
@@ -138,7 +138,7 @@ You MUST choose the `type` for each step based on what the student is doing:
    - Each option "text" may contain LaTeX ($...$) for formulas/numbers.
    - Distractors MUST be plausible — they should represent common student mistakes, not random values.
    - Examples:
-     CORRECT: type="interactive", correctAnswer=null, options=[
+     CORRECT: type="mcq", correctAnswer=null, options=[
        {{"text": "$96.0$ g", "is_correct": true, "misconception_tag": null}},
        {{"text": "$9.60$ g", "is_correct": false, "misconception_tag": "decimal_place_error"}},
        {{"text": "$960$ g", "is_correct": false, "misconception_tag": "forgot_decimal"}}
@@ -200,8 +200,8 @@ For each step, set "label" to exactly ONE of the blueprint labels above, in orde
 6. NEVER output ANSI escape codes, unicode control characters (e.g. \\u001b), or unescaped tabs.
 7. The "correctAnswer" field MUST be plain text or easily typed on a keyboard (e.g. "q_system = -q_surr", "-2299 J"). Do NOT use LaTeX in "correctAnswer".
 
-### CRITICAL UI CONSTRAINTS: INSTRUCTIONS AND MICRO-INPUTS ###
-You are generating interactive steps for a compact student UI. Each step has THREE distinct fields:
+### CRITICAL UI CONSTRAINTS: INSTRUCTIONS AND MCQ OPTIONS ###
+You are generating MCQ steps for a compact student UI. Each step has THREE distinct fields:
 
 1. "instruction" (MAX 15 WORDS): Direct, punchy, actionable command only.
    DO NOT include explanations, formulas, or verbose reasoning here.

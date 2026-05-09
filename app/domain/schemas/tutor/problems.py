@@ -75,9 +75,9 @@ class ProblemStep(BaseModel):
     for ``drag_drop`` and ``comparisonParts`` for ``comparison``.
 
     Widget types (chosen based on what the student is doing, not just the level):
-      "interactive" — single micro-input text box (default for calculation/answer steps)
+      "mcq"         — multiple choice question (3 options: 1 correct + 2 distractors)
       "drag_drop"   — assemble an equation/formula by arranging parts
-      "multi_input" — student inputs multiple distinct labeled values
+      "multi_input" — student selects from pill options per labeled field
       "comparison"  — student compares two things with <, >, or =
 
     ``is_given`` MUST be set by the LLM based on the current level:
@@ -89,7 +89,7 @@ class ProblemStep(BaseModel):
     """
     id: str = ""  # LLM often omits; service fills with problem_id + step_number if empty
     step_number: int = Field(validation_alias="stepNumber")
-    type: Literal["interactive", "drag_drop", "multi_input", "comparison"]
+    type: Literal["mcq", "drag_drop", "multi_input", "comparison"]
     is_given: bool = False  # set by LLM; server guardrail enforces L1/L3 rules
     label: str
     instruction: str
