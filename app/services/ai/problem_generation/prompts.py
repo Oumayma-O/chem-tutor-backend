@@ -95,6 +95,7 @@ You MUST choose the `type` for each step based on what the student is doing:
      One option has "is_correct": true, the rest are distractors with "misconception_tag".
      The student selects one pill per field — no typing required.
      DISTRACTOR RULES: Same as type="mcq" — distractors must be challenging and plausible.
+     RANDOMIZE: The correct option MUST NOT always be first. Vary its position across fields.
      For numeric fields: distractors within 2-5x of correct, same units, same precision.
      For formula fields: distractors differ by one term or sign.
    - "label" MUST be a plain readable label (no $ or LaTeX) — the UI renders it at normal size.
@@ -142,6 +143,7 @@ You MUST choose the `type` for each step based on what the student is doing:
      explaining the exact error (e.g. "sign_error", "forgot_coefficient", "wrong_unit", "swapped_numerator_denominator").
    - Set "correctAnswer" to null (the answer lives inside the options array).
    - Each option "text" may contain LaTeX ($...$) for formulas/numbers.
+   - RANDOMIZE: The correct option MUST NOT always be first. Vary its position (1st, 2nd, or 3rd) across steps.
 
    ### DISTRACTOR QUALITY RULES (CRITICAL) ###
    Distractors MUST be CHALLENGING — a student who hasn't mastered the concept should genuinely
