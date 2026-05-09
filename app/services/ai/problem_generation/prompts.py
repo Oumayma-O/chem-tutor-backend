@@ -91,9 +91,12 @@ You MUST choose the `type` for each step based on what the student is doing:
      (e.g. extracting several Knowns, two abundances, multiple masses).
    - ALSO USE for ANY single numeric answer that requires a unit (see UNIT RULE below).
    - Populate "inputFields" (array of {{label, value, unit, options}}). Leave "correctAnswer" null.
-   - MCQ MODE: For EACH inputField, provide exactly 2-3 "options" (pill buttons the student picks from).
+   - MCQ MODE: For EACH inputField, provide exactly 3 "options" (pill buttons the student picks from).
      One option has "is_correct": true, the rest are distractors with "misconception_tag".
      The student selects one pill per field — no typing required.
+     DISTRACTOR RULES: Same as type="mcq" — distractors must be challenging and plausible.
+     For numeric fields: distractors within 2-5x of correct, same units, same precision.
+     For formula fields: distractors differ by one term or sign.
    - "label" MUST be a plain readable label (no $ or LaTeX) — the UI renders it at normal size.
      "value" and "unit" may contain math wrapped in $...$:
      CORRECT: label="Initial Concentration", value="$0.80$", unit="M", options=[
@@ -139,12 +142,31 @@ You MUST choose the `type` for each step based on what the student is doing:
      explaining the exact error (e.g. "sign_error", "forgot_coefficient", "wrong_unit", "swapped_numerator_denominator").
    - Set "correctAnswer" to null (the answer lives inside the options array).
    - Each option "text" may contain LaTeX ($...$) for formulas/numbers.
-   - Distractors MUST be plausible — they should represent common student mistakes, not random values.
+
+   ### DISTRACTOR QUALITY RULES (CRITICAL) ###
+   Distractors MUST be CHALLENGING — a student who hasn't mastered the concept should genuinely
+   hesitate between options. Follow these rules:
+   - NEVER use obviously wrong values (e.g. off by 10x, wrong units, absurd magnitudes).
+   - Distractors MUST come from REAL student mistakes:
+     * Using the wrong formula (e.g. first-order instead of zero-order)
+     * Forgetting to divide/multiply by a coefficient
+     * Swapping numerator and denominator
+     * Using the wrong sign (positive vs negative)
+     * Confusing similar concepts (Kc vs Kp, rate vs rate constant)
+     * Off-by-one in exponents or sig figs
+     * Inverting a fraction
+   - All 3 options should have SIMILAR format, length, and precision.
+     WRONG: "$126$ s", "$0.008$ s", "$12600$ s" (magnitudes too different — obvious)
+     CORRECT: "$126$ s", "$63.0$ s", "$252$ s" (all plausible, differ by factor of 2)
+   - For numeric answers: distractors should be within 2-5x of the correct value.
+   - For formula/equation answers: distractors should differ by ONE term or sign.
+   - For conceptual answers: distractors should be related concepts, not random words.
+
    - Examples:
      CORRECT: type="mcq", correctAnswer=null, options=[
-       {{"text": "$96.0$ g", "is_correct": true, "misconception_tag": null}},
-       {{"text": "$9.60$ g", "is_correct": false, "misconception_tag": "decimal_place_error"}},
-       {{"text": "$960$ g", "is_correct": false, "misconception_tag": "forgot_decimal"}}
+       {{"text": "$k = 0.0090 \\text{{ M/min}}$", "is_correct": true, "misconception_tag": null}},
+       {{"text": "$k = 0.0045 \\text{{ M/min}}$", "is_correct": false, "misconception_tag": "divided_by_two_extra"}},
+       {{"text": "$k = 0.018 \\text{{ M/min}}$", "is_correct": false, "misconception_tag": "forgot_to_divide_by_time"}}
      ]
 
 ### IS_GIVEN (SCAFFOLDING FLAG) — YOU MUST SET THIS ###
