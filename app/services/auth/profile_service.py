@@ -62,7 +62,7 @@ class AuthProfileService:
             user_id=str(user.id),
             email=user.email,
             role=user.role,
-            username=resolved_name,
+            name=resolved_name,
             grade_level=grade_level,
             grade=grade_name,
             course=course_name,
