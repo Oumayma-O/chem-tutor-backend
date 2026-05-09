@@ -87,7 +87,7 @@ async def register(req: RegisterRequest, db: AsyncSession = Depends(get_db)) -> 
         user_id=str(user.id),
         email=user.email,
         role=user.role,
-        username=user.name,
+        name=user.name,
     )
 
 
@@ -111,7 +111,7 @@ async def login(req: LoginRequest, db: AsyncSession = Depends(get_db)) -> TokenR
         user_id=str(user.id),
         email=user.email,
         role=user.role,
-        username=user.name,
+        name=user.name,
     )
 
 
