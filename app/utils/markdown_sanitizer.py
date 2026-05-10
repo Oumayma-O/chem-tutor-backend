@@ -433,11 +433,43 @@ def _wrap_bare_latex(s: str) -> str:
         return f"${s}$"  # simple case: no delimiters at all
     # Check whether LaTeX commands exist OUTSIDE existing $...$ blocks
     non_math = _RE_DOLLAR_SEGMENT.sub("", s)
-    if _RE_BARE_LATEX_CMD.search(non_math):
-        # Partial wrapping: strip $...$ delimiters (keep content) and re-wrap all
-        stripped = _RE_DOLLAR_SEGMENT.sub(lambda m: m.group(0)[1:-1], s)
-        return f"${stripped}$"
-    return s
+    if not _RE_BARE_LATEX_CMD.search(non_math):
+        return s  # all LaTeX is already inside $...$
+
+    # Instead of wrapping the entire string (breaks multi-paragraph prose),
+    # find bare LaTeX fragments and wrap just those inline.
+    # Pattern: a number followed by bare \text{...} or \frac{...} etc.
+    # e.g. "4.184 \text{ J/(g·°C)}" → "$4.184 \text{ J/(g·°C)}$"
+    result = _RE_DOLLAR_SEGMENT.sub("\x00", s)  # placeholder for existing math
+    parts = s.split("$")
+
+    # Rebuild: wrap bare LaTeX segments that are outside $...$
+    output = []
+    in_math = False
+    for i, part in enumerate(parts):
+        if in_math:
+            output.append(f"${part}$")
+        else:
+            # This is prose — check for bare LaTeX commands
+            if _RE_BARE_LATEX_CMD.search(part):
+                # Find contiguous LaTeX+number chunks and wrap them
+                wrapped = re.sub(
+                    r'(\d+\.?\d*\s*(?:\\[a-zA-Z]+(?:\{[^}]*\})*\s*)+)',
+                    lambda m: f"${m.group(0).strip()}$",
+                    part,
+                )
+                # If the above didn't catch it (e.g. bare \text{...} without a number prefix)
+                if _RE_BARE_LATEX_CMD.search(re.sub(r'\$[^$]*\$', '', wrapped)):
+                    wrapped = re.sub(
+                        r'(\\[a-zA-Z]+(?:\{[^}]*\})+)',
+                        lambda m: f"${m.group(0)}$",
+                        wrapped,
+                    )
+                output.append(wrapped)
+            else:
+                output.append(part)
+        in_math = not in_math
+    return "".join(output)
 
 
 # Plain-text "calculator" formulas (LLM ignores LaTeX rules): * , e-3 , ln(
