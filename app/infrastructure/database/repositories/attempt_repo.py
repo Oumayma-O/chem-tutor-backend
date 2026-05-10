@@ -2,10 +2,10 @@ import uuid
 from datetime import datetime
 from typing import Sequence
 
-from sqlalchemy import select, update
+from sqlalchemy import delete, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.infrastructure.database.models import MisconceptionLog, ProblemAttempt
+from app.infrastructure.database.models import MisconceptionLog, ProblemAttempt, ThinkingTrackerLog
 from app.infrastructure.database.repositories.base import BaseRepository
 
 
@@ -215,6 +215,32 @@ class AttemptRepository(BaseRepository[ProblemAttempt]):
                 latest[pid] = attempt
         return latest
 
+    async def delete_for_user_in_class(
+        self, user_id: uuid.UUID, class_id: uuid.UUID
+    ) -> None:
+        """Delete all problem attempts and related thinking tracker logs for a student in a class."""
+        # First get attempt IDs to cascade-delete thinking tracker logs
+        result = await self._session.execute(
+            select(ProblemAttempt.id).where(
+                ProblemAttempt.user_id == user_id,
+                ProblemAttempt.class_id == class_id,
+            )
+        )
+        attempt_ids = list(result.scalars().all())
+
+        if attempt_ids:
+            await self._session.execute(
+                delete(ThinkingTrackerLog).where(
+                    ThinkingTrackerLog.attempt_id.in_(attempt_ids)
+                )
+            )
+            await self._session.execute(
+                delete(ProblemAttempt).where(
+                    ProblemAttempt.user_id == user_id,
+                    ProblemAttempt.class_id == class_id,
+                )
+            )
+
     async def get_class_attempts(
         self,
         class_id: uuid.UUID,
@@ -250,6 +276,17 @@ class MisconceptionRepository(BaseRepository[MisconceptionLog]):
             q = q.where(MisconceptionLog.lesson_index == lesson_index)
         result = await self._session.execute(q)
         return result.scalars().all()
+
+    async def delete_for_user_in_class(
+        self, user_id: uuid.UUID, class_id: uuid.UUID
+    ) -> None:
+        """Delete all misconception logs for a student in a class."""
+        await self._session.execute(
+            delete(MisconceptionLog).where(
+                MisconceptionLog.user_id == user_id,
+                MisconceptionLog.class_id == class_id,
+            )
+        )
 
     async def get_user_error_counts(
         self, user_id: uuid.UUID, unit_id: str

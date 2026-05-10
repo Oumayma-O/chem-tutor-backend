@@ -4,7 +4,7 @@ import uuid
 from datetime import datetime, timedelta, timezone
 from typing import Sequence
 
-from sqlalchemy import func, select
+from sqlalchemy import delete, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
@@ -90,6 +90,24 @@ class ExitTicketRepository:
             .options(selectinload(ExitTicket.responses))
         )
         return result.scalar_one_or_none()
+
+    async def delete_student_responses_for_class(
+        self, student_id: uuid.UUID, class_id: uuid.UUID
+    ) -> None:
+        """Delete all exit ticket responses by a student for tickets in a class."""
+        # Get all ticket IDs for this class
+        ticket_ids_result = await self._session.execute(
+            select(ExitTicket.id).where(ExitTicket.class_id == class_id)
+        )
+        ticket_ids = list(ticket_ids_result.scalars().all())
+
+        if ticket_ids:
+            await self._session.execute(
+                delete(ExitTicketResponse).where(
+                    ExitTicketResponse.student_id == student_id,
+                    ExitTicketResponse.exit_ticket_id.in_(ticket_ids),
+                )
+            )
 
 
 class FewShotCuratedRepository:

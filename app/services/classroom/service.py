@@ -13,10 +13,16 @@ from app.domain.schemas.classrooms import (
     JoinClassroomResponse,
 )
 from app.infrastructure.database.models import Classroom, User
+from app.infrastructure.database.repositories.attempt_repo import (
+    AttemptRepository,
+    MisconceptionRepository,
+)
 from app.infrastructure.database.repositories.classroom_repo import (
     ClassroomRepository,
     ClassroomStudentRepository,
 )
+from app.infrastructure.database.repositories.exit_ticket_repo import ExitTicketRepository
+from app.infrastructure.database.repositories.presence_repo import PresenceRepository
 
 logger = get_logger(__name__)
 
@@ -39,6 +45,10 @@ class ClassroomService:
         self._session = session
         self._repo = ClassroomRepository(session)
         self._students = ClassroomStudentRepository(session)
+        self._presence = PresenceRepository(session)
+        self._attempts = AttemptRepository(session)
+        self._misconceptions = MisconceptionRepository(session)
+        self._exit_tickets = ExitTicketRepository(session)
 
     async def create(
         self,
@@ -119,11 +129,18 @@ class ClassroomService:
     async def remove_student(
         self, classroom_id: uuid.UUID, student_id: uuid.UUID
     ) -> None:
-        """Remove student from classroom and clear inherited district/school.
+        """Remove student from classroom, clear inherited district/school,
+        and purge all analytics data for this student in this class.
         Raises LookupError if student is not enrolled."""
         removed = await self._students.remove_membership(classroom_id, student_id)
         if not removed:
             raise LookupError("Student not enrolled in this classroom.")
+
+        # Purge all analytics data for this student in this class.
+        await self._presence.clear_for_user_classroom(student_id, classroom_id)
+        await self._attempts.delete_for_user_in_class(student_id, classroom_id)
+        await self._misconceptions.delete_for_user_in_class(student_id, classroom_id)
+        await self._exit_tickets.delete_student_responses_for_class(student_id, classroom_id)
 
         # Clear inherited district/school since the student is no longer in the class.
         student = await self._session.scalar(
@@ -134,7 +151,11 @@ class ClassroomService:
             student.school = None
 
         await self._session.commit()
-        logger.info("student_removed", student=str(student_id), classroom=str(classroom_id))
+        logger.info(
+            "student_removed_with_analytics_cleanup",
+            student=str(student_id),
+            classroom=str(classroom_id),
+        )
 
     async def block_student(
         self, classroom_id: uuid.UUID, student_id: uuid.UUID, blocked: bool,
