@@ -21,8 +21,8 @@ from app.domain.at_risk import (
     L3_MASTERY_CEIL,
 )
 
-_L2_W = L2_MASTERY_CEIL - L1_MASTERY_CEIL   # 0.30
-_L3_W = L3_MASTERY_CEIL - L2_MASTERY_CEIL   # 0.30
+_L2_W = 0.40   # L2 weight in the new 20/40/40 formula
+_L3_W = 0.40   # L3 weight in the new 20/40/40 formula
 from app.infrastructure.database.models import (
     Classroom,
     ClassroomStudent,
@@ -109,7 +109,7 @@ class AggregateRepository:
                 ).label("l2_fill"),
                 func.greatest(
                     0.0,
-                    func.least((_avg - L2_MASTERY_CEIL) / _L3_W, 1.0),
+                    func.least((_avg - (L1_MASTERY_CEIL + _L2_W)) / _L3_W, 1.0),
                 ).label("l3_fill"),
                 func.bool_or(SkillMastery.attempts_count >= AT_RISK_MIN_ATTEMPTS).label("has_l2_attempt"),
                 _risk_score.label("risk_score"),
