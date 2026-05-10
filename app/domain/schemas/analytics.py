@@ -55,6 +55,7 @@ class StudentMasterySummary(BaseModel):
     l1_score: float = 0.0
     l2_score: float = 0.0
     l3_score: float = 0.0
+    exit_ticket_avg: float | None = None
 
 
 class LessonBreakdown(BaseModel):
@@ -75,6 +76,7 @@ class ClassAnalyticsResponse(BaseModel):
     avg_l3_score: float = 0.0
     at_risk_l2_count: int = 0
     at_risk_l3_count: int = 0
+    exit_ticket_avg: float | None = None
     error_frequency: dict[str, int]      # {category: total_count}
     top_misconceptions: list[str]        # Top 5 misconception_tags
     lesson_breakdown: list[LessonBreakdown] = Field(validation_alias="topic_breakdown")
@@ -108,6 +110,7 @@ class AggregateGroupRow(BaseModel):
     adopted_count: int = 0   # students who have reached L2 (≥3 attempts in any unit)
     problems_solved: int
     hours_active: int       # whole hours
+    exit_ticket_avg: float | None = None
 
 
 class UnitMasteryRow(BaseModel):
@@ -133,6 +136,7 @@ class AggregateAnalyticsResponse(BaseModel):
     overall_at_risk_l3_count: int = 0
     overall_high_risk: int = 0
     overall_moderate_risk: int = 0
+    overall_exit_ticket_avg: float | None = None
     adoption_rate: float = 0.0           # fraction of students who have started L2
     weakest_units: list[UnitMasteryRow]  # bottom 8, sorted ASC by avg_mastery
     mastery_distribution: dict[str, int]  # "0-50","50-70","70-85","85-100" — student counts

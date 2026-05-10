@@ -125,6 +125,7 @@ class RosterStudentEntry(BaseModel):
         default=None,
         description="Latest of problem attempts and session heartbeats.",
     )
+    exit_ticket_avg: float | None = None
 
 
 class ClassSummaryStats(BaseModel):
@@ -135,6 +136,7 @@ class ClassSummaryStats(BaseModel):
     total_students: int = 0
     at_risk_count: int = 0
     category_breakdown: CategorySnapshot = Field(default_factory=CategorySnapshot)
+    exit_ticket_avg: float | None = None
 
 
 class TeacherClassOut(BaseModel):
@@ -293,6 +295,7 @@ class StudentAnalyticsOut(BaseModel):
     recent_attempts: list[StudentAttemptOut]
     lessons_with_data: int
     total_attempts: int = 0
+    exit_ticket_avg: float | None = None
 
 
 # ── Requests ────────────────────────────────────────────────

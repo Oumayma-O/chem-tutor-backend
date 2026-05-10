@@ -7,6 +7,8 @@ from datetime import datetime, time, timezone
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.infrastructure.database.models.teacher import ExitTicket, ExitTicketResponse
+
 from app.domain.schemas.classrooms import ClassroomOut
 from app.domain.schemas.dashboards import (
     LevelStats,
@@ -31,6 +33,64 @@ from app.infrastructure.database.repositories.classroom_repo import (
 from app.infrastructure.database.repositories.playlist_repo import UserLessonPlaylistRepository
 from app.infrastructure.database.repositories.presence_repo import PresenceRepository
 from app.services.mastery_service import MasteryService
+
+
+async def compute_exit_ticket_avg(
+    session: AsyncSession,
+    student_id: uuid.UUID,
+    class_id: uuid.UUID,
+    unit_id: str | None = None,
+) -> float | None:
+    """Compute average exit ticket score for a student in a class.
+
+    Returns None if no exit ticket responses exist for the scope.
+    Returns a float 0.0–100.0 representing the percentage score.
+    """
+    stmt = (
+        select(func.avg(ExitTicketResponse.score))
+        .join(ExitTicket, ExitTicketResponse.exit_ticket_id == ExitTicket.id)
+        .where(
+            ExitTicket.class_id == class_id,
+            ExitTicketResponse.student_id == student_id,
+            ExitTicketResponse.score.is_not(None),
+        )
+    )
+    if unit_id is not None:
+        stmt = stmt.where(ExitTicket.unit_id == unit_id)
+    result = await session.scalar(stmt)
+    return float(result) if result is not None else None
+
+
+async def compute_class_exit_ticket_avg(
+    session: AsyncSession,
+    class_id: uuid.UUID,
+    unit_id: str | None = None,
+) -> float | None:
+    """Compute class-wide average exit ticket score.
+
+    Mean of per-student averages, excluding students with no submissions.
+    Returns None if no exit ticket responses exist for the scope.
+    """
+    # Subquery: per-student average
+    student_avg_subq = (
+        select(
+            ExitTicketResponse.student_id,
+            func.avg(ExitTicketResponse.score).label("student_avg"),
+        )
+        .join(ExitTicket, ExitTicketResponse.exit_ticket_id == ExitTicket.id)
+        .where(
+            ExitTicket.class_id == class_id,
+            ExitTicketResponse.score.is_not(None),
+        )
+    )
+    if unit_id is not None:
+        student_avg_subq = student_avg_subq.where(ExitTicket.unit_id == unit_id)
+    student_avg_subq = student_avg_subq.group_by(ExitTicketResponse.student_id).subquery()
+
+    # Outer query: mean of per-student averages
+    stmt = select(func.avg(student_avg_subq.c.student_avg))
+    result = await session.scalar(stmt)
+    return float(result) if result is not None else None
 
 
 def _live_session_teacher_snapshot(raw: object) -> dict:
@@ -113,6 +173,9 @@ class TeacherService:
             members = await self._students.get_class_students(c.id)
             student_ids = [m.student_id for m in members]
             stats = await self._mastery.get_class_summary_stats(c.id, student_ids, c.unit_id)
+            # Compute class-level exit ticket average
+            et_avg = await compute_class_exit_ticket_avg(self._session, c.id, unit_id=c.unit_id)
+            stats.exit_ticket_avg = et_avg
             snap = _live_session_teacher_snapshot(c.live_session)
             out.append(
                 TeacherClassOut(
@@ -175,6 +238,9 @@ class TeacherService:
                 bool(effective_unit)
                 and await self._mastery.is_at_risk(m.student_id, effective_unit)
             )
+            et_avg = await compute_exit_ticket_avg(
+                self._session, m.student_id, classroom_id, unit_id=effective_unit,
+            )
             roster.append(
                 RosterStudentEntry(
                     student_id=m.student_id,
@@ -185,6 +251,7 @@ class TeacherService:
                     at_risk=at_risk,
                     is_blocked=m.is_blocked,
                     last_activity_at=last_by.get(m.student_id),
+                    exit_ticket_avg=et_avg,
                 )
             )
         return roster
@@ -318,11 +385,19 @@ class TeacherService:
         lesson_index: int | None,
         limit: int,
         offset: int,
+        class_id: uuid.UUID | None = None,
     ) -> StudentAnalyticsOut:
         """Return mastery snapshot + paginated attempt rows for one student."""
         snap = await self._mastery.get_student_mastery_snapshot(
             student_id, unit_id, lesson_index=lesson_index,
         )
+
+        # Compute exit ticket average if class context is available
+        et_avg: float | None = None
+        if class_id is not None:
+            et_avg = await compute_exit_ticket_avg(
+                self._session, student_id, class_id, unit_id=unit_id,
+            )
 
         base_filter = [ProblemAttempt.user_id == student_id]
         if unit_id:
@@ -369,6 +444,7 @@ class TeacherService:
             ],
             lessons_with_data=snap.lessons_with_data,
             total_attempts=total_attempts,
+            exit_ticket_avg=et_avg,
         )
 
     @staticmethod

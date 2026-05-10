@@ -7,7 +7,7 @@ Grouping is resolved from the caller's role and filter values:
   admin (any)              → group by class (locked to their school)
 """
 
-from sqlalchemy import select
+from sqlalchemy import String, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.logging import get_logger
@@ -16,7 +16,8 @@ from app.domain.schemas.analytics import (
     AggregateGroupRow,
     UnitMasteryRow,
 )
-from app.infrastructure.database.models import Unit
+from app.infrastructure.database.models import Classroom, Unit, User
+from app.infrastructure.database.models.teacher import ExitTicket, ExitTicketResponse
 from app.infrastructure.database.repositories.aggregate_repo import AggregateRepository
 
 logger = get_logger(__name__)
@@ -35,6 +36,63 @@ def _resolve_grouping(role: str, district: str | None, school: str | None) -> st
 class AggregateAnalyticsService:
     def __init__(self, session: AsyncSession) -> None:
         self._session = session
+
+    async def _get_exit_ticket_avgs_by_group(
+        self,
+        grouping: str,
+        district: str | None,
+        school: str | None,
+    ) -> dict[str, float]:
+        """Return {group_key: exit_ticket_avg} for each group.
+
+        Computes per-student averages first, then averages those per group.
+        Key is UUID string for class-level, district/school name otherwise.
+        """
+        # Determine group key expression
+        if grouping == "class":
+            gk_expr = func.cast(Classroom.id, String)
+        elif grouping == "school":
+            gk_expr = User.school
+        else:
+            gk_expr = User.district
+
+        # Per-student per-group average
+        student_avg_subq = (
+            select(
+                gk_expr.label("gk"),
+                ExitTicketResponse.student_id,
+                func.avg(ExitTicketResponse.score).label("student_avg"),
+            )
+            .select_from(ExitTicketResponse)
+            .join(ExitTicket, ExitTicketResponse.exit_ticket_id == ExitTicket.id)
+            .join(Classroom, Classroom.id == ExitTicket.class_id)
+            .join(User, User.id == Classroom.teacher_id)
+            .where(
+                ExitTicketResponse.score.is_not(None),
+                User.role == "teacher",
+                Classroom.is_active == True,  # noqa: E712
+            )
+        )
+        if district:
+            student_avg_subq = student_avg_subq.where(User.district == district)
+        if school:
+            student_avg_subq = student_avg_subq.where(User.school == school)
+        if grouping != "class":
+            col = gk_expr
+            student_avg_subq = student_avg_subq.where(col.is_not(None))
+
+        student_avg_subq = student_avg_subq.group_by(gk_expr, ExitTicketResponse.student_id).subquery()
+
+        # Group-level average of per-student averages
+        stmt = (
+            select(
+                student_avg_subq.c.gk,
+                func.avg(student_avg_subq.c.student_avg).label("group_avg"),
+            )
+            .group_by(student_avg_subq.c.gk)
+        )
+        result = await self._session.execute(stmt)
+        return {str(row.gk): float(row.group_avg) for row in result.all() if row.group_avg is not None}
 
     async def get_aggregate(
         self,
@@ -57,6 +115,7 @@ class AggregateAnalyticsService:
         hours_map = await repo.get_hours_active(grouping, district, school)
         weakest_raw = await repo.get_weakest_units(district, school)
         dist_map = await repo.get_mastery_distribution(district, school)
+        et_avg_map = await self._get_exit_ticket_avgs_by_group(grouping, district, school)
 
         # Fetch unit titles in one IN query.
         unit_ids = [r.unit_id for r in weakest_raw]
@@ -91,6 +150,7 @@ class AggregateAnalyticsService:
                 adopted_count=int(row.adopted_count or 0),
                 problems_solved=problems_map.get(_lookup_key(row), 0),
                 hours_active=hours_map.get(_lookup_key(row), 0),
+                exit_ticket_avg=et_avg_map.get(_lookup_key(row)),
             )
             for row in groups_raw
             if row.name  # skip rows where group key is NULL
@@ -116,6 +176,15 @@ class AggregateAnalyticsService:
         overall_l1 = sum(g.avg_l1_score * g.student_count for g in groups) / total_students if total_students else 0.0
         overall_l2 = sum(g.avg_l2_score * g.student_count for g in groups) / total_students if total_students else 0.0
         overall_l3 = sum(g.avg_l3_score * g.student_count for g in groups) / total_students if total_students else 0.0
+
+        # Weighted overall exit ticket average (weighted by student count, only groups with data).
+        et_groups_with_data = [(g.exit_ticket_avg, g.student_count) for g in groups if g.exit_ticket_avg is not None]
+        if et_groups_with_data:
+            et_weighted_sum = sum(avg * count for avg, count in et_groups_with_data)
+            et_total_students = sum(count for _, count in et_groups_with_data)
+            overall_exit_ticket_avg: float | None = round(et_weighted_sum / et_total_students, 2) if et_total_students else None
+        else:
+            overall_exit_ticket_avg = None
 
         weakest_units = [
             UnitMasteryRow(
@@ -151,6 +220,7 @@ class AggregateAnalyticsService:
             overall_at_risk_l3_count=overall_at_risk_l3,
             overall_high_risk=overall_high_risk,
             overall_moderate_risk=overall_moderate_risk,
+            overall_exit_ticket_avg=overall_exit_ticket_avg,
             adoption_rate=adoption_rate,
             weakest_units=weakest_units,
             mastery_distribution=dist_map,

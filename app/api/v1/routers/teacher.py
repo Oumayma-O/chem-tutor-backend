@@ -189,6 +189,7 @@ async def get_student_analytics(
         lesson_index=lesson_index,
         limit=limit,
         offset=offset,
+        class_id=classroom_id,
     )
 
 
