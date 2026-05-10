@@ -43,6 +43,11 @@ NOTATION:
   $\\\\text{{J/(mol}} \\\\cdot \\\\text{{K)}}$.
   NEVER write $\\\\cdotK$ (glued) or a bare $\\\\cdot K$ for kelvin — KaTeX treats $\\\\cdotK$ as one invalid command.
   Put a space after $\\\\cdot$ and wrap the K in $\\\\text{{...}}$.
+- **7b. DEGREE-CELSIUS RULE:** Write degree-Celsius as $^\\\\circ\\\\text{{C}}$ (math-mode superscript).
+  For specific heat units: $\\\\text{{ J/(g}}\\\\cdot ^\\\\circ\\\\text{{C)}}$.
+  NEVER write $\\\\text{{^\\\\circ C}}$ or $\\\\text{{^{{\\\\circ}} C}}$ — the ^ superscript is INVALID inside \\\\text{{}}.
+  CORRECT: $4.184 \\\\text{{ J/(g}}\\\\cdot ^\\\\circ\\\\text{{C)}}$
+  WRONG: $4.184 \\\\text{{ J/(g}}\\\\cdot \\\\text{{^\\\\circ C)}}$
 
 ### CRITICAL FORMATTING & LATEX RULES ###
 - **8. Fractions & Division:** NEVER use a slash (/) for division in formulas, substitutions, or calculations. You MUST use vertical LaTeX fractions: $\\\\frac{{numerator}}{{denominator}}$.

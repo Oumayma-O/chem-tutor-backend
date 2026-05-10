@@ -290,6 +290,29 @@ def _fix_cdot_unit_garbage(s: str) -> str:
     s = re.sub(r"mol\s*0{1,2}b7\s*K", r"mol\\cdot K", s, flags=re.IGNORECASE)
     # Last pass: gas constant / mol·K style (must run after mol·K recovery above).
     s = _RE_CDOT_KELVIN.sub(r"\\cdot \\text{K}", s)
+
+    # Fix degree-Celsius inside \text{}: \text{^\circ C} or \text{^{\circ} C} → {}^{\circ}\text{C}
+    # The ^ superscript is a math-mode command and is invalid inside \text{}.
+    # Pattern: \text{^{\circ} C)} or \text{^\circ C)}
+    s = re.sub(
+        r"\\text\{\s*\^\{?\\circ\}?\s*C\s*\)",
+        r"{}^{\\circ}\\text{C})",
+        s,
+    )
+    # Also handle the compound unit pattern: \text{ J/(g}\cdot \text{^\circ C)}
+    # → \text{ J/(g}\\cdot {}^{\\circ}\\text{C)}
+    s = re.sub(
+        r"\\text\{\s*\^\{?\\circ\}?\s*C\)\}",
+        r"{}^{\\circ}\\text{C)}",
+        s,
+    )
+    # Standalone \text{^\circ C} (no trailing paren)
+    s = re.sub(
+        r"\\text\{\s*\^\{?\\circ\}?\s*C\s*\}",
+        r"{}^{\\circ}\\text{C}",
+        s,
+    )
+
     return s
 
 
