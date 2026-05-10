@@ -19,14 +19,16 @@ from app.domain.schemas.dashboards import (
     TeacherClassPatch,
     TimedPracticeAnalytics,
 )
+from app.domain.schemas.teacher.attempt_detail import AttemptDetailOut, AttemptStepDetail
 from app.infrastructure.database.models import Classroom, ClassroomSession, User
-from app.infrastructure.database.models.learning import ProblemAttempt
+from app.infrastructure.database.models.learning import ProblemAttempt, ProblemCache, UserLessonPlaylist
 from app.infrastructure.database.models.user_session import UserSessionActivity
 from app.services.classroom.service import _to_classroom_out
 from app.infrastructure.database.repositories.classroom_repo import (
     ClassroomRepository,
     ClassroomStudentRepository,
 )
+from app.infrastructure.database.repositories.playlist_repo import UserLessonPlaylistRepository
 from app.infrastructure.database.repositories.presence_repo import PresenceRepository
 from app.services.mastery_service import MasteryService
 
@@ -393,4 +395,152 @@ class TeacherService:
         return sum(
             1 for step in step_log
             if isinstance(step, dict) and step.get("was_revealed") is True
+        )
+
+    # ── Attempt detail ─────────────────────────────────────────────
+
+    @staticmethod
+    def _find_problem_in_playlist(playlist_problems: list[dict], problem_id: str) -> dict | None:
+        """Search the problems JSONB array for an entry matching problem_id."""
+        for p in playlist_problems:
+            if isinstance(p, dict) and p.get("id") == problem_id:
+                return p
+        return None
+
+    async def get_attempt_detail(
+        self, attempt_id: uuid.UUID, teacher_id: uuid.UUID
+    ) -> AttemptDetailOut:
+        """Load full attempt detail for the teacher drill-down panel.
+
+        Raises LookupError if attempt not found, PermissionError if unauthorized.
+        """
+        # 1. Load ProblemAttempt
+        attempt = await self._session.scalar(
+            select(ProblemAttempt).where(ProblemAttempt.id == attempt_id)
+        )
+        if attempt is None:
+            raise LookupError("Attempt not found")
+
+        # 2. Authorization: verify teacher owns the classroom
+        if attempt.class_id is not None:
+            classroom = await self._classrooms.get_by_id_with_students(attempt.class_id)
+            if classroom is None or classroom.teacher_id != teacher_id:
+                raise PermissionError("Not authorized")
+        else:
+            # class_id is null — check if student is in any of the teacher's classrooms
+            teacher_classrooms = await self._classrooms.get_by_teacher(teacher_id)
+            student_in_teacher_class = False
+            for c in teacher_classrooms:
+                members = await self._students.get_class_students(c.id)
+                if any(m.student_id == attempt.user_id for m in members):
+                    student_in_teacher_class = True
+                    break
+            if not student_in_teacher_class:
+                raise PermissionError("Not authorized")
+
+        # 3. Load playlist to find problem definition
+        playlist_repo = UserLessonPlaylistRepository(self._session)
+        playlist = await playlist_repo.get(
+            user_id=attempt.user_id,
+            unit_id=attempt.unit_id,
+            lesson_index=attempt.lesson_index,
+            level=attempt.level,
+            difficulty=attempt.difficulty,
+        )
+
+        problem_def: dict | None = None
+        if playlist and isinstance(playlist.problems, list):
+            problem_def = self._find_problem_in_playlist(playlist.problems, attempt.problem_id)
+
+        # 4. Fallback to ProblemCache if not found in playlist
+        if problem_def is None:
+            cache_result = await self._session.execute(
+                select(ProblemCache).where(
+                    ProblemCache.unit_id == attempt.unit_id,
+                    ProblemCache.lesson_index == attempt.lesson_index,
+                    ProblemCache.difficulty == attempt.difficulty,
+                    ProblemCache.level == attempt.level,
+                )
+            )
+            for cache_entry in cache_result.scalars().all():
+                pd = cache_entry.problem_data
+                if isinstance(pd, dict) and pd.get("id") == attempt.problem_id:
+                    problem_def = pd
+                    break
+                # Some cache entries store a list of problems
+                if isinstance(pd, list):
+                    for p in pd:
+                        if isinstance(p, dict) and p.get("id") == attempt.problem_id:
+                            problem_def = p
+                            break
+                    if problem_def:
+                        break
+
+        # 5. Extract problem statement and steps definition
+        problem_statement: str | None = None
+        title: str | None = None
+        problem_steps: list[dict] = []
+        if problem_def is not None:
+            problem_statement = problem_def.get("statement")
+            title = problem_def.get("title")
+            raw_steps = problem_def.get("steps")
+            if isinstance(raw_steps, list):
+                problem_steps = [s for s in raw_steps if isinstance(s, dict)]
+
+        # 6. Assemble AttemptStepDetail list from step_log + problem steps
+        step_log: list[dict] = []
+        if isinstance(attempt.step_log, list):
+            step_log = [s for s in attempt.step_log if isinstance(s, dict)]
+
+        steps: list[AttemptStepDetail] = []
+        for i, log_entry in enumerate(step_log):
+            # Match by index
+            prob_step = problem_steps[i] if i < len(problem_steps) else None
+
+            step_label = log_entry.get("step_label", "")
+            if not step_label and prob_step:
+                step_label = prob_step.get("label", f"Step {i + 1}")
+
+            instruction = ""
+            correct_answer: str | None = None
+            if prob_step:
+                instruction = prob_step.get("instruction", "")
+                correct_answer = prob_step.get("correct_answer")
+
+            is_correct = bool(log_entry.get("is_correct", False))
+            attempts_count = int(log_entry.get("attempts", 1))
+            hints_used = int(log_entry.get("hints_used", 0))
+            was_revealed = bool(log_entry.get("was_revealed", False))
+            time_spent = log_entry.get("time_spent_seconds")
+            if time_spent is not None:
+                try:
+                    time_spent = float(time_spent)
+                except (TypeError, ValueError):
+                    time_spent = None
+
+            first_attempt_correct = is_correct and attempts_count == 1
+
+            steps.append(
+                AttemptStepDetail(
+                    step_label=step_label,
+                    instruction=instruction,
+                    correct_answer=correct_answer,
+                    attempts=attempts_count,
+                    hints_used=hints_used,
+                    was_revealed=was_revealed,
+                    is_correct=is_correct,
+                    first_attempt_correct=first_attempt_correct,
+                    time_spent_seconds=time_spent,
+                )
+            )
+
+        # 7. Return AttemptDetailOut
+        return AttemptDetailOut(
+            attempt_id=attempt.id,
+            problem_statement=problem_statement,
+            title=title,
+            steps=steps,
+            overall_score=attempt.score,
+            level=attempt.level,
+            difficulty=attempt.difficulty,
         )

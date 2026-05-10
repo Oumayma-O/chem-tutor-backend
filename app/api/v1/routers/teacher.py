@@ -36,6 +36,7 @@ from app.domain.schemas.dashboards import (
     TeacherClassPatch,
     TimedPracticeAnalytics,
 )
+from app.domain.schemas.teacher.attempt_detail import AttemptDetailOut
 from app.infrastructure.database.models import ClassroomSession
 from app.infrastructure.database.repositories.attempt_repo import (
     AttemptRepository,
@@ -189,6 +190,22 @@ async def get_student_analytics(
         limit=limit,
         offset=offset,
     )
+
+
+@router.get("/attempts/{attempt_id}/detail", response_model=AttemptDetailOut)
+async def get_attempt_detail(
+    attempt_id: uuid.UUID,
+    auth: AuthContext = Depends(get_auth_context),
+    svc: TeacherService = Depends(_teacher_service),
+) -> AttemptDetailOut:
+    """Return per-step diagnostic data for a single problem attempt (teacher drill-down)."""
+    require_teacher_or_admin(auth)
+    try:
+        return await svc.get_attempt_detail(attempt_id, auth.user_id)
+    except LookupError as exc:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc))
+    except PermissionError as exc:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=str(exc))
 
 
 @router.get("/classes/{classroom_id}/live", response_model=list[LiveStudentEntry])
