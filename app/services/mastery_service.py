@@ -4,9 +4,12 @@ MasteryService — pure business logic for mastery computation and adaptive prog
 No LLM calls live here. This is deterministic, testable Python.
 
 Design decisions:
-  - Band-filling mastery across three practice bands + exit ticket:
-      L1 (0 → l1_ceiling), L2 (l1_ceiling → l2_ceiling), L3 (l2_ceiling → l3_ceiling).
+  - Pre-Exit Performance Score: weighted-sum across three practice levels:
+      Total = 0.20 × L1_fill + 0.40 × L2_fill + 0.40 × L3_fill
+      Each level fills via sum(scores)/attempts_to_fill, capped at 1.0.
       Exit ticket fills the top band (l3_ceiling → 1.0) via mastery_bridge.py.
+  - Per-step diminishers: reveal → 0; hint penalty (−0.15/hint, floor 0.2);
+      first-attempt miss × 0.7.
   - Difficulty adapts from mastery position within the L2 band.
   - At-risk: level-aware — 0.30 floor in L2 phase, 0.40 floor in L3 phase, after ≥ 3 attempts.
   - Level 3 unlock: one perfect L2 attempt (score 1.0) — gate to access L3; score measures practice.
@@ -123,8 +126,8 @@ class MasteryService:
             level=level,
         )
 
-        # Compute new mastery using band-filling across L1, L2, and L3
-        new_mastery = _compute_mastery_banded(l1_scores, l2_scores, l3_scores)
+        # Compute new mastery using weighted-sum across L1, L2, and L3
+        new_mastery = _compute_mastery_weighted(l1_scores, l2_scores, l3_scores)
         consecutive = _update_consecutive(mastery_record.consecutive_correct, computed_score)
         new_difficulty = _difficulty_from_mastery(new_mastery)
 
@@ -226,7 +229,7 @@ class MasteryService:
         l1_scores, l2_scores, l3_scores = await self._fetch_band_scores(
             attempt.user_id, attempt.unit_id, attempt.lesson_index
         )
-        preview_mastery = _compute_mastery_banded(l1_scores, l2_scores, l3_scores)
+        preview_mastery = _compute_mastery_weighted(l1_scores, l2_scores, l3_scores)
 
         preview_error_counts = _aggregate_errors(step_log, mastery_record.error_counts)
         preview_category_scores = _compute_category_scores(
@@ -510,6 +513,89 @@ def _is_at_risk_from_records(records: list, unit_id: str) -> bool:
     return any(is_record_at_risk(r) for r in chapter_records)
 
 
+def _compute_step_score(step: dict) -> float:
+    """Per-step score with diminishers for the Pre-Exit Performance Score.
+
+    Diminisher application order:
+      1. If answer was revealed → 0.0
+      2. If not correct → 0.0
+      3. Base = 1.0
+      4. Hint penalty: max(1.0 - 0.15 * hints_used, 0.2)
+      5. First-attempt miss (attempts > 1): multiply by 0.7
+      6. Clamp to [0.0, 1.0]
+    """
+    if step.get("was_revealed") is True:
+        return 0.0
+
+    is_correct = bool(step.get("is_correct", step.get("isCorrect", False)))
+    if not is_correct:
+        return 0.0
+
+    # Parse hints_used — clamp negatives to 0
+    hints_raw = step.get("hints_used", 0)
+    hints_used = int(hints_raw) if isinstance(hints_raw, (int, float)) else 0
+    hints_used = max(hints_used, 0)
+
+    # Parse attempts — default to 1 if 0 or non-numeric
+    attempts_raw = step.get("attempts", 1)
+    attempts = int(attempts_raw) if isinstance(attempts_raw, (int, float)) else 1
+    attempts = max(attempts, 1)
+
+    # Hint penalty: floor at 0.2
+    score = max(1.0 - 0.15 * hints_used, 0.2)
+
+    # First-attempt miss penalty
+    if attempts > 1:
+        score *= 0.7
+
+    # Clamp
+    return round(max(0.0, min(score, 1.0)), 4)
+
+
+def _compute_problem_score(step_log: list[dict], *, level: int = 2) -> float:
+    """Problem score = mean of _compute_step_score() for all non-given steps.
+
+    Special cases:
+      - L1 with empty step_log: return 1.0 (viewing worked example = full credit)
+      - No scoreable steps: return 0.0
+    """
+    if level == 1 and not step_log:
+        return 1.0
+
+    scores: list[float] = []
+    for step in step_log:
+        if step.get("is_given") is True:
+            continue
+        scores.append(_compute_step_score(step))
+
+    if not scores:
+        return 0.0
+    return round(sum(scores) / len(scores), 4)
+
+
+def _compute_mastery_weighted(
+    l1_scores: list[float],
+    l2_scores: list[float],
+    l3_scores: list[float],
+) -> float:
+    """Weighted-sum Pre-Exit Performance Score.
+
+    Total = l1_weight × min(1.0, sum(l1_scores)/l1_attempts_to_fill)
+          + l2_weight × min(1.0, sum(l2_scores)/l2_attempts_to_fill)
+          + l3_weight × min(1.0, sum(l3_scores)/l3_attempts_to_fill)
+    """
+    s = settings
+    if not l1_scores and not l2_scores and not l3_scores:
+        return 0.0
+
+    l1_fill = min(1.0, sum(l1_scores) / s.l1_attempts_to_fill) if l1_scores else 0.0
+    l2_fill = min(1.0, sum(l2_scores) / s.l2_attempts_to_fill) if l2_scores else 0.0
+    l3_fill = min(1.0, sum(l3_scores) / s.l3_attempts_to_fill) if l3_scores else 0.0
+
+    total = s.l1_weight * l1_fill + s.l2_weight * l2_fill + s.l3_weight * l3_fill
+    return round(min(total, 1.0), 4)
+
+
 def _compute_mastery_banded(
     l1_scores: list[float],
     l2_scores: list[float],
@@ -560,13 +646,13 @@ def _difficulty_from_mastery(mastery: float) -> str:
 
 
 def _compute_attempt_score_from_step_log(step_log: list[dict]) -> tuple[float, int]:
-    """Compute attempt score from penalized per-step earned points."""
+    """Compute attempt score from penalized per-step earned points using _compute_step_score."""
     earned: list[float] = []
     for step in step_log:
         # Given/scaffold steps should not affect score.
         if step.get("is_given") is True:
             continue
-        earned.append(_category_step_earned_points(step, level=2))
+        earned.append(_compute_step_score(step))
     if not earned:
         return 0.0, 0
     return round(sum(earned) / len(earned), 4), len(earned)

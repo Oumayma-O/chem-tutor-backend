@@ -19,13 +19,13 @@ def test_compute_attempt_score_uses_attempted_steps_only() -> None:
         [
             {"is_correct": True, "attempts": 1, "hints_used": 0},
             {"is_correct": False, "attempts": 2, "hints_used": 0},
-            {"is_correct": True, "attempts": 2, "hints_used": 1},  # earns 0.65
+            {"is_correct": True, "attempts": 2, "hints_used": 1},  # earns max(1-0.15,0.2)*0.7 = 0.595
             {"is_given": True, "is_correct": True},  # ignored scaffold
             {},  # earns 0.0 (treated as incorrect/no credit)
         ]
     )
     assert attempted == 4
-    assert score == round((1.0 + 0.0 + 0.65 + 0.0) / 4, 4)
+    assert score == round((1.0 + 0.0 + 0.595 + 0.0) / 4, 4)
 
 
 def test_compute_attempt_score_empty_returns_zero() -> None:
@@ -213,7 +213,7 @@ async def test_complete_attempt_uses_penalty_scoring_and_category_ratio() -> Non
 
     # Four interactive steps:
     # - perfect procedural: 1.0
-    # - conceptual with 2 hints + 1 wrong before success: 1 - 0.5 - 0.1 = 0.4
+    # - conceptual with 2 hints + 1 wrong before success: max(1-0.30,0.2)*0.7 = 0.49
     # - computational revealed: 0.0
     # - procedural incorrect: 0.0
     step_log = [
@@ -233,7 +233,7 @@ async def test_complete_attempt_uses_penalty_scoring_and_category_ratio() -> Non
         level=2,
     )
 
-    expected_score = round((1.0 + 0.4 + 0.0 + 0.0) / 4, 4)
+    expected_score = round((1.0 + 0.49 + 0.0 + 0.0) / 4, 4)
     assert attempts.marked_score == expected_score
     assert decision.attempt_score == expected_score
     assert decision.mastery.category_scores.procedural == 0.5  # 1.0 earned over 2 possible
