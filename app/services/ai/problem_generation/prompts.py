@@ -76,8 +76,24 @@ def get_level_block(level: int, step_count: int = 5) -> str:
     """Return step-type and widget-selection instructions for the given level."""
     n = max(3, min(6, step_count))
     registry_block = build_generator_registry_prompt_block()
+
+    # Allow step compression to avoid trivial/forced intermediate steps
+    if level == 3:
+        step_instruction = (
+            f"Target {n} steps, but you MAY COMPRESS to fewer steps (minimum 3) "
+            f"to avoid trivial, forced, or confusing intermediate steps. "
+            f"Merge data extraction into setup if separating them feels artificial."
+        )
+    elif level == 2:
+        step_instruction = (
+            f"Target {n} steps, but if the problem naturally resolves in fewer steps, "
+            f"you may use {max(3, n - 1)} steps to avoid artificial micro-steps."
+        )
+    else:
+        step_instruction = f"Use exactly {n} steps."
+
     return f"""
-Use exactly {n} steps. For every step, include "skillUsed" exactly matching the SKILL LIST.
+{step_instruction} For every step, include "skillUsed" exactly matching the SKILL LIST.
 Current Mode: LEVEL {level} ({'WORKED' if level == 1 else 'FADED' if level == 2 else 'INDEPENDENT'})
 
 ### STEP TYPES & WIDGET SELECTION ###
@@ -208,8 +224,13 @@ BLUEPRINT for {blueprint}:
 
 {level_block}
 
-### LABEL RULE ###
-For each step, set "label" to exactly ONE of the blueprint labels above, in order: step 1 = first label, step 2 = second, etc. Do NOT combine labels, add alternatives, or extra text. Example: "Concept ID" not "Concept ID | Claim | ...".
+### LABEL RULE & STEP COMPRESSION ###
+Set "label" using the blueprint labels above in chronological order.
+CRITICAL: DO NOT force unnecessary steps. If a problem naturally requires fewer steps than the blueprint
+provides labels for, you may SKIP certain blueprint labels (e.g., skipping a standalone "Knowns" step
+or merging "Substitute" directly into "Calculate") to avoid trivial, confusing, or repetitive
+intermediate steps. Each step must require genuine cognitive effort from the student.
+Example label: "Concept ID" not "Concept ID | Claim | ...".
 """
     + SHARED_LATEX_RULES
     + """
@@ -259,6 +280,11 @@ You are generating MCQ steps for a compact student UI. Each step has THREE disti
    - Bad (too long): "In order to find the neutrons you need to look at the periodic table and..."
 
 4. Do NOT include a "hint" field in any step. Hints are generated later on demand.
+
+5. NO TRIVIAL STEPS: Do not create steps that require zero cognitive load just to meet a step count.
+   For example, do not make "identify the given value" a separate step if it is immediately used in
+   a 1-step calculation. Merge data extraction into the setup step if separating them feels forced.
+   Every step must teach or test something distinct.
 
 CONSTRAINTS:
 - Multi_input units: obey the PHYSICAL QUANTITY REGISTRY in the level instructions (molar energy ≠ bare joules).
