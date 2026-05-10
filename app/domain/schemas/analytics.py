@@ -10,6 +10,7 @@ class StudentStandardScore(BaseModel):
     """One student's average mastery across all lessons that map to a standard."""
     student_id: uuid.UUID
     mastery_score: float
+    exit_ticket_score: float | None = None
 
 
 class StandardMasteryItem(BaseModel):
@@ -19,6 +20,8 @@ class StandardMasteryItem(BaseModel):
     standard_description: str | None = None
     framework: str
     class_avg: float
+    practice_avg: float = 0.0
+    exit_ticket_avg: float | None = None
     at_risk_count: int
     student_scores: list[StudentStandardScore]
 
@@ -26,6 +29,7 @@ class StandardMasteryItem(BaseModel):
 class ClassStandardsMasteryResponse(BaseModel):
     class_id: uuid.UUID
     standards: list[StandardMasteryItem]
+    exit_ticket_standards: list[StandardMasteryItem] = []
 
 
 class StudentStandardMasteryItem(BaseModel):

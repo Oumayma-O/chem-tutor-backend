@@ -260,6 +260,88 @@ class StandardsMasteryRepository:
             for entry in sorted(combined.values(), key=lambda e: e["code"])
         ]
 
+    # -- Class view (separated) -----------------------------------------------
+
+    async def get_class_standards_mastery_separated(
+        self,
+        class_id: uuid.UUID,
+    ) -> tuple[list[_StdRow], list[_StdRow]]:
+        """
+        Return practice rows and exit ticket rows SEPARATELY for the class.
+        Returns (practice_rows, exit_ticket_rows).
+        """
+        # -- Source 1: ProblemAttempt (practice) --------------------------------
+        pa_stmt = (
+            select(
+                Standard.code,
+                Standard.framework,
+                Standard.title,
+                Standard.description,
+                ProblemAttempt.user_id,
+                func.sum(ProblemAttempt.score).label("score_sum"),
+                func.count(ProblemAttempt.score).label("score_count"),
+            )
+            .join(UnitLesson, and_(
+                UnitLesson.unit_id == ProblemAttempt.unit_id,
+                UnitLesson.lesson_order == ProblemAttempt.lesson_index,
+            ))
+            .join(LessonStandard, LessonStandard.lesson_id == UnitLesson.lesson_id)
+            .join(Standard, Standard.id == LessonStandard.standard_id)
+            .where(
+                ProblemAttempt.class_id == class_id,
+                ProblemAttempt.is_complete == True,
+                ProblemAttempt.score.is_not(None),
+                Standard.is_core == True,
+            )
+            .group_by(
+                Standard.code,
+                Standard.framework,
+                Standard.title,
+                Standard.description,
+                ProblemAttempt.user_id,
+            )
+        )
+
+        # -- Source 2: ExitTicketResponse --------------------------------------
+        et_stmt = (
+            select(
+                Standard.code,
+                Standard.framework,
+                Standard.title,
+                Standard.description,
+                ExitTicketResponse.student_id.label("user_id"),
+                func.sum(ExitTicketResponse.score / 100.0).label("score_sum"),
+                func.count(ExitTicketResponse.score).label("score_count"),
+            )
+            .join(ExitTicket, ExitTicket.id == ExitTicketResponse.exit_ticket_id)
+            .join(UnitLesson, and_(
+                UnitLesson.unit_id == ExitTicket.unit_id,
+                UnitLesson.lesson_order == ExitTicket.lesson_index,
+            ))
+            .join(LessonStandard, LessonStandard.lesson_id == UnitLesson.lesson_id)
+            .join(Standard, Standard.id == LessonStandard.standard_id)
+            .where(
+                ExitTicket.class_id == class_id,
+                ExitTicketResponse.score.is_not(None),
+                Standard.is_core == True,
+            )
+            .group_by(
+                Standard.code,
+                Standard.framework,
+                Standard.title,
+                Standard.description,
+                ExitTicketResponse.student_id,
+            )
+        )
+
+        pa_result = await self._session.execute(pa_stmt)
+        et_result = await self._session.execute(et_stmt)
+
+        practice_rows = self._merge_standard_samples(list(pa_result.all()))
+        exit_ticket_rows = self._merge_standard_samples(list(et_result.all()))
+
+        return practice_rows, exit_ticket_rows
+
     # -- Student view ---------------------------------------------------------
 
     async def get_student_standards_mastery(

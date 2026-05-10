@@ -176,14 +176,36 @@ class AnalyticsService:
         Return per-standard mastery for every student in a class, derived from
         whatever ProblemAttempts and ExitTicketResponses exist for that class.
         No unit assignment required.
+
+        Returns both blended standards (backward compat) and a separate
+        exit_ticket_standards list for the separated heatmap view.
         """
         repo = StandardsMasteryRepository(self._db)
-        rows = await repo.get_class_standards_mastery(class_id=class_id)
 
-        # Group rows by standard code
+        # Get separated data for the new split view
+        practice_rows, exit_ticket_rows = await repo.get_class_standards_mastery_separated(
+            class_id=class_id,
+        )
+
+        # Also get the blended rows for backward compat (existing `standards` field)
+        blended_rows = await repo.get_class_standards_mastery(class_id=class_id)
+
+        # -- Build exit ticket lookup: code → {user_id → avg_mastery} ----------
+        et_by_std: dict[str, dict[uuid.UUID, float]] = defaultdict(dict)
+        for row in exit_ticket_rows:
+            et_by_std[row.code][row.user_id] = row.avg_mastery
+
+        # -- Build practice lookup: code → {user_id → avg_mastery} -------------
+        practice_by_std: dict[str, dict[uuid.UUID, float]] = defaultdict(dict)
+        practice_meta: dict[str, tuple] = {}
+        for row in practice_rows:
+            practice_by_std[row.code][row.user_id] = row.avg_mastery
+            practice_meta[row.code] = (row.framework, row.title, row.description)
+
+        # -- Build blended standards list (backward compat) --------------------
         by_std: dict[str, list] = defaultdict(list)
-        std_meta: dict[str, tuple] = {}  # code → (framework, title, description)
-        for row in rows:
+        std_meta: dict[str, tuple] = {}
+        for row in blended_rows:
             by_std[row.code].append(row)
             std_meta[row.code] = (row.framework, row.title, row.description)
 
@@ -193,6 +215,15 @@ class AnalyticsService:
             class_avg = sum(scores) / len(scores) if scores else 0.0
             at_risk = sum(1 for s in scores if s < _STANDARD_AT_RISK_THRESHOLD)
             framework, title, description = std_meta[code]
+
+            # Compute practice_avg for this standard
+            practice_scores = list(practice_by_std.get(code, {}).values())
+            practice_avg = sum(practice_scores) / len(practice_scores) if practice_scores else 0.0
+
+            # Compute exit_ticket_avg for this standard
+            et_scores = list(et_by_std.get(code, {}).values())
+            exit_ticket_avg = sum(et_scores) / len(et_scores) if et_scores else None
+
             standards.append(
                 StandardMasteryItem(
                     standard_code=code,
@@ -200,13 +231,51 @@ class AnalyticsService:
                     standard_description=description,
                     framework=framework,
                     class_avg=class_avg,
+                    practice_avg=practice_avg,
+                    exit_ticket_avg=exit_ticket_avg,
                     at_risk_count=at_risk,
                     student_scores=[
                         StudentStandardScore(
                             student_id=r.user_id,
                             mastery_score=r.avg_mastery,
+                            exit_ticket_score=et_by_std.get(code, {}).get(r.user_id),
                         )
                         for r in std_rows
+                    ],
+                )
+            )
+
+        # -- Build exit_ticket_standards list (separate heatmap section) --------
+        et_meta: dict[str, tuple] = {}
+        et_by_std_rows: dict[str, list] = defaultdict(list)
+        for row in exit_ticket_rows:
+            et_by_std_rows[row.code].append(row)
+            et_meta[row.code] = (row.framework, row.title, row.description)
+
+        exit_ticket_standards: list[StandardMasteryItem] = []
+        for code, et_rows in sorted(et_by_std_rows.items()):
+            et_scores_list = [row.avg_mastery for row in et_rows]
+            et_class_avg = sum(et_scores_list) / len(et_scores_list) if et_scores_list else 0.0
+            et_at_risk = sum(1 for s in et_scores_list if s < _STANDARD_AT_RISK_THRESHOLD)
+            framework, title, description = et_meta[code]
+
+            exit_ticket_standards.append(
+                StandardMasteryItem(
+                    standard_code=code,
+                    standard_title=title,
+                    standard_description=description,
+                    framework=framework,
+                    class_avg=et_class_avg,
+                    practice_avg=0.0,
+                    exit_ticket_avg=et_class_avg,
+                    at_risk_count=et_at_risk,
+                    student_scores=[
+                        StudentStandardScore(
+                            student_id=r.user_id,
+                            mastery_score=r.avg_mastery,
+                            exit_ticket_score=r.avg_mastery,
+                        )
+                        for r in et_rows
                     ],
                 )
             )
@@ -214,6 +283,7 @@ class AnalyticsService:
         return ClassStandardsMasteryResponse(
             class_id=class_id,
             standards=standards,
+            exit_ticket_standards=exit_ticket_standards,
         )
 
     async def aggregate_student_standards(
